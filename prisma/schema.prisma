@@ -1,0 +1,67 @@
+// Prisma Schema for WhatsApp AI Assistant
+// PostgreSQL database with normalized schema
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider             = "prisma-client-py"
+  recursive_type_depth = 5
+  interface            = "asyncio"
+}
+
+// User model - represents WhatsApp users
+model User {
+  id            Int            @id @default(autoincrement())
+  waId          String         @unique @map("wa_id") @db.VarChar(255)
+  phone         String         @db.VarChar(50)
+  name          String?        @db.VarChar(255)
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz()
+  conversations Conversation[]
+
+  @@index([waId])
+  @@index([phone])
+  @@map("users")
+}
+
+// Conversation model - represents chat sessions
+model Conversation {
+  id         Int       @id @default(autoincrement())
+  userId     Int       @map("user_id")
+  status     String    @default("active") @db.VarChar(50)
+  leadStatus String    @default("new lead") @map("lead_status") @db.VarChar(100)
+  comments   String?   @db.Text
+  assignedTo String?   @map("assigned_to") @db.VarChar(255)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+  closedAt   DateTime? @map("closed_at") @db.Timestamptz()
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages   Message[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([leadStatus])
+  @@index([updatedAt])
+  @@map("conversations")
+}
+
+// Message model - represents individual messages (both user and assistant)
+model Message {
+  id             Int          @id @default(autoincrement())
+  conversationId Int          @map("conversation_id")
+  whatsappId     String?      @unique @map("whatsapp_id") @db.VarChar(255)
+  message        String       @db.Text
+  role           String       @db.VarChar(20)
+  timestamp      DateTime     @default(now()) @db.Timestamptz()
+  status         String       @default("received") @db.VarChar(50)
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([whatsappId])
+  @@index([timestamp])
+  @@index([role])
+  @@map("messages")
+}

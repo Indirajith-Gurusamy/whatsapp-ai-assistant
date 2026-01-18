@@ -1,0 +1,31 @@
+"""Application constants."""
+
+# Lead status options
+LEAD_STATUS_NEW = "new lead"
+LEAD_STATUS_APPLICATION_SENT = "application sent"
+LEAD_STATUS_APPLICATION_IN = "application in"
+LEAD_STATUS_CLOSED = "closed"
+LEAD_STATUS_NURTURE = "nurture"
+LEAD_STATUS_FOLLOW_UP = "follow up"
+
+LEAD_STATUSES = [
+    LEAD_STATUS_NEW,
+    LEAD_STATUS_APPLICATION_SENT,
+    LEAD_STATUS_APPLICATION_IN,
+    LEAD_STATUS_CLOSED,
+    LEAD_STATUS_NURTURE,
+    LEAD_STATUS_FOLLOW_UP,
+]
+
+# Message roles
+MESSAGE_ROLE_USER = "user"
+MESSAGE_ROLE_ASSISTANT = "assistant"
+
+# Message statuses
+MESSAGE_STATUS_RECEIVED = "received"
+MESSAGE_STATUS_SENT = "sent"
+MESSAGE_STATUS_FAILED = "failed"
+
+# Conversation statuses
+CONVERSATION_STATUS_ACTIVE = "active"
+CONVERSATION_STATUS_CLOSED = "closed"
