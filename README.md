@@ -31,31 +31,18 @@ A full-stack WhatsApp chatbot with AI-powered responses, built with FastAPI (Pyt
 
 ```
 .
-├── backend/                 # FastAPI backend
-│   ├── app/
-│   │   ├── modules/        # Feature modules
-│   │   │   ├── ai/         # AI/LLM integration
-│   │   │   ├── webhooks/   # Webhook handlers
-│   │   │   ├── conversations/
-│   │   │   ├── analytics/
-│   │   │   └── whatsapp/
-│   │   ├── core/           # Configuration
-│   │   └── db/             # Database client
-│   └── run.py              # Entry point
+├── apps/
+│   ├── backend/             # FastAPI backend (Source code)
+│   ├── frontend/            # Next.js frontend (Source code)
+│   └── env/                 # Environment configuration
+│       ├── backend.env
+│       └── frontend.env
 │
-├── frontend-next/          # Next.js frontend
-│   ├── src/
-│   │   ├── app/           # Pages (App Router)
-│   │   ├── components/    # React components
-│   │   ├── hooks/         # Custom hooks
-│   │   └── lib/           # Utilities
-│   └── package.json
-│
-├── prisma/                # Database schema
+├── prisma/                 # Database schema
 │   └── schema.prisma
 │
-├── .env                   # Environment variables
-└── requirements.txt       # Python dependencies
+├── .env                    # Active environment variables (not committed)
+└── requirements.txt        # Python dependencies
 ```
 
 ## 🛠️ Setup
@@ -81,13 +68,10 @@ A full-stack WhatsApp chatbot with AI-powered responses, built with FastAPI (Pyt
    ```
 
 3. **Set up environment variables:**
-   Create `.env` file with:
-   ```env
-   DATABASE_URL="postgresql://user:password@localhost:5432/dbname"
-   GROQ_API_KEY="your_groq_api_key"
-   TWILIO_ACCOUNT_SID="your_twilio_sid"
-   TWILIO_AUTH_TOKEN="your_twilio_token"
-   TWILIO_WHATSAPP_NUMBER="whatsapp:+14155238886"
+   The backend uses the root `.env` file. You can reference `apps/env/backend.env` for the complete list of required variables.
+   ```bash
+   # Edit the root .env file with your actual values
+   # See apps/env/backend.env for all available configuration options
    ```
 
 4. **Run database migrations:**
@@ -98,7 +82,7 @@ A full-stack WhatsApp chatbot with AI-powered responses, built with FastAPI (Pyt
 
 5. **Start backend:**
    ```bash
-   python backend/run.py
+   python apps/backend/run.py
    ```
    Backend runs on `http://localhost:8000`
 
@@ -106,11 +90,16 @@ A full-stack WhatsApp chatbot with AI-powered responses, built with FastAPI (Pyt
 
 1. **Install dependencies:**
    ```bash
-   cd frontend-next
+   cd apps/frontend
    npm install
    ```
 
-2. **Start development server:**
+2. **Set up environment variables (optional):**
+   ```bash
+   cp ../env/frontend.env .env.local
+   ```
+
+3. **Start development server:**
    ```bash
    npm run dev
    ```
