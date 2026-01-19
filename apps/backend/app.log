@@ -1,0 +1,301 @@
+2026-01-19 08:49:36,775 - root - INFO - ✓ Logging configured
+2026-01-19 08:49:36,792 - app.lifespan - INFO - 🚀 Starting WhatsApp AI Assistant...
+2026-01-19 08:49:36,792 - app.db.client - INFO - Initializing Prisma client...
+2026-01-19 08:49:38,052 - app.db.client - INFO - ✓ Connected to PostgreSQL via Prisma
+2026-01-19 08:49:38,052 - app.lifespan - INFO - ✓ Database connected
+2026-01-19 08:49:38,054 - app.lifespan - INFO - ✓ Application started successfully
+2026-01-19 08:50:00,189 - app.lifespan - INFO - 🛑 Shutting down application...
+2026-01-19 08:50:00,190 - app.db.client - INFO - ✓ Disconnected from PostgreSQL
+2026-01-19 08:50:00,191 - app.lifespan - INFO - ✓ Application shutdown complete
+2026-01-19 09:08:13,769 - root - INFO - ✓ Logging configured
+2026-01-19 09:08:13,802 - app.lifespan - INFO - 🚀 Starting WhatsApp AI Assistant...
+2026-01-19 09:08:13,804 - app.db.client - INFO - Initializing Prisma client...
+2026-01-19 09:08:14,143 - app.db.client - INFO - ✓ Connected to PostgreSQL via Prisma
+2026-01-19 09:08:14,144 - app.lifespan - INFO - ✓ Database connected
+2026-01-19 09:08:14,144 - app.lifespan - INFO - ✓ Application started successfully
+2026-01-19 09:10:47,794 - app.modules.conversations.router - INFO - Updated conversation 5 status to application sent
+2026-01-19 09:18:58,352 - app.modules.webhooks.router - INFO - ================================================================================
+2026-01-19 09:18:58,353 - app.modules.webhooks.router - INFO - [WEBHOOK] Incoming Twilio webhook
+2026-01-19 09:18:58,354 - app.modules.webhooks.router - INFO - [OK] Webhook queued for processing
+2026-01-19 09:18:58,358 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] From: ~Jith🥰 (916382920850)
+2026-01-19 09:18:58,361 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] Text: hey jith can  you give me the daetails about my current loan amount?.
+2026-01-19 09:18:58,362 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] WaId: 916382920850, MessageSid: SMa894f34200f4dbd2f477c3e386d2ab3c
+2026-01-19 09:18:58,776 - app.modules.webhooks.providers.twilio - INFO - [DB] User ID: 75, Conversation ID: 5
+2026-01-19 09:18:58,798 - app.modules.webhooks.providers.twilio - INFO - [DB] Message saved (ID: 114)
+2026-01-19 09:19:03,463 - app.modules.notifications.email - INFO - Email sent for message from +916382920850
+2026-01-19 09:19:03,463 - app.modules.webhooks.providers.twilio - INFO - [AI] Generating response...
+2026-01-19 09:19:03,465 - app.modules.ai.groq - INFO - Generating AI response...
+2026-01-19 09:19:04,385 - app.modules.ai.groq - INFO - [AI] Response generated (392 chars)
+2026-01-19 09:19:04,385 - app.modules.webhooks.providers.twilio - INFO - [SEND] Sending reply to 916382920850
+2026-01-19 09:19:04,385 - app.modules.whatsapp.sender - INFO - Attempting to send WhatsApp message to 916382920850
+2026-01-19 09:19:04,385 - app.modules.whatsapp.sender - INFO - Sending from whatsapp:+14155238886 to whatsapp:+916382920850
+2026-01-19 09:19:05,495 - app.modules.whatsapp.sender - INFO - [OK] WhatsApp message sent successfully - SID: SMea8bd564da4627d20abc05fa92e1c471
+2026-01-19 09:19:05,777 - app.modules.webhooks.providers.twilio - INFO - [OK] Reply sent successfully (status: sent)
+2026-01-19 09:21:46,920 - app.modules.webhooks.router - INFO - ================================================================================
+2026-01-19 09:21:46,922 - app.modules.webhooks.router - INFO - [WEBHOOK] Incoming Twilio webhook
+2026-01-19 09:21:46,923 - app.modules.webhooks.router - INFO - [OK] Webhook queued for processing
+2026-01-19 09:21:46,929 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] From: ~Jith🥰 (916382920850)
+2026-01-19 09:21:46,937 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] Text: yep it was 12345689.
+2026-01-19 09:21:46,937 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] WaId: 916382920850, MessageSid: SM2c690dba07d74e62c3a3c740ee1ec8a7
+2026-01-19 09:21:47,204 - app.modules.webhooks.providers.twilio - INFO - [DB] User ID: 75, Conversation ID: 5
+2026-01-19 09:21:47,219 - app.modules.webhooks.providers.twilio - INFO - [DB] Message saved (ID: 116)
+2026-01-19 09:21:51,478 - app.modules.notifications.email - INFO - Email sent for message from +916382920850
+2026-01-19 09:21:51,480 - app.modules.webhooks.providers.twilio - INFO - [AI] Generating response...
+2026-01-19 09:21:51,480 - app.modules.ai.groq - INFO - Generating AI response...
+2026-01-19 09:21:52,162 - app.modules.ai.groq - INFO - [AI] Response generated (204 chars)
+2026-01-19 09:21:52,164 - app.modules.webhooks.providers.twilio - INFO - [SEND] Sending reply to 916382920850
+2026-01-19 09:21:52,182 - app.modules.whatsapp.sender - INFO - Attempting to send WhatsApp message to 916382920850
+2026-01-19 09:21:52,183 - app.modules.whatsapp.sender - INFO - Sending from whatsapp:+14155238886 to whatsapp:+916382920850
+2026-01-19 09:21:53,306 - app.modules.whatsapp.sender - INFO - [OK] WhatsApp message sent successfully - SID: SM82eeacf09d4eaf50332b6f4c3b1ef163
+2026-01-19 09:21:53,585 - app.modules.webhooks.providers.twilio - INFO - [OK] Reply sent successfully (status: sent)
+2026-01-19 09:22:22,275 - app.lifespan - INFO - 🛑 Shutting down application...
+2026-01-19 09:22:22,279 - app.db.client - INFO - ✓ Disconnected from PostgreSQL
+2026-01-19 09:22:22,279 - app.lifespan - INFO - ✓ Application shutdown complete
+2026-01-19 09:22:25,599 - root - INFO - ✓ Logging configured
+2026-01-19 09:22:25,617 - app.lifespan - INFO - 🚀 Starting WhatsApp AI Assistant...
+2026-01-19 09:22:25,617 - app.db.client - INFO - Initializing Prisma client...
+2026-01-19 09:26:26,785 - app.lifespan - ERROR - ✗ Database connection failed: Could not connect to the query engine
+2026-01-19 10:00:18,853 - root - INFO - ✓ Logging configured
+2026-01-19 10:00:18,867 - app.lifespan - INFO - 🚀 Starting WhatsApp AI Assistant...
+2026-01-19 10:00:18,867 - app.db.client - INFO - Initializing Prisma client...
+2026-01-19 10:04:19,461 - app.lifespan - ERROR - ✗ Database connection failed: Could not connect to the query engine
+2026-01-19 10:23:48,812 - root - INFO - ✓ Logging configured
+2026-01-19 10:23:48,835 - app.lifespan - INFO - 🚀 Starting WhatsApp AI Assistant...
+2026-01-19 10:23:48,835 - app.db.client - INFO - Initializing Prisma client...
+2026-01-19 10:23:49,203 - app.db.client - INFO - ✓ Connected to PostgreSQL via Prisma
+2026-01-19 10:23:49,205 - app.lifespan - INFO - ✓ Database connected
+2026-01-19 10:23:49,206 - app.lifespan - INFO - ✓ Application started successfully
+2026-01-19 10:24:24,439 - root - INFO - ✓ Logging configured
+2026-01-19 10:24:24,453 - app.lifespan - INFO - 🚀 Starting WhatsApp AI Assistant...
+2026-01-19 10:24:24,453 - app.db.client - INFO - Initializing Prisma client...
+2026-01-19 10:24:24,817 - app.db.client - INFO - ✓ Connected to PostgreSQL via Prisma
+2026-01-19 10:24:24,819 - app.lifespan - INFO - ✓ Database connected
+2026-01-19 10:24:24,820 - app.lifespan - INFO - ✓ Application started successfully
+2026-01-19 10:25:17,302 - app.modules.webhooks.router - INFO - ================================================================================
+2026-01-19 10:25:17,303 - app.modules.webhooks.router - INFO - [WEBHOOK] Incoming Twilio webhook
+2026-01-19 10:25:17,304 - app.modules.webhooks.router - INFO - [OK] Webhook queued for processing
+2026-01-19 10:25:17,305 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] From: ~Jith🥰 (916382920850)
+2026-01-19 10:25:17,306 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] Text: yeah i intentionally shared it to verify you.
+2026-01-19 10:25:17,307 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] WaId: 916382920850, MessageSid: SMd9fc658718cad2c895e4ebada585347e
+2026-01-19 10:25:17,612 - app.modules.webhooks.providers.twilio - INFO - [DB] User ID: 75, Conversation ID: 5
+2026-01-19 10:25:17,629 - app.modules.webhooks.providers.twilio - INFO - [DB] Message saved (ID: 118)
+2026-01-19 10:25:21,551 - app.modules.notifications.email - INFO - Email sent for message from +916382920850
+2026-01-19 10:25:21,552 - app.modules.webhooks.providers.twilio - INFO - [AI] Generating response...
+2026-01-19 10:25:21,552 - app.modules.ai.groq - INFO - Generating AI response...
+2026-01-19 10:25:22,361 - app.modules.ai.groq - INFO - [AI] Response generated (411 chars)
+2026-01-19 10:25:22,361 - app.modules.webhooks.providers.twilio - INFO - [SEND] Sending reply to 916382920850
+2026-01-19 10:25:22,363 - app.modules.whatsapp.sender - INFO - Attempting to send WhatsApp message to 916382920850
+2026-01-19 10:25:22,363 - app.modules.whatsapp.sender - INFO - Sending from whatsapp:+14155238886 to whatsapp:+916382920850
+2026-01-19 10:25:23,132 - app.modules.whatsapp.sender - INFO - [OK] WhatsApp message sent successfully - SID: SM00f5283d0edddd99e15e7fdb1ceeea1c
+2026-01-19 10:25:23,419 - app.modules.webhooks.providers.twilio - INFO - [OK] Reply sent successfully (status: sent)
+2026-01-19 10:25:50,515 - app.modules.webhooks.router - INFO - ================================================================================
+2026-01-19 10:25:50,515 - app.modules.webhooks.router - INFO - [WEBHOOK] Incoming Twilio webhook
+2026-01-19 10:25:50,515 - app.modules.webhooks.router - INFO - [OK] Webhook queued for processing
+2026-01-19 10:25:50,517 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] From: ~Jith🥰 (916382920850)
+2026-01-19 10:25:50,518 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] Text: can i get interest free loan?.
+2026-01-19 10:25:50,518 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] WaId: 916382920850, MessageSid: SMca777615753d7b519f895d60f3b838e8
+2026-01-19 10:25:50,784 - app.modules.webhooks.providers.twilio - INFO - [DB] User ID: 75, Conversation ID: 5
+2026-01-19 10:25:50,791 - app.modules.webhooks.providers.twilio - INFO - [DB] Message saved (ID: 120)
+2026-01-19 10:25:54,328 - app.modules.notifications.email - INFO - Email sent for message from +916382920850
+2026-01-19 10:25:54,328 - app.modules.webhooks.providers.twilio - INFO - [AI] Generating response...
+2026-01-19 10:25:54,330 - app.modules.ai.groq - INFO - Generating AI response...
+2026-01-19 10:25:54,991 - app.modules.ai.groq - INFO - [AI] Response generated (531 chars)
+2026-01-19 10:25:54,992 - app.modules.webhooks.providers.twilio - INFO - [SEND] Sending reply to 916382920850
+2026-01-19 10:25:54,992 - app.modules.whatsapp.sender - INFO - Attempting to send WhatsApp message to 916382920850
+2026-01-19 10:25:54,994 - app.modules.whatsapp.sender - INFO - Sending from whatsapp:+14155238886 to whatsapp:+916382920850
+2026-01-19 10:25:55,650 - app.modules.whatsapp.sender - INFO - [OK] WhatsApp message sent successfully - SID: SMc82a5061e35f6d5dd484b4cbe4d7803b
+2026-01-19 10:25:55,663 - app.modules.webhooks.providers.twilio - INFO - [OK] Reply sent successfully (status: sent)
+2026-01-19 10:27:06,683 - app.modules.webhooks.router - INFO - ================================================================================
+2026-01-19 10:27:06,683 - app.modules.webhooks.router - INFO - [WEBHOOK] Incoming Twilio webhook
+2026-01-19 10:27:06,684 - app.modules.webhooks.router - INFO - [OK] Webhook queued for processing
+2026-01-19 10:27:06,686 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] From: ~Jith🥰 (916382920850)
+2026-01-19 10:27:06,686 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] Text: mm okay.
+2026-01-19 10:27:06,687 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] WaId: 916382920850, MessageSid: SMd714f2f8a2e4a905d6738c257e5fe21f
+2026-01-19 10:27:06,950 - app.modules.webhooks.providers.twilio - INFO - [DB] User ID: 75, Conversation ID: 5
+2026-01-19 10:27:06,960 - app.modules.webhooks.providers.twilio - INFO - [DB] Message saved (ID: 122)
+2026-01-19 10:27:11,076 - app.modules.notifications.email - INFO - Email sent for message from +916382920850
+2026-01-19 10:27:11,079 - app.modules.webhooks.providers.twilio - INFO - [AI] Generating response...
+2026-01-19 10:27:11,081 - app.modules.ai.groq - INFO - Generating AI response...
+2026-01-19 10:27:11,663 - app.modules.ai.groq - INFO - [AI] Response generated (228 chars)
+2026-01-19 10:27:11,666 - app.modules.webhooks.providers.twilio - INFO - [SEND] Sending reply to 916382920850
+2026-01-19 10:27:11,668 - app.modules.whatsapp.sender - INFO - Attempting to send WhatsApp message to 916382920850
+2026-01-19 10:27:11,671 - app.modules.whatsapp.sender - INFO - Sending from whatsapp:+14155238886 to whatsapp:+916382920850
+2026-01-19 10:27:12,851 - app.modules.whatsapp.sender - INFO - [OK] WhatsApp message sent successfully - SID: SM48ac1ee55d1a435de9c55fef2602505c
+2026-01-19 10:27:13,146 - app.modules.webhooks.providers.twilio - INFO - [OK] Reply sent successfully (status: sent)
+2026-01-19 10:32:11,360 - app.modules.webhooks.router - INFO - ================================================================================
+2026-01-19 10:32:11,361 - app.modules.webhooks.router - INFO - [WEBHOOK] Incoming Twilio webhook
+2026-01-19 10:32:11,361 - app.modules.webhooks.router - INFO - [OK] Webhook queued for processing
+2026-01-19 10:32:11,363 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] From: ~Jith🥰 (916382920850)
+2026-01-19 10:32:11,363 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] Text: check notify.
+2026-01-19 10:32:11,364 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] WaId: 916382920850, MessageSid: SMf7bbbb207da0426f5ebbb64bcd8dffd9
+2026-01-19 10:32:11,631 - app.modules.webhooks.providers.twilio - INFO - [DB] User ID: 75, Conversation ID: 5
+2026-01-19 10:32:11,693 - app.modules.webhooks.providers.twilio - INFO - [DB] Message saved (ID: 124)
+2026-01-19 10:32:15,594 - app.modules.notifications.email - INFO - Email sent for message from +916382920850
+2026-01-19 10:32:15,594 - app.modules.webhooks.providers.twilio - INFO - [AI] Generating response...
+2026-01-19 10:32:15,594 - app.modules.ai.groq - INFO - Generating AI response...
+2026-01-19 10:32:16,440 - app.modules.ai.groq - INFO - [AI] Response generated (278 chars)
+2026-01-19 10:32:16,441 - app.modules.webhooks.providers.twilio - INFO - [SEND] Sending reply to 916382920850
+2026-01-19 10:32:16,441 - app.modules.whatsapp.sender - INFO - Attempting to send WhatsApp message to 916382920850
+2026-01-19 10:32:16,441 - app.modules.whatsapp.sender - INFO - Sending from whatsapp:+14155238886 to whatsapp:+916382920850
+2026-01-19 10:32:17,076 - app.modules.whatsapp.sender - INFO - [OK] WhatsApp message sent successfully - SID: SMbc66a69d9fd79963c253991afbf85656
+2026-01-19 10:32:17,334 - app.modules.webhooks.providers.twilio - INFO - [OK] Reply sent successfully (status: sent)
+2026-01-19 10:32:46,500 - app.modules.webhooks.router - INFO - ================================================================================
+2026-01-19 10:32:46,501 - app.modules.webhooks.router - INFO - [WEBHOOK] Incoming Twilio webhook
+2026-01-19 10:32:46,501 - app.modules.webhooks.router - INFO - [OK] Webhook queued for processing
+2026-01-19 10:32:46,501 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] From: ~Jith🥰 (916382920850)
+2026-01-19 10:32:46,503 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] Text: ahah.
+2026-01-19 10:32:46,504 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] WaId: 916382920850, MessageSid: SM5f91023adb109b2a6813bfdd425da5c0
+2026-01-19 10:32:46,795 - app.modules.webhooks.providers.twilio - INFO - [DB] User ID: 75, Conversation ID: 5
+2026-01-19 10:32:46,805 - app.modules.webhooks.providers.twilio - INFO - [DB] Message saved (ID: 126)
+2026-01-19 10:32:50,572 - app.modules.notifications.email - INFO - Email sent for message from +916382920850
+2026-01-19 10:32:50,573 - app.modules.webhooks.providers.twilio - INFO - [AI] Generating response...
+2026-01-19 10:32:50,573 - app.modules.ai.groq - INFO - Generating AI response...
+2026-01-19 10:32:51,012 - app.modules.ai.groq - INFO - [AI] Response generated (133 chars)
+2026-01-19 10:32:51,012 - app.modules.webhooks.providers.twilio - INFO - [SEND] Sending reply to 916382920850
+2026-01-19 10:32:51,012 - app.modules.whatsapp.sender - INFO - Attempting to send WhatsApp message to 916382920850
+2026-01-19 10:32:51,015 - app.modules.whatsapp.sender - INFO - Sending from whatsapp:+14155238886 to whatsapp:+916382920850
+2026-01-19 10:32:51,621 - app.modules.whatsapp.sender - INFO - [OK] WhatsApp message sent successfully - SID: SM7d55f2dacb3be293be6372ac646cc08b
+2026-01-19 10:32:51,633 - app.modules.webhooks.providers.twilio - INFO - [OK] Reply sent successfully (status: sent)
+2026-01-19 10:45:33,242 - app.modules.webhooks.router - INFO - ================================================================================
+2026-01-19 10:45:33,244 - app.modules.webhooks.router - INFO - [WEBHOOK] Incoming Twilio webhook
+2026-01-19 10:45:33,245 - app.modules.webhooks.router - INFO - [OK] Webhook queued for processing
+2026-01-19 10:45:33,249 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] From: ~Jith🥰 (916382920850)
+2026-01-19 10:45:33,251 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] Text: ok got it.
+2026-01-19 10:45:33,256 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] WaId: 916382920850, MessageSid: SM17dd77955cb504f1c169c860f99f4d15
+2026-01-19 10:45:33,281 - app.modules.webhooks.providers.twilio - INFO - [DB] User ID: 75, Conversation ID: 5
+2026-01-19 10:45:33,303 - app.modules.webhooks.providers.twilio - INFO - [DB] Message saved (ID: 128)
+2026-01-19 10:45:37,166 - app.modules.notifications.email - INFO - Email sent for message from +916382920850
+2026-01-19 10:45:37,167 - app.modules.webhooks.providers.twilio - INFO - [AI] Generating response...
+2026-01-19 10:45:37,168 - app.modules.ai.groq - INFO - Generating AI response...
+2026-01-19 10:45:38,017 - app.modules.ai.groq - INFO - [AI] Response generated (124 chars)
+2026-01-19 10:45:38,018 - app.modules.webhooks.providers.twilio - INFO - [SEND] Sending reply to 916382920850
+2026-01-19 10:45:38,018 - app.modules.whatsapp.sender - INFO - Attempting to send WhatsApp message to 916382920850
+2026-01-19 10:45:38,019 - app.modules.whatsapp.sender - INFO - Sending from whatsapp:+14155238886 to whatsapp:+916382920850
+2026-01-19 10:45:39,267 - app.modules.whatsapp.sender - INFO - [OK] WhatsApp message sent successfully - SID: SM67290402f1a9d97c051b18772f12b3b5
+2026-01-19 10:45:39,903 - app.modules.webhooks.providers.twilio - INFO - [OK] Reply sent successfully (status: sent)
+2026-01-19 10:47:50,189 - app.modules.webhooks.router - INFO - ================================================================================
+2026-01-19 10:47:50,190 - app.modules.webhooks.router - INFO - [WEBHOOK] Incoming Twilio webhook
+2026-01-19 10:47:50,190 - app.modules.webhooks.router - INFO - [OK] Webhook queued for processing
+2026-01-19 10:47:50,192 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] From: ~Jith🥰 (916382920850)
+2026-01-19 10:47:50,192 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] Text: Personal Loan amount.
+2026-01-19 10:47:50,193 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] WaId: 916382920850, MessageSid: SM8d53aee61c54a5556dcf070637dcaae3
+2026-01-19 10:47:50,209 - app.modules.webhooks.providers.twilio - INFO - [DB] User ID: 75, Conversation ID: 5
+2026-01-19 10:47:50,219 - app.modules.webhooks.providers.twilio - INFO - [DB] Message saved (ID: 130)
+2026-01-19 10:47:54,247 - app.modules.notifications.email - INFO - Email sent for message from +916382920850
+2026-01-19 10:47:54,248 - app.modules.webhooks.providers.twilio - INFO - [AI] Generating response...
+2026-01-19 10:47:54,248 - app.modules.ai.groq - INFO - Generating AI response...
+2026-01-19 10:47:55,294 - app.modules.ai.groq - INFO - [AI] Response generated (508 chars)
+2026-01-19 10:47:55,294 - app.modules.webhooks.providers.twilio - INFO - [SEND] Sending reply to 916382920850
+2026-01-19 10:47:55,294 - app.modules.whatsapp.sender - INFO - Attempting to send WhatsApp message to 916382920850
+2026-01-19 10:47:55,297 - app.modules.whatsapp.sender - INFO - Sending from whatsapp:+14155238886 to whatsapp:+916382920850
+2026-01-19 10:47:55,929 - app.modules.whatsapp.sender - INFO - [OK] WhatsApp message sent successfully - SID: SMfa33db02439ac62ca14150414a60abab
+2026-01-19 10:47:56,225 - app.modules.webhooks.providers.twilio - INFO - [OK] Reply sent successfully (status: sent)
+2026-01-19 10:48:14,496 - app.modules.webhooks.router - INFO - ================================================================================
+2026-01-19 10:48:14,496 - app.modules.webhooks.router - INFO - [WEBHOOK] Incoming Twilio webhook
+2026-01-19 10:48:14,496 - app.modules.webhooks.router - INFO - [OK] Webhook queued for processing
+2026-01-19 10:48:14,499 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] From: ~Jith🥰 (916382920850)
+2026-01-19 10:48:14,499 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] Text: Personal Loan amount.
+2026-01-19 10:48:14,500 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] WaId: 916382920850, MessageSid: SMc100ff427bf7efbe517eba1a08ae49df
+2026-01-19 10:48:14,515 - app.modules.webhooks.providers.twilio - INFO - [DB] User ID: 75, Conversation ID: 5
+2026-01-19 10:48:14,527 - app.modules.webhooks.providers.twilio - INFO - [DB] Message saved (ID: 132)
+2026-01-19 10:48:17,999 - app.modules.notifications.email - INFO - Email sent for message from +916382920850
+2026-01-19 10:48:18,002 - app.modules.webhooks.providers.twilio - INFO - [AI] Generating response...
+2026-01-19 10:48:18,002 - app.modules.ai.groq - INFO - Generating AI response...
+2026-01-19 10:48:18,749 - app.modules.ai.groq - INFO - [AI] Response generated (485 chars)
+2026-01-19 10:48:18,749 - app.modules.webhooks.providers.twilio - INFO - [SEND] Sending reply to 916382920850
+2026-01-19 10:48:18,753 - app.modules.whatsapp.sender - INFO - Attempting to send WhatsApp message to 916382920850
+2026-01-19 10:48:18,755 - app.modules.whatsapp.sender - INFO - Sending from whatsapp:+14155238886 to whatsapp:+916382920850
+2026-01-19 10:48:19,351 - app.modules.whatsapp.sender - INFO - [OK] WhatsApp message sent successfully - SID: SM4d52189d71b8283792c4d5ac893f5fae
+2026-01-19 10:48:19,392 - app.modules.webhooks.providers.twilio - INFO - [OK] Reply sent successfully (status: sent)
+2026-01-19 10:48:29,557 - app.modules.webhooks.router - INFO - ================================================================================
+2026-01-19 10:48:29,558 - app.modules.webhooks.router - INFO - [WEBHOOK] Incoming Twilio webhook
+2026-01-19 10:48:29,559 - app.modules.webhooks.router - INFO - [OK] Webhook queued for processing
+2026-01-19 10:48:29,561 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] From: ~Jith🥰 (916382920850)
+2026-01-19 10:48:29,561 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] Text: Personal Loan amount.
+2026-01-19 10:48:29,562 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] WaId: 916382920850, MessageSid: SMaa81316d2fc24f6598c917dd033e03da
+2026-01-19 10:48:29,581 - app.modules.webhooks.providers.twilio - INFO - [DB] User ID: 75, Conversation ID: 5
+2026-01-19 10:48:29,597 - app.modules.webhooks.providers.twilio - INFO - [DB] Message saved (ID: 134)
+2026-01-19 10:48:33,126 - app.modules.notifications.email - INFO - Email sent for message from +916382920850
+2026-01-19 10:48:33,126 - app.modules.webhooks.providers.twilio - INFO - [AI] Generating response...
+2026-01-19 10:48:33,129 - app.modules.ai.groq - INFO - Generating AI response...
+2026-01-19 10:48:33,878 - app.modules.ai.groq - INFO - [AI] Response generated (448 chars)
+2026-01-19 10:48:33,878 - app.modules.webhooks.providers.twilio - INFO - [SEND] Sending reply to 916382920850
+2026-01-19 10:48:33,880 - app.modules.whatsapp.sender - INFO - Attempting to send WhatsApp message to 916382920850
+2026-01-19 10:48:33,881 - app.modules.whatsapp.sender - INFO - Sending from whatsapp:+14155238886 to whatsapp:+916382920850
+2026-01-19 10:48:34,445 - app.modules.whatsapp.sender - INFO - [OK] WhatsApp message sent successfully - SID: SM463b12cef9e24abbe3b2ca26320cbf48
+2026-01-19 10:48:34,491 - app.modules.webhooks.providers.twilio - INFO - [OK] Reply sent successfully (status: sent)
+2026-01-19 11:09:53,594 - app.modules.webhooks.router - INFO - ================================================================================
+2026-01-19 11:09:53,595 - app.modules.webhooks.router - INFO - [WEBHOOK] Incoming Twilio webhook
+2026-01-19 11:09:53,595 - app.modules.webhooks.router - INFO - [OK] Webhook queued for processing
+2026-01-19 11:09:53,597 - app.modules.webhooks.providers.twilio - INFO - [STATUS] Message MM0701bf4e50747e521b54a00e5d6c97e1 - received
+2026-01-19 11:10:19,647 - app.modules.webhooks.router - INFO - ================================================================================
+2026-01-19 11:10:19,649 - app.modules.webhooks.router - INFO - [WEBHOOK] Incoming Twilio webhook
+2026-01-19 11:10:19,649 - app.modules.webhooks.router - INFO - [OK] Webhook queued for processing
+2026-01-19 11:10:19,650 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] From: ~Jith🥰 (916382920850)
+2026-01-19 11:10:19,651 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] Text: hey.
+2026-01-19 11:10:19,652 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] WaId: 916382920850, MessageSid: SMdd21f481c1a3b055e22d5e708dd9d0b1
+2026-01-19 11:10:19,663 - app.modules.webhooks.providers.twilio - INFO - [DB] User ID: 75, Conversation ID: 5
+2026-01-19 11:10:19,676 - app.modules.webhooks.providers.twilio - INFO - [DB] Message saved (ID: 136)
+2026-01-19 11:10:23,529 - app.modules.notifications.email - INFO - Email sent for message from +916382920850
+2026-01-19 11:10:23,530 - app.modules.webhooks.providers.twilio - INFO - [AI] Generating response...
+2026-01-19 11:10:23,530 - app.modules.ai.groq - INFO - Generating AI response...
+2026-01-19 11:10:24,175 - app.modules.ai.groq - INFO - [AI] Response generated (190 chars)
+2026-01-19 11:10:24,175 - app.modules.webhooks.providers.twilio - INFO - [SEND] Sending reply to 916382920850
+2026-01-19 11:10:24,175 - app.modules.whatsapp.sender - INFO - Attempting to send WhatsApp message to 916382920850
+2026-01-19 11:10:24,179 - app.modules.whatsapp.sender - INFO - Sending from whatsapp:+14155238886 to whatsapp:+916382920850
+2026-01-19 11:10:24,972 - app.modules.whatsapp.sender - INFO - [OK] WhatsApp message sent successfully - SID: SM660d747b6fbc2f40c3ef53d3bf7584f4
+2026-01-19 11:10:25,283 - app.modules.webhooks.providers.twilio - INFO - [OK] Reply sent successfully (status: sent)
+2026-01-19 11:10:46,439 - app.modules.webhooks.router - INFO - ================================================================================
+2026-01-19 11:10:46,440 - app.modules.webhooks.router - INFO - [WEBHOOK] Incoming Twilio webhook
+2026-01-19 11:10:46,441 - app.modules.webhooks.router - INFO - [OK] Webhook queued for processing
+2026-01-19 11:10:46,442 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] From: ~Jith🥰 (916382920850)
+2026-01-19 11:10:46,442 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] Text: hahaha.
+2026-01-19 11:10:46,443 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] WaId: 916382920850, MessageSid: SMcebe1699b92e740da3f3f60627139836
+2026-01-19 11:10:46,461 - app.modules.webhooks.providers.twilio - INFO - [DB] User ID: 75, Conversation ID: 5
+2026-01-19 11:10:46,472 - app.modules.webhooks.providers.twilio - INFO - [DB] Message saved (ID: 138)
+2026-01-19 11:10:51,197 - app.modules.notifications.email - INFO - Email sent for message from +916382920850
+2026-01-19 11:10:51,198 - app.modules.webhooks.providers.twilio - INFO - [AI] Generating response...
+2026-01-19 11:10:51,198 - app.modules.ai.groq - INFO - Generating AI response...
+2026-01-19 11:10:51,727 - app.modules.ai.groq - INFO - [AI] Response generated (121 chars)
+2026-01-19 11:10:51,729 - app.modules.webhooks.providers.twilio - INFO - [SEND] Sending reply to 916382920850
+2026-01-19 11:10:51,729 - app.modules.whatsapp.sender - INFO - Attempting to send WhatsApp message to 916382920850
+2026-01-19 11:10:51,730 - app.modules.whatsapp.sender - INFO - Sending from whatsapp:+14155238886 to whatsapp:+916382920850
+2026-01-19 11:10:52,226 - app.modules.whatsapp.sender - INFO - [OK] WhatsApp message sent successfully - SID: SM0ddc03b268af90e777d330c057e59b32
+2026-01-19 11:10:52,726 - app.modules.webhooks.providers.twilio - INFO - [OK] Reply sent successfully (status: sent)
+2026-01-19 11:26:55,345 - app.modules.webhooks.router - INFO - ================================================================================
+2026-01-19 11:26:55,346 - app.modules.webhooks.router - INFO - [WEBHOOK] Incoming Twilio webhook
+2026-01-19 11:26:55,346 - app.modules.webhooks.router - INFO - [OK] Webhook queued for processing
+2026-01-19 11:26:55,348 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] From: ~Jith🥰 (916382920850)
+2026-01-19 11:26:55,348 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] Text: ldhdsfge.
+2026-01-19 11:26:55,349 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] WaId: 916382920850, MessageSid: SM2a000e50e6d3f2fc5f792871d6695a95
+2026-01-19 11:26:55,371 - app.modules.webhooks.providers.twilio - INFO - [DB] User ID: 75, Conversation ID: 5
+2026-01-19 11:26:55,390 - app.modules.webhooks.providers.twilio - INFO - [DB] Message saved (ID: 140)
+2026-01-19 11:26:59,060 - app.modules.notifications.email - INFO - Email sent for message from +916382920850
+2026-01-19 11:26:59,060 - app.modules.webhooks.providers.twilio - INFO - [AI] Generating response...
+2026-01-19 11:26:59,060 - app.modules.ai.groq - INFO - Generating AI response...
+2026-01-19 11:26:59,929 - app.modules.ai.groq - INFO - [AI] Response generated (232 chars)
+2026-01-19 11:26:59,930 - app.modules.webhooks.providers.twilio - INFO - [SEND] Sending reply to 916382920850
+2026-01-19 11:26:59,931 - app.modules.whatsapp.sender - INFO - Attempting to send WhatsApp message to 916382920850
+2026-01-19 11:26:59,931 - app.modules.whatsapp.sender - INFO - Sending from whatsapp:+14155238886 to whatsapp:+916382920850
+2026-01-19 11:27:01,202 - app.modules.whatsapp.sender - INFO - [OK] WhatsApp message sent successfully - SID: SMea5729343919a7131b2833e2e4bc1fcd
+2026-01-19 11:27:01,512 - app.modules.webhooks.providers.twilio - INFO - [OK] Reply sent successfully (status: sent)
+2026-01-19 12:13:51,329 - app.modules.webhooks.router - INFO - ================================================================================
+2026-01-19 12:13:51,330 - app.modules.webhooks.router - INFO - [WEBHOOK] Incoming Twilio webhook
+2026-01-19 12:13:51,330 - app.modules.webhooks.router - INFO - [OK] Webhook queued for processing
+2026-01-19 12:13:51,332 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] From: ~Jith🥰 (916382920850)
+2026-01-19 12:13:51,334 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] Text: join writ.
+2026-01-19 12:13:51,335 - app.modules.webhooks.providers.twilio - INFO - [MESSAGE] WaId: 916382920850, MessageSid: SMc89caa70a41f98f6cf1fccf219c629e8
+2026-01-19 12:13:51,362 - app.modules.webhooks.providers.twilio - INFO - [DB] User ID: 75, Conversation ID: 5
+2026-01-19 12:13:51,384 - app.modules.webhooks.providers.twilio - INFO - [DB] Message saved (ID: 142)
+2026-01-19 12:13:55,263 - app.modules.notifications.email - INFO - Email sent for message from +916382920850
+2026-01-19 12:13:55,265 - app.modules.webhooks.providers.twilio - INFO - [AI] Generating response...
+2026-01-19 12:13:55,266 - app.modules.ai.groq - INFO - Generating AI response...
+2026-01-19 12:13:55,925 - app.modules.ai.groq - INFO - [AI] Response generated (215 chars)
+2026-01-19 12:13:55,926 - app.modules.webhooks.providers.twilio - INFO - [SEND] Sending reply to 916382920850
+2026-01-19 12:13:55,926 - app.modules.whatsapp.sender - INFO - Attempting to send WhatsApp message to 916382920850
+2026-01-19 12:13:55,926 - app.modules.whatsapp.sender - INFO - Sending from whatsapp:+14155238886 to whatsapp:+916382920850
+2026-01-19 12:13:56,676 - app.modules.whatsapp.sender - INFO - [OK] WhatsApp message sent successfully - SID: SMf89d6dcb6653ec2fae8b58b635ab7e2c
+2026-01-19 12:13:56,972 - app.modules.webhooks.providers.twilio - INFO - [OK] Reply sent successfully (status: sent)
+2026-01-19 12:34:13,326 - app.lifespan - INFO - 🛑 Shutting down application...
+2026-01-19 12:34:13,332 - app.db.client - INFO - ✓ Disconnected from PostgreSQL
+2026-01-19 12:34:13,335 - app.lifespan - INFO - ✓ Application shutdown complete

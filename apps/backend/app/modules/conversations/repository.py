@@ -230,15 +230,16 @@ class ConversationRepository(BaseRepository):
             ai_messages = [m for m in conv.messages if m.role == MESSAGE_ROLE_ASSISTANT]
             
             if user_messages:
-                first_message = user_messages[0]
+                # Show the LATEST user message instead of the first one
+                latest_message = user_messages[-1]
                 last_response = ai_messages[-1] if ai_messages else None
                 
                 result.append({
                     "message_id": conv.id,  # OLD API used message_id
                     "phone": conv.user.phone,
                     "name": conv.user.name,
-                    "message": first_message.message,
-                    "message_time": first_message.timestamp.isoformat(),  # OLD API used message_time
+                    "message": latest_message.message,
+                    "message_time": latest_message.timestamp.isoformat(),  # OLD API used message_time
                     "lead_status": conv.leadStatus,
                     "comments": conv.comments,
                     "assigned_to": conv.assignedTo,
