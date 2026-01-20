@@ -4,6 +4,7 @@ import "./globals.css";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Toaster } from "@/components/ui/sonner";
 import { NotificationProvider } from "@/hooks/useNotifications";
+import { AuthLayoutWrapper } from "@/components/layout/AuthLayoutWrapper";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -21,12 +22,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${inter.variable} font-sans antialiased bg-background`}>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${inter.variable} font-sans`}>
         <NotificationProvider>
-          <DashboardLayout>
+          <AuthLayoutWrapper>
             {children}
-          </DashboardLayout>
+          </AuthLayoutWrapper>
           <Toaster richColors position="top-right" />
         </NotificationProvider>
       </body>

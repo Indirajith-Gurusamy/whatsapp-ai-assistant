@@ -1,5 +1,5 @@
 """Prisma client singleton for database connections."""
-from prisma import Prisma
+from app.db.prisma import Prisma
 from typing import Optional
 import logging
 

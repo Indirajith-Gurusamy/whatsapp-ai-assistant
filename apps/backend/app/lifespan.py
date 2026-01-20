@@ -1,7 +1,9 @@
 """Application lifespan management (startup/shutdown)."""
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+import asyncio
 from app.db.client import get_db, disconnect_db
+from app.core.cleanup_job import session_cleanup_job
 import logging
 
 logger = logging.getLogger(__name__)
@@ -15,6 +17,7 @@ async def lifespan(app: FastAPI):
     Startup:
     - Connect to database
     - Initialize services
+    - Start background jobs
     
     Shutdown:
     - Disconnect from database
@@ -26,6 +29,11 @@ async def lifespan(app: FastAPI):
     try:
         await get_db()
         logger.info("✓ Database connected")
+        
+        # Start background cleanup job
+        asyncio.create_task(session_cleanup_job())
+        logger.info("✓ Session cleanup job started")
+        
     except Exception as e:
         logger.error(f"✗ Database connection failed: {e}")
         raise

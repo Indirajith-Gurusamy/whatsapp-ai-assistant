@@ -15,11 +15,11 @@ class ConversationRepository(BaseRepository):
     def __init__(self):
         super().__init__("conversation")
     
-    async def get_or_create_user(self, wa_id: str, phone: str, name: str) -> int:
-        """Get or create user by WhatsApp ID."""
+    async def get_or_create_customer(self, wa_id: str, phone: str, name: str) -> int:
+        """Get or create customer by WhatsApp ID."""
         db = await self.get_db()
         
-        user = await db.user.upsert(
+        customer = await db.customer.upsert(
             where={"waId": wa_id},
             data={
                 "create": {
@@ -37,15 +37,15 @@ class ConversationRepository(BaseRepository):
             }
         )
         
-        return user.id
+        return customer.id
     
-    async def get_or_create_conversation(self, user_id: int) -> int:
-        """Get or create active conversation for user."""
+    async def get_or_create_conversation(self, customer_id: int) -> int:
+        """Get or create active conversation for customer."""
         db = await self.get_db()
         
         # Find active conversation
         conversation = await db.conversation.find_first(
-            where={"userId": user_id, "status": CONVERSATION_STATUS_ACTIVE}
+            where={"customerId": customer_id, "status": CONVERSATION_STATUS_ACTIVE}
         )
         
         if conversation:
@@ -54,7 +54,7 @@ class ConversationRepository(BaseRepository):
         # Create new conversation
         conversation = await db.conversation.create(
             data={
-                "userId": user_id,
+                "customerId": customer_id,
                 "status": CONVERSATION_STATUS_ACTIVE,
                 "leadStatus": LEAD_STATUS_NEW,
                 "createdAt": datetime.now(),
@@ -123,7 +123,7 @@ class ConversationRepository(BaseRepository):
         conversation = await db.conversation.find_unique(
             where={"id": conversation_id},
             include={
-                "user": True,
+                "customer": True,
                 "messages": {"order_by": {"timestamp": "asc"}}
             }
         )
@@ -132,17 +132,17 @@ class ConversationRepository(BaseRepository):
             return None
         
         # Flatten for frontend compatibility
-        user_messages = [m for m in conversation.messages if m.role == MESSAGE_ROLE_USER]
+        customer_messages = [m for m in conversation.messages if m.role == MESSAGE_ROLE_USER]
         ai_messages = [m for m in conversation.messages if m.role == MESSAGE_ROLE_ASSISTANT]
         
-        first_msg = user_messages[0] if user_messages else None
+        first_msg = customer_messages[0] if customer_messages else None
         first_resp = ai_messages[0] if ai_messages else None
         
         return {
             "id": conversation.id, # New key
             "message_id": conversation.id, # Legacy key for compatibility
-            "phone": conversation.user.phone,
-            "name": conversation.user.name,
+            "phone": conversation.customer.phone,
+            "name": conversation.customer.name,
             "message": first_msg.message if first_msg else "",
             "message_time": first_msg.timestamp.isoformat() if first_msg else None, # Legacy key
             "timestamp": first_msg.timestamp.isoformat() if first_msg else None, # New key
@@ -170,7 +170,7 @@ class ConversationRepository(BaseRepository):
         
         messages = await db.message.find_many(
             where={"role": MESSAGE_ROLE_USER},
-            include={"conversation": {"include": {"user": True}}},
+            include={"conversation": {"include": {"customer": True}}},
             order={"timestamp": "desc"},
             take=limit
         )
@@ -178,8 +178,8 @@ class ConversationRepository(BaseRepository):
         return [
             {
                 "id": msg.id,
-                "phone": msg.conversation.user.phone,
-                "name": msg.conversation.user.name,
+                "phone": msg.conversation.customer.phone,
+                "name": msg.conversation.customer.name,
                 "message": msg.message,
                 "timestamp": msg.timestamp.isoformat(),
                 "whatsapp_id": msg.whatsappId,
@@ -194,7 +194,7 @@ class ConversationRepository(BaseRepository):
         
         messages = await db.message.find_many(
             where={"role": MESSAGE_ROLE_ASSISTANT},
-            include={"conversation": {"include": {"user": True}}},
+            include={"conversation": {"include": {"customer": True}}},
             order={"timestamp": "desc"},
             take=limit
         )
@@ -202,8 +202,8 @@ class ConversationRepository(BaseRepository):
         return [
             {
                 "id": msg.id,
-                "phone": msg.conversation.user.phone,
-                "name": msg.conversation.user.name,
+                "phone": msg.conversation.customer.phone,
+                "name": msg.conversation.customer.name,
                 "response": msg.message,
                 "timestamp": msg.timestamp.isoformat(),
                 "status": msg.status
@@ -217,7 +217,7 @@ class ConversationRepository(BaseRepository):
         
         conversations = await db.conversation.find_many(
             include={
-                "user": True,
+                "customer": True,
                 "messages": {"order_by": {"timestamp": "asc"}}
             },
             order={"updatedAt": "desc"},
@@ -226,18 +226,18 @@ class ConversationRepository(BaseRepository):
         
         result = []
         for conv in conversations:
-            user_messages = [m for m in conv.messages if m.role == MESSAGE_ROLE_USER]
+            customer_messages = [m for m in conv.messages if m.role == MESSAGE_ROLE_USER]
             ai_messages = [m for m in conv.messages if m.role == MESSAGE_ROLE_ASSISTANT]
             
-            if user_messages:
-                # Show the LATEST user message instead of the first one
-                latest_message = user_messages[-1]
+            if customer_messages:
+                # Show the LATEST customer message instead of the first one
+                latest_message = customer_messages[-1]
                 last_response = ai_messages[-1] if ai_messages else None
                 
                 result.append({
                     "message_id": conv.id,  # OLD API used message_id
-                    "phone": conv.user.phone,
-                    "name": conv.user.name,
+                    "phone": conv.customer.phone,
+                    "name": conv.customer.name,
                     "message": latest_message.message,
                     "message_time": latest_message.timestamp.isoformat(),  # OLD API used message_time
                     "lead_status": conv.leadStatus,
@@ -256,7 +256,7 @@ class ConversationRepository(BaseRepository):
         
         conversations = await db.conversation.find_many(
             include={
-                "user": True,
+                "customer": True,
                 "messages": {
                     "where": {"role": MESSAGE_ROLE_USER},
                     "order_by": {"timestamp": "asc"},
@@ -270,8 +270,8 @@ class ConversationRepository(BaseRepository):
         return [
             {
                 "customer_id": conv.id,  # OLD API used customer_id
-                "phone": conv.user.phone,
-                "name": conv.user.name,
+                "phone": conv.customer.phone,
+                "name": conv.customer.name,
                 "message": conv.messages[0].message if conv.messages else "",
                 "message_time": conv.createdAt.isoformat(),  # OLD API used message_time
                 "lead_status": conv.leadStatus,
@@ -285,12 +285,12 @@ class ConversationRepository(BaseRepository):
         """Get full conversation history for a customer (OLD API format)."""
         db = await self.get_db()
         
-        user = await db.user.find_first(where={"phone": phone})
-        if not user:
+        customer = await db.customer.find_first(where={"phone": phone})
+        if not customer:
             return []
         
         conversations = await db.conversation.find_many(
-            where={"userId": user.id},
+            where={"customerId": customer.id},
             include={"messages": {"order_by": {"timestamp": "asc"}}}
         )
         
@@ -299,7 +299,7 @@ class ConversationRepository(BaseRepository):
         for conv in conversations:
             for msg in conv.messages:
                 history.append({
-                    "name": user.name if msg.role == MESSAGE_ROLE_USER else "System",
+                    "name": customer.name if msg.role == MESSAGE_ROLE_USER else "System",
                     "content": msg.message,
                     "timestamp": msg.timestamp.isoformat(),
                     "role": "customer" if msg.role == MESSAGE_ROLE_USER else "system"
