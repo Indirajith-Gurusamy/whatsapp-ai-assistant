@@ -2,8 +2,9 @@
 
 import { Button } from '@/components/ui/button';
 import { MobileSidebar } from './Sidebar';
-import { Settings, User, LogOut } from 'lucide-react';
+import { Settings, User, LogOut, Shield } from 'lucide-react';
 import { NotificationBell } from './NotificationBell';
+import { useAuth } from '@/contexts/AuthContext';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -14,6 +15,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 export function TopBar() {
+    const { logout } = useAuth();
+
     return (
         <header className="sticky top-0 z-40 flex items-center gap-4 px-4 md:px-6 py-3 bg-card/80 backdrop-blur-md border-b border-border/50">
             {/* Mobile Menu */}
@@ -55,8 +58,12 @@ export function TopBar() {
                             <User className="mr-2 h-4 w-4" />
                             <span>My Profile</span>
                         </DropdownMenuItem>
+                        <DropdownMenuItem className="cursor-pointer" onClick={() => window.location.href = '/settings/sessions'}>
+                            <Shield className="mr-2 h-4 w-4" />
+                            <span>Active Sessions</span>
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-red-600 cursor-pointer focus:text-red-600">
+                        <DropdownMenuItem className="text-red-600 cursor-pointer focus:text-red-600" onClick={logout}>
                             <LogOut className="mr-2 h-4 w-4" />
                             <span>Sign Out</span>
                         </DropdownMenuItem>

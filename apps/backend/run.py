@@ -3,7 +3,11 @@ Startup script for the backend.
 This sets up the Python path correctly and starts the server.
 """
 import sys
+import os
 from pathlib import Path
+
+# Fix Prisma version mismatch error
+os.environ["PRISMA_PY_DEBUG_GENERATOR"] = "1"
 
 # Add backend directory to Python path
 backend_dir = Path(__file__).parent

@@ -10,10 +10,52 @@ generator client {
   provider             = "prisma-client-py"
   recursive_type_depth = 5
   interface            = "asyncio"
+  output               = "../apps/backend/app/db/prisma"
 }
 
-// User model - represents WhatsApp users
+// User model - represents administrative/system users
 model User {
+  id                   Int          @id @default(autoincrement())
+  email                String       @unique @db.VarChar(255)
+  password             String       @db.VarChar(255)
+  name                 String       @db.VarChar(255)
+  role                 UserRole     @default(USER)
+  isActive             Boolean      @default(true) @map("is_active")
+  emailVerified        Boolean      @default(false) @map("email_verified")
+  verificationOtp      String?      @map("verification_otp") @db.VarChar(6)
+  verificationOtpExp   DateTime?    @map("verification_otp_exp") @db.Timestamptz()
+  resetToken           String?      @map("reset_token") @db.VarChar(255)
+  resetTokenExp        DateTime?    @map("reset_token_exp") @db.Timestamptz()
+  lastLogin            DateTime?    @map("last_login") @db.Timestamptz()
+  createdAt            DateTime     @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt            DateTime     @updatedAt @map("updated_at") @db.Timestamptz()
+  profile              UserProfile?
+  sessions             Session[]
+
+  @@index([email])
+  @@index([verificationOtp])
+  @@index([resetToken])
+  @@map("auth_users")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+model UserProfile {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique @map("user_id")
+  avatar    String?  @db.VarChar(255)
+  bio       String?  @db.Text
+  phone     String?  @db.VarChar(50)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+// Customer model - represents WhatsApp customers (formerly User model)
+model Customer {
   id            Int            @id @default(autoincrement())
   waId          String         @unique @map("wa_id") @db.VarChar(255)
   phone         String         @db.VarChar(50)
@@ -24,13 +66,13 @@ model User {
 
   @@index([waId])
   @@index([phone])
-  @@map("users")
+  @@map("customers")
 }
 
 // Conversation model - represents chat sessions
 model Conversation {
   id         Int       @id @default(autoincrement())
-  userId     Int       @map("user_id")
+  customerId Int       @map("customer_id")
   status     String    @default("active") @db.VarChar(50)
   leadStatus String    @default("new lead") @map("lead_status") @db.VarChar(100)
   comments   String?   @db.Text
@@ -38,10 +80,10 @@ model Conversation {
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
   closedAt   DateTime? @map("closed_at") @db.Timestamptz()
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
   messages   Message[]
 
-  @@index([userId])
+  @@index([customerId])
   @@index([status])
   @@index([leadStatus])
   @@index([updatedAt])
@@ -65,3 +107,27 @@ model Message {
   @@index([role])
   @@map("messages")
 }
+
+// Session model - represents user login sessions across devices
+model Session {
+  id             Int      @id @default(autoincrement())
+  userId         Int      @map("user_id")
+  tokenHash      String   @unique @map("token_hash") @db.VarChar(255)
+  deviceType     String?  @map("device_type") @db.VarChar(50)
+  browser        String?  @db.VarChar(100)
+  browserVersion String?  @map("browser_version") @db.VarChar(50)
+  os             String?  @db.VarChar(100)
+  ipAddress      String?  @map("ip_address") @db.VarChar(45)
+  location       String?  @db.VarChar(255)
+  lastActivity   DateTime @map("last_activity") @db.Timestamptz()
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  expiresAt      DateTime @map("expires_at") @db.Timestamptz()
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@index([lastActivity])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+

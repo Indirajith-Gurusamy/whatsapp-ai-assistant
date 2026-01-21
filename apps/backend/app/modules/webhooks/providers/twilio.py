@@ -124,10 +124,10 @@ class TwilioWebhookProvider:
             logger.info(f"[MESSAGE] Text: {text[:100]}.")
             logger.info(f"[MESSAGE] WaId: {wa_id}, MessageSid: {msg_id}")
             
-            # Get or create user and conversation
-            user_id = await ConversationService.get_or_create_user(wa_id, phone, sender_name)
-            conversation_id = await ConversationService.get_or_create_conversation(user_id)
-            logger.info(f"[DB] User ID: {user_id}, Conversation ID: {conversation_id}")
+            # Get or create customer and conversation
+            customer_id = await ConversationService.get_or_create_customer(wa_id, phone, sender_name)
+            conversation_id = await ConversationService.get_or_create_conversation(customer_id)
+            logger.info(f"[DB] Customer ID: {customer_id}, Conversation ID: {conversation_id}")
             
             # Save incoming message
             message_id = await ConversationService.save_message(

@@ -40,6 +40,18 @@ class Settings(BaseSettings):
     SENDER_PASSWORD: str = ""
     RECIPIENT_EMAIL: str = ""
     
+    # JWT Configuration
+    JWT_SECRET_KEY: str = "your-secret-key-change-in-production-min-32-chars"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    
+    # Frontend URL for email links
+    FRONTEND_URL: str = "http://localhost:3000"
+    
+    # Email verification
+    VERIFICATION_OTP_EXPIRE_MINUTES: int = 5
+    
     # Logging Configuration
     LOG_LEVEL: str = "INFO"
     

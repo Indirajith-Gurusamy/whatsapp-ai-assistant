@@ -9,14 +9,14 @@ class ConversationService:
     """Service layer for conversation operations."""
     
     @staticmethod
-    async def get_or_create_user(wa_id: str, phone: str, name: str) -> int:
-        """Get or create user."""
-        return await repository.get_or_create_user(wa_id, phone, name)
+    async def get_or_create_customer(wa_id: str, phone: str, name: str) -> int:
+        """Get or create customer."""
+        return await repository.get_or_create_customer(wa_id, phone, name)
     
     @staticmethod
-    async def get_or_create_conversation(user_id: int) -> int:
+    async def get_or_create_conversation(customer_id: int) -> int:
         """Get or create conversation."""
-        return await repository.get_or_create_conversation(user_id)
+        return await repository.get_or_create_conversation(customer_id)
     
     @staticmethod
     async def save_message(
