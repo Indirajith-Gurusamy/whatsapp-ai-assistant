@@ -28,7 +28,11 @@ export default function RootLayout({
           <AuthLayoutWrapper>
             {children}
           </AuthLayoutWrapper>
-          <Toaster richColors position="top-right" />
+          <Toaster
+            richColors
+            position="top-right"
+            duration={2000}
+          />
         </NotificationProvider>
       </body>
     </html>

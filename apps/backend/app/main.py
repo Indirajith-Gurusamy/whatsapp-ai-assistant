@@ -31,6 +31,8 @@ app.add_middleware(
 # Include API router
 app.include_router(api_router)
 
+
+
 # Serve frontend static files
 try:
     frontend_path = Path(__file__).parent.parent.parent / "frontend"

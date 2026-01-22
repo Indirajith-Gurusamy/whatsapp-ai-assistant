@@ -11,8 +11,8 @@ import {
     Mail,
     Users,
     BarChart3,
+    AlignLeft,
     Menu,
-    ChevronLeft,
 } from 'lucide-react';
 
 const navItems = [
@@ -27,21 +27,39 @@ interface SidebarProps {
     onToggle?: () => void;
 }
 
-function SidebarContent({ collapsed }: { collapsed?: boolean }) {
+function SidebarContent({ collapsed, onToggle }: { collapsed?: boolean; onToggle?: () => void }) {
     const pathname = usePathname();
 
     return (
         <div className="flex flex-col h-full">
             {/* Logo */}
-            <div className="flex items-center gap-3 px-4 py-6 border-b border-border/50">
-                <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-lg">
-                    <MessageSquare className="w-5 h-5" />
-                </div>
+            <div className={cn(
+                "flex items-center px-4 py-6 border-b border-border/50",
+                collapsed ? "justify-center" : "justify-between gap-2"
+            )}>
                 {!collapsed && (
-                    <span className="font-bold text-lg bg-gradient-to-r from-emerald-600 to-green-500 bg-clip-text text-transparent">
-                        WhatsApp AI
-                    </span>
+                    <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-lg">
+                            <MessageSquare className="w-4 h-4" />
+                        </div>
+                        <span className="font-bold text-base bg-gradient-to-r from-emerald-600 to-green-500 bg-clip-text text-transparent truncate">
+                            WhatsApp AI
+                        </span>
+                    </div>
                 )}
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onToggle}
+                    className={cn(
+                        "shrink-0 transition-all duration-300",
+                        !collapsed
+                            ? "bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-xl w-10 h-10 flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.1)] active:scale-95"
+                            : "w-10 h-10 rounded-xl hover:bg-emerald-500/10 text-emerald-600 transition-colors"
+                    )}
+                >
+                    <AlignLeft className={cn("w-5 h-5", !collapsed ? "text-emerald-600" : "text-emerald-500")} />
+                </Button>
             </div>
 
             {/* Navigation */}
@@ -89,19 +107,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 collapsed ? "w-16" : "w-56"
             )}
         >
-            <SidebarContent collapsed={collapsed} />
-
-            {/* Collapse Button */}
-            <div className="p-3 border-t border-border/50">
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full justify-center"
-                    onClick={onToggle}
-                >
-                    <ChevronLeft className={cn("w-4 h-4 transition-transform", collapsed && "rotate-180")} />
-                </Button>
-            </div>
+            <SidebarContent collapsed={collapsed} onToggle={onToggle} />
         </aside>
     );
 }
@@ -112,13 +118,13 @@ export function MobileSidebar() {
     return (
         <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="lg:hidden">
+                <Button variant="ghost" size="icon" className="lg:hidden text-muted-foreground hover:text-foreground">
                     <Menu className="w-5 h-5" />
                     <span className="sr-only">Toggle menu</span>
                 </Button>
             </SheetTrigger>
             <SheetContent side="left" className="w-64 p-0">
-                <SidebarContent />
+                <SidebarContent onToggle={() => setOpen(false)} />
             </SheetContent>
         </Sheet>
     );

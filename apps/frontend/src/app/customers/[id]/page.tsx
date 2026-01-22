@@ -78,64 +78,73 @@ export default function CustomerDetailPage() {
     const category = categorizeMessage(customer?.message || null);
 
     return (
-        <div className="p-4 md:p-6 space-y-6">
+        <div className="flex flex-col h-[calc(100vh-120px)] p-4 md:p-6 lg:p-8 max-w-7xl mx-auto space-y-4 overflow-hidden">
             {/* Header */}
-            <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" onClick={() => router.back()}>
+            <div className="flex-none flex items-center gap-4">
+                <Button variant="ghost" size="icon" onClick={() => router.back()} className="hover:bg-muted shrink-0">
                     <ArrowLeft className="w-5 h-5" />
                 </Button>
-                <h1 className="text-2xl md:text-3xl font-bold">Customer Information</h1>
+                <div>
+                    <h1 className="text-xl md:text-2xl font-bold tracking-tight">Customer Information</h1>
+                    <p className="text-muted-foreground text-xs">Details and interaction history.</p>
+                </div>
             </div>
 
-            <Tabs defaultValue="details" className="space-y-6">
-                <TabsList>
-                    <TabsTrigger value="details">Main Details</TabsTrigger>
-                    <TabsTrigger value="history">History</TabsTrigger>
+            <Tabs defaultValue="details" className="flex-1 flex flex-col min-h-0 space-y-4">
+                <TabsList className="flex-none bg-muted/50 p-1 self-start">
+                    <TabsTrigger value="details" className="px-6 py-1.5 text-sm">Main Details</TabsTrigger>
+                    <TabsTrigger value="history" className="px-6 py-1.5 text-sm">History</TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="details" className="space-y-6">
-                    <div className="grid gap-6 md:grid-cols-2">
+                <TabsContent value="details" className="flex-1 min-h-0 overflow-y-auto custom-scrollbar-hidden space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="grid gap-4 md:grid-cols-2">
                         {/* Customer Summary */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="text-lg">Customer Summary</CardTitle>
+                        <Card className="border-none shadow-sm bg-card/50 backdrop-blur-sm">
+                            <CardHeader className="py-4">
+                                <CardTitle className="text-base flex items-center gap-2">
+                                    <User className="w-4 h-4 text-emerald-500" />
+                                    Customer Summary
+                                </CardTitle>
                             </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="flex items-center gap-3">
-                                    <User className="w-5 h-5 text-muted-foreground" />
+                            <CardContent className="space-y-2 pb-4">
+                                <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/30">
+                                    <User className="w-4 h-4 text-muted-foreground" />
                                     <div>
-                                        <p className="text-sm text-muted-foreground">Name</p>
-                                        <p className="font-medium">{customer?.name || 'User'}</p>
+                                        <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Name</p>
+                                        <p className="font-semibold text-sm">{customer?.name || 'User'}</p>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    <Phone className="w-5 h-5 text-muted-foreground" />
+                                <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/30">
+                                    <Phone className="w-4 h-4 text-muted-foreground" />
                                     <div>
-                                        <p className="text-sm text-muted-foreground">Phone</p>
-                                        <p className="font-medium">+{customer?.phone}</p>
+                                        <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Phone</p>
+                                        <p className="font-semibold text-sm text-emerald-600">+{customer?.phone}</p>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    <Calendar className="w-5 h-5 text-muted-foreground" />
+                                <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/30">
+                                    <Calendar className="w-4 h-4 text-muted-foreground" />
                                     <div>
-                                        <p className="text-sm text-muted-foreground">Enquiry Date</p>
-                                        <p className="font-medium">{customer?.message_time || '-'}</p>
+                                        <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Enquiry Date</p>
+                                        <p className="font-semibold text-sm">{customer?.message_time || '-'}</p>
                                     </div>
                                 </div>
                             </CardContent>
                         </Card>
 
                         {/* Category Details */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="text-lg">Category Details</CardTitle>
+                        <Card className="border-none shadow-sm bg-card/50 backdrop-blur-sm">
+                            <CardHeader className="py-4">
+                                <CardTitle className="text-base flex items-center gap-2">
+                                    <Tag className="w-4 h-4 text-emerald-500" />
+                                    Category Details
+                                </CardTitle>
                             </CardHeader>
-                            <CardContent>
-                                <div className="flex items-center gap-3">
-                                    <Tag className="w-5 h-5 text-muted-foreground" />
+                            <CardContent className="pb-4">
+                                <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50 border border-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-900/30">
+                                    <Tag className="w-5 h-5 text-emerald-600" />
                                     <div>
-                                        <p className="text-sm text-muted-foreground">Detected Category</p>
-                                        <Badge variant="secondary" className="mt-1">
+                                        <p className="text-xs font-medium text-emerald-800 dark:text-emerald-400">Detected Category</p>
+                                        <Badge className="mt-1 bg-emerald-500 hover:bg-emerald-600 border-none px-2 py-0.5 text-[10px]">
                                             {category}
                                         </Badge>
                                     </div>
@@ -145,34 +154,45 @@ export default function CustomerDetailPage() {
                     </div>
 
                     {/* Latest Enquiry */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-lg">Latest Enquiry</CardTitle>
+                    <Card className="border-none shadow-sm bg-card/50 backdrop-blur-sm">
+                        <CardHeader className="py-4">
+                            <CardTitle className="text-base">Latest Enquiry</CardTitle>
                         </CardHeader>
-                        <CardContent>
-                            <div className="bg-muted/50 p-4 rounded-lg">
-                                <p className="text-sm whitespace-pre-wrap">{customer?.message}</p>
+                        <CardContent className="pb-4">
+                            <div className="bg-muted/50 p-4 rounded-xl border border-border/50 relative overflow-hidden">
+                                <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
+                                <p className="text-sm leading-relaxed whitespace-pre-wrap">{customer?.message}</p>
                             </div>
                         </CardContent>
                     </Card>
                 </TabsContent>
 
-                <TabsContent value="history">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-lg">Conversation History</CardTitle>
+                <TabsContent value="history" className="flex-1 flex flex-col min-h-0 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <Card className="flex-1 flex flex-col min-h-0 border-none shadow-xl bg-card/50 backdrop-blur-sm overflow-hidden">
+                        <CardHeader className="flex-none border-b bg-muted/10 py-4">
+                            <CardTitle className="text-base flex items-center gap-2">
+                                <Calendar className="w-4 h-4 text-emerald-500" />
+                                Conversation History
+                            </CardTitle>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="flex-1 min-h-0 p-0 overflow-hidden">
                             {isLoading ? (
-                                <div className="flex justify-center py-8">
-                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500" />
+                                <div className="flex flex-col items-center justify-center h-full gap-4">
+                                    <div className="animate-spin rounded-full h-10 w-10 border-4 border-emerald-500/20 border-t-emerald-500" />
+                                    <p className="text-muted-foreground animate-pulse text-xs">Loading interaction history...</p>
                                 </div>
                             ) : history.length === 0 ? (
-                                <p className="text-center text-muted-foreground py-8">
-                                    No conversation history found
-                                </p>
+                                <div className="flex flex-col items-center justify-center h-full text-center px-6">
+                                    <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
+                                        <Tag className="w-6 h-6 text-muted-foreground" />
+                                    </div>
+                                    <p className="text-lg font-semibold mb-1">No history found</p>
+                                    <p className="text-muted-foreground text-xs max-w-[250px]">
+                                        There are no recorded interactions for this customer yet.
+                                    </p>
+                                </div>
                             ) : (
-                                <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+                                <div className="h-full p-4 md:p-6 space-y-4 overflow-y-auto scroll-smooth custom-scrollbar-hidden">
                                     {history.map((item, index) => (
                                         <MessageBubble
                                             key={index}
@@ -182,6 +202,7 @@ export default function CustomerDetailPage() {
                                             role={item.role}
                                         />
                                     ))}
+                                    <div className="h-4" />
                                 </div>
                             )}
                         </CardContent>

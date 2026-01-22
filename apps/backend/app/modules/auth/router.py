@@ -15,8 +15,12 @@ from app.modules.auth.schemas import (
 )
 from app.modules.auth.session_schemas import SessionListResponse, SessionResponse
 from app.modules.auth.dependencies import get_db, get_current_user
+from app.modules.auth.profile_router import router as profile_router
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+# Include profile router
+router.include_router(profile_router)
 
 
 @router.post("/signup", response_model=MessageResponse, status_code=201)
