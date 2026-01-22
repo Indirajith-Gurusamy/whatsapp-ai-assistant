@@ -52,7 +52,7 @@ Thumbs.db
 
 # External
 ngrok.exe
-
+run commands.txt
 # Frontend / Node.js
 node_modules/
 .next/
@@ -77,4 +77,5 @@ next-env.d.ts
 
 
 # Generated Prisma Client
-apps/backend/app/db/prisma/
+apps/backend/app/db/prisma/*
+!apps/backend/app/db/prisma/schema.prisma

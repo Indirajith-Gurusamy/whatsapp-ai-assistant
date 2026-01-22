@@ -69,3 +69,30 @@ export interface ConversationDetail {
   comments: string | null;
   status_updated_at: string | null;
 }
+
+export interface SocialLink {
+  platform: string;
+  url: string;
+}
+
+export interface UserProfile {
+  id: number;
+  email: string;
+  name: string;
+  role: string;
+  isActive: boolean;
+  emailVerified: boolean;
+  avatar: string | null;
+  bio: string | null;
+  phone: string | null;
+  city: string | null;
+  country: string | null;
+  location: {
+    city: string | null;
+    country: string | null;
+  } | null;
+  dateOfBirth: string | null;
+  socialLinks: SocialLink[];
+  createdAt: string;
+  updatedAt: string;
+}

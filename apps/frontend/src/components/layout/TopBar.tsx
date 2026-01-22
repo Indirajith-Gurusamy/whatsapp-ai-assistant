@@ -5,6 +5,7 @@ import { MobileSidebar } from './Sidebar';
 import { Settings, User, LogOut, Shield } from 'lucide-react';
 import { NotificationBell } from './NotificationBell';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -16,6 +17,7 @@ import {
 
 export function TopBar() {
     const { logout } = useAuth();
+    const { user, isLoading } = useCurrentUser();
 
     return (
         <header className="sticky top-0 z-40 flex items-center gap-4 px-4 md:px-6 py-3 bg-card/80 backdrop-blur-md border-b border-border/50">
@@ -44,17 +46,23 @@ export function TopBar() {
                     <DropdownMenuTrigger asChild>
                         <Button
                             variant="ghost"
-                            size="icon"
-                            className="text-muted-foreground hover:text-foreground bg-muted/50 rounded-full"
+                            className="flex items-center gap-2 h-auto px-2 py-1.5 hover:bg-accent rounded-full"
                         >
-                            <User className="w-4 h-4" />
+                            <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center border-2 border-emerald-500/20">
+                                <User className="w-4 h-4 text-emerald-600" />
+                            </div>
                             <span className="sr-only">Profile</span>
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                        <DropdownMenuLabel>
+                            <div className="flex flex-col space-y-1">
+                                <p className="text-sm font-medium leading-none">{user?.name || 'User'}</p>
+                                <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
+                            </div>
+                        </DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="cursor-pointer">
+                        <DropdownMenuItem className="cursor-pointer" onClick={() => window.location.href = '/profile'}>
                             <User className="mr-2 h-4 w-4" />
                             <span>My Profile</span>
                         </DropdownMenuItem>

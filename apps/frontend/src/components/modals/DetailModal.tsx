@@ -92,7 +92,7 @@ export function DetailModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col p-0">
+            <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col p-0 overflow-hidden">
                 {/* Sticky Header */}
                 <DialogHeader className="sticky top-0 z-10 bg-background border-b px-6 py-4 flex flex-row items-center justify-between space-y-0">
                     <DialogTitle>Lead Details</DialogTitle>
@@ -108,7 +108,7 @@ export function DetailModal({
                 </DialogHeader>
 
                 {/* Scrollable Content */}
-                <div className="overflow-y-auto px-6 py-4 space-y-6">
+                <div className="overflow-y-auto overflow-x-hidden px-6 py-4 space-y-6 flex-1">
                     {/* Lead Information */}
                     <section className="space-y-3">
                         <h3 className="font-semibold text-sm border-b-2 border-emerald-500 pb-2">
@@ -158,10 +158,10 @@ export function DetailModal({
                             Lead Status & Comments
                         </h3>
                         <Select value={status} onValueChange={(v) => setStatus(v as LeadStatus)}>
-                            <SelectTrigger>
+                            <SelectTrigger className="w-full">
                                 <SelectValue />
                             </SelectTrigger>
-                            <SelectContent position="popper" side="bottom" align="start" sideOffset={5} className="max-h-[250px]">
+                            <SelectContent className="max-h-[200px]">
                                 {statusOptions.map((option) => (
                                     <SelectItem key={option.value} value={option.value}>
                                         {option.label}
