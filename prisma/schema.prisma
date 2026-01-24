@@ -134,3 +134,20 @@ model Session {
   @@map("sessions")
 }
 
+// Notification model - represents system notifications for users
+model Notification {
+  id             Int      @id @default(autoincrement())
+  userId         Int      @map("user_id")
+  type           String   @db.VarChar(50) // 'new_lead' or 'lead_assigned'
+  title          String   @db.VarChar(255)
+  message        String   @db.Text
+  conversationId Int?     @map("conversation_id")
+  isRead         Boolean  @default(false) @map("is_read")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  readAt         DateTime? @map("read_at") @db.Timestamptz()
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}

@@ -33,6 +33,7 @@ interface DataTableProps<T> {
     pageSize?: number;
     onRowClick?: (item: T) => void;
     className?: string;
+    emptyMessage?: string;
 }
 
 export function DataTable<T extends { id?: number | string }>({
@@ -41,6 +42,7 @@ export function DataTable<T extends { id?: number | string }>({
     pageSize: initialPageSize = 25,
     onRowClick,
     className,
+    emptyMessage = "No data found",
 }: DataTableProps<T>) {
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(initialPageSize);
@@ -83,7 +85,7 @@ export function DataTable<T extends { id?: number | string }>({
                                         colSpan={columns.length}
                                         className="h-24 text-center text-muted-foreground"
                                     >
-                                        No data found
+                                        {emptyMessage}
                                     </TableCell>
                                 </TableRow>
                             ) : (

@@ -15,8 +15,10 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
+// ... imports
+
 export function TopBar() {
-    const { logout } = useAuth();
+    const { logout, isAdmin } = useAuth();
     const { user, isLoading } = useCurrentUser();
 
     return (
@@ -66,6 +68,12 @@ export function TopBar() {
                             <User className="mr-2 h-4 w-4" />
                             <span>My Profile</span>
                         </DropdownMenuItem>
+                        {isAdmin() && (
+                            <DropdownMenuItem className="cursor-pointer" onClick={() => window.location.href = '/admin/panel'}>
+                                <Shield className="mr-2 h-4 w-4" />
+                                <span>Admin Panel</span>
+                            </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem className="cursor-pointer" onClick={() => window.location.href = '/settings/sessions'}>
                             <Shield className="mr-2 h-4 w-4" />
                             <span>Active Sessions</span>

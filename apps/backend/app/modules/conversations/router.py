@@ -1,7 +1,8 @@
 """Conversation API router matching old API paths."""
-from fastapi import APIRouter, HTTPException
-from typing import Dict
+from fastapi import APIRouter, HTTPException, Depends
+from typing import Dict, Optional
 from app.modules.conversations.service import ConversationService
+from app.modules.auth.dependencies import get_current_user, get_db
 import logging
 
 logger = logging.getLogger(__name__)
@@ -10,23 +11,32 @@ router = APIRouter(tags=["conversations"])
 
 
 @router.get("/messages")
-async def get_messages(limit: int = 50):
+async def get_messages(
+    limit: int = 50,
+    current_user = Depends(get_current_user)
+):
     """Get recent messages."""
-    messages = await ConversationService.get_messages(limit)
+    messages = await ConversationService.get_messages(limit, current_user)
     return messages
 
 
 @router.get("/responses")
-async def get_responses(limit: int = 50):
+async def get_responses(
+    limit: int = 50,
+    current_user = Depends(get_current_user)
+):
     """Get recent responses."""
-    responses = await ConversationService.get_responses(limit)
+    responses = await ConversationService.get_responses(limit, current_user)
     return responses
 
 
 @router.get("/conversations")
-async def get_conversations(limit: int = 50):
+async def get_conversations(
+    limit: int = 50,
+    current_user = Depends(get_current_user)
+):
     """Get conversations."""
-    conversations = await ConversationService.get_conversations(limit)
+    conversations = await ConversationService.get_conversations(limit, current_user)
     return conversations
 
 
@@ -52,6 +62,27 @@ async def update_conversation_status(message_id: int, data: Dict):
     logger.info(f"Updated conversation {message_id} status to {status}")
     
     return {"success": True, "message_id": message_id, "status": status, "comments": comments}
+
+
+@router.put("/conversation/{message_id}/assign")
+async def assign_lead(
+    message_id: int, 
+    data: Dict,
+    current_user = Depends(get_current_user)
+):
+    """Assign lead to user."""
+    # Only admin can assign leads
+    if current_user.role != "ADMIN":
+        raise HTTPException(status_code=403, detail="Not authorized to assign leads")
+        
+    user_email = data.get("user_email")
+    if not user_email:
+        raise HTTPException(status_code=400, detail="User email required")
+    
+    await ConversationService.assign_lead(message_id, user_email)
+    logger.info(f"Assigned conversation {message_id} to {user_email}")
+    
+    return {"success": True, "message_id": message_id, "assigned_to": user_email}
 
 
 @router.get("/customers")

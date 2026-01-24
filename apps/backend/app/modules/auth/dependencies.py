@@ -1,5 +1,5 @@
 """FastAPI dependencies for authentication."""
-from typing import Optional
+from typing import Optional, List
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.db.prisma import Prisma
@@ -97,3 +97,30 @@ async def get_current_admin_user(
         )
     
     return current_user
+
+
+def require_role(allowed_roles: List[str]):
+    """
+    Create a dependency that requires the user to have one of the specified roles.
+    
+    Args:
+        allowed_roles: List of role names that are allowed (e.g., ['ADMIN', 'MODERATOR'])
+        
+    Returns:
+        FastAPI dependency function
+        
+    Example:
+        @router.get("/admin/users", dependencies=[Depends(require_role(['ADMIN']))])
+        async def get_users():
+            ...
+    """
+    async def role_checker(current_user = Depends(get_current_user)):
+        """Check if current user has one of the required roles."""
+        if current_user.role not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access denied. Required role: {' or '.join(allowed_roles)}"
+            )
+        return current_user
+    
+    return role_checker

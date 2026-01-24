@@ -9,7 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 export default function LoginPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { login, isAuthenticated } = useAuth();
+    const { login, isAuthenticated, user } = useAuth();
     const [formData, setFormData] = useState({
         email: "",
         password: "",
@@ -21,10 +21,10 @@ export default function LoginPage() {
 
     // Check if user is already logged in
     useEffect(() => {
-        if (isAuthenticated) {
-            router.push("/conversations");
+        if (isAuthenticated && user) {
+            router.push(user.role === "ADMIN" ? "/conversations" : "/dashboard");
         }
-    }, [isAuthenticated, router]);
+    }, [isAuthenticated, user, router]);
 
     const validateField = (name: string, value: string): string | null => {
         switch (name) {
@@ -92,8 +92,8 @@ export default function LoginPage() {
 
             toast.success(`Welcome back, ${response.user.name}!`);
 
-            // Redirect to the page they were trying to access, or conversations
-            const redirectTo = searchParams.get("redirect") || "/conversations";
+            // Redirect based on role
+            const redirectTo = searchParams.get("redirect") || (response.user.role === "ADMIN" ? "/conversations" : "/dashboard");
             router.push(redirectTo);
         } catch (error: any) {
             // Handle specific error cases
@@ -241,15 +241,15 @@ export default function LoginPage() {
                         </button>
                     </form>
 
-                    {/* Sign Up Link */}
-                    <div className="mt-6 text-center">
+                    {/* Sign Up Link Removed */
+                    /* <div className="mt-6 text-center">
                         <p className="text-gray-600">
                             Don't have an account?{" "}
                             <a href="/signup" className="text-purple-600 font-semibold hover:text-purple-700 transition">
                                 Sign Up
                             </a>
                         </p>
-                    </div>
+                    </div> */}
                 </div>
             </div>
         </div>

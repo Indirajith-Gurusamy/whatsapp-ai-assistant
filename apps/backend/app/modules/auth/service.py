@@ -77,7 +77,7 @@ class AuthService:
                 "email": data.email,
                 "password": hashed_password,
                 "name": data.name,
-                "role": UserRole.USER,
+                "role": getattr(UserRole, data.role, UserRole.USER) if data.role else UserRole.USER,
                 "isActive": True,
                 "emailVerified": False,
                 "verificationOtp": verification_otp,

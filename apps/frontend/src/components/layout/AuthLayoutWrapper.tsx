@@ -13,7 +13,7 @@ export function AuthLayoutWrapper({ children }: AuthLayoutWrapperProps) {
     const pathname = usePathname();
 
     // Pages that should not use the dashboard layout
-    const authPages = ["/signup", "/login", "/verify-email", "/forgot-password", "/reset-password"];
+    const authPages = ["/signup", "/login", "/verify-email", "/forgot-password", "/reset-password", "/admin/signup", "/admin/login"];
     const isAuthPage = authPages.some(page => pathname.startsWith(page));
 
     return (

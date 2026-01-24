@@ -1,105 +1,77 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
-import { fetchConversations } from '@/lib/api';
+import { notificationApi, Notification } from '@/lib/api';
 
 interface NotificationContextType {
     unreadCount: number;
-    markAsRead: () => void;
-    markOneAsRead: (conversationId: number, messageTime: string) => void;
-    isRead: (conversationId: number, messageTime: string) => boolean;
-    checkForNewMessages: () => Promise<void>;
+    notifications: Notification[];
+    markAsRead: () => Promise<void>;
+    markOneAsRead: (notificationId: number) => Promise<void>;
+    refreshNotifications: () => Promise<void>;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'whatsapp_read_conversations';
+
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
     const [unreadCount, setUnreadCount] = useState(0);
-    const [isClient, setIsClient] = useState(false);
-    // Track conversation ID -> latest read message timestamp
-    const readConversations = useRef<Map<number, string>>(new Map());
+    const [notifications, setNotifications] = useState<any[]>([]);
 
-    // Load read conversations from localStorage on mount
-    useEffect(() => {
-        setIsClient(true);
-
-        // Load from localStorage
-        if (typeof window !== 'undefined') {
-            const stored = localStorage.getItem(STORAGE_KEY);
-            if (stored) {
-                try {
-                    const data = JSON.parse(stored);
-                    readConversations.current = new Map(data);
-                } catch (error) {
-                    console.error('Failed to load read conversations:', error);
-                }
-            }
-        }
-    }, []);
-
-    // Save to localStorage whenever read conversations change
-    const saveToStorage = useCallback(() => {
-        if (typeof window !== 'undefined') {
-            const data = Array.from(readConversations.current.entries());
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-        }
-    }, []);
-
-    const checkForNewMessages = useCallback(async () => {
-        if (!isClient) return;
-
+    const fetchNotifications = useCallback(async () => {
         try {
-            const conversations = await fetchConversations(10);
-            // Count conversations with new/unread messages
-            const unreadConversations = conversations.filter(conv => {
-                const lastReadTime = readConversations.current.get(conv.message_id);
-                // Unread if: never read OR message time is newer than last read time
-                return !lastReadTime || conv.message_time !== lastReadTime;
-            });
-            setUnreadCount(unreadConversations.length);
+            const countData = await notificationApi.getUnreadCount();
+            setUnreadCount(countData.unread_count);
+
+            const notifs = await notificationApi.getNotifications(false);
+            setNotifications(notifs);
         } catch (error) {
-            console.error('Failed to check for new messages:', error);
+            console.error('Failed to fetch notifications:', error);
         }
-    }, [isClient]);
-
-    const markAsRead = useCallback(() => {
-        setUnreadCount(0);
-        // Mark all current conversations as read with their current message times
-        fetchConversations(10).then(conversations => {
-            conversations.forEach(conv => {
-                readConversations.current.set(conv.message_id, conv.message_time);
-            });
-            saveToStorage();
-        });
-    }, [saveToStorage]);
-
-    const markOneAsRead = useCallback((conversationId: number, messageTime: string) => {
-        readConversations.current.set(conversationId, messageTime);
-        setUnreadCount(prev => Math.max(0, prev - 1));
-        saveToStorage();
-    }, [saveToStorage]);
-
-    const isRead = useCallback((conversationId: number, messageTime: string) => {
-        const lastReadTime = readConversations.current.get(conversationId);
-        // Read if we have a record AND the message time matches the last read time
-        return lastReadTime === messageTime;
     }, []);
 
-    // Poll for new messages every 1 second
+    const markAsRead = useCallback(async () => {
+        try {
+            await notificationApi.markAllAsRead();
+            setUnreadCount(0);
+            fetchNotifications();
+        } catch (error) {
+            console.error('Failed to mark all as read:', error);
+        }
+    }, [fetchNotifications]);
+
+    const markOneAsRead = useCallback(async (notificationId: number) => {
+        try {
+            await notificationApi.markAsRead(notificationId);
+            setUnreadCount(prev => Math.max(0, prev - 1));
+            fetchNotifications();
+        } catch (error) {
+            console.error('Failed to mark as read:', error);
+        }
+    }, [fetchNotifications]);
+
+    const isRead = useCallback((notificationId: number) => {
+        return notifications.find(n => n.id === notificationId)?.is_read || false;
+    }, [notifications]);
+
+    // Initial fetch
     useEffect(() => {
-        if (!isClient) return;
+        fetchNotifications();
 
-        // Initial check
-        checkForNewMessages();
-
-        const interval = setInterval(checkForNewMessages, 1000);
+        // Poll every 30 seconds for new notifications
+        const interval = setInterval(fetchNotifications, 30000);
         return () => clearInterval(interval);
-    }, [checkForNewMessages, isClient]);
+    }, [fetchNotifications]);
 
     return (
-        <NotificationContext.Provider value={{ unreadCount, markAsRead, markOneAsRead, isRead, checkForNewMessages }}>
+        <NotificationContext.Provider value={{
+            unreadCount,
+            notifications,
+            markAsRead,
+            markOneAsRead,
+            refreshNotifications: fetchNotifications
+        }}>
             {children}
         </NotificationContext.Provider>
     );

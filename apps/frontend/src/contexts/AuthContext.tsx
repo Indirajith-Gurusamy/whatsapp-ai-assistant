@@ -19,6 +19,9 @@ interface AuthContextType {
     isLoading: boolean;
     login: (user: User, accessToken: string, refreshToken: string, rememberMe?: boolean) => void;
     logout: () => void;
+    isAdmin: () => boolean;
+    hasRole: (role: string) => boolean;
+    hasAnyRole: (roles: string[]) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -82,7 +85,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const logout = () => {
         setUser(null);
         tokenStorage.clearTokens();
-        router.push("/login");
+        window.location.href = "/login";
+    };
+
+    const isAdmin = () => {
+        return user?.role === "ADMIN";
+    };
+
+    const hasRole = (role: string) => {
+        return user?.role === role;
+    };
+
+    const hasAnyRole = (roles: string[]) => {
+        return user ? roles.includes(user.role) : false;
     };
 
     return (
@@ -93,6 +108,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 isLoading,
                 login,
                 logout,
+                isAdmin,
+                hasRole,
+                hasAnyRole,
             }}
         >
             {children}

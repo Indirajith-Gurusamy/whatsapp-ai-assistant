@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     # Email verification
     VERIFICATION_OTP_EXPIRE_MINUTES: int = 5
     
+    # Admin Configuration
+    ADMIN_SIGNUP_CODE: str = "CHANGE_THIS_ADMIN_CODE_IN_PRODUCTION"
+    
     # Logging Configuration
     LOG_LEVEL: str = "INFO"
     

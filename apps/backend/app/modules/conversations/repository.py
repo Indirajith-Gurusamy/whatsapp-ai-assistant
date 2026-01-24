@@ -41,6 +41,14 @@ class ConversationRepository(BaseRepository):
     
     async def get_or_create_conversation(self, customer_id: int) -> int:
         """Get or create active conversation for customer."""
+        # This old method signature is kept for compatibility if used elsewhere, 
+        # but Service uses it. To support notification, we need to know if it was created.
+        # Let's create a new method or modify this if we can update call sites.
+        # Determining call sites: Service calls this.
+        return (await self.get_or_create_conversation_with_status_check(customer_id))[0]
+
+    async def get_or_create_conversation_with_status_check(self, customer_id: int) -> tuple[int, bool]:
+        """Get or create active conversation returning (id, created)."""
         db = await self.get_db()
         
         # Find active conversation
@@ -49,7 +57,7 @@ class ConversationRepository(BaseRepository):
         )
         
         if conversation:
-            return conversation.id
+            return conversation.id, False
         
         # Create new conversation
         conversation = await db.conversation.create(
@@ -62,7 +70,7 @@ class ConversationRepository(BaseRepository):
             }
         )
         
-        return conversation.id
+        return conversation.id, True
     
     async def save_message(
         self,
@@ -116,6 +124,18 @@ class ConversationRepository(BaseRepository):
             }
         )
     
+    async def update_assignment(self, conversation_id: int, email: str):
+        """Update conversation assignment."""
+        db = await self.get_db()
+        
+        await db.conversation.update(
+            where={"id": conversation_id},
+            data={
+                "assignedTo": email,
+                "updatedAt": datetime.now()
+            }
+        )
+
     async def get_conversation_detail(self, conversation_id: int) -> Optional[Dict]:
         """Get conversation with all details."""
         db = await self.get_db()
@@ -164,12 +184,18 @@ class ConversationRepository(BaseRepository):
             ]
         }
     
-    async def get_messages(self, limit: int = 50) -> List[Dict]:
+    async def get_messages(self, limit: int = 50, user: Any = None) -> List[Dict]:
         """Get recent messages."""
         db = await self.get_db()
         
+        where_clause = {"role": MESSAGE_ROLE_USER}
+        
+        # Filter by assigned user if not admin
+        if user and user.role != "ADMIN":
+            where_clause["conversation"] = {"assignedTo": user.email}
+        
         messages = await db.message.find_many(
-            where={"role": MESSAGE_ROLE_USER},
+            where=where_clause,
             include={"conversation": {"include": {"customer": True}}},
             order={"timestamp": "desc"},
             take=limit
@@ -188,12 +214,18 @@ class ConversationRepository(BaseRepository):
             for msg in messages
         ]
     
-    async def get_responses(self, limit: int = 50) -> List[Dict]:
+    async def get_responses(self, limit: int = 50, user: Any = None) -> List[Dict]:
         """Get recent AI responses."""
         db = await self.get_db()
         
+        where_clause = {"role": MESSAGE_ROLE_ASSISTANT}
+        
+        # Filter by assigned user if not admin
+        if user and user.role != "ADMIN":
+            where_clause["conversation"] = {"assignedTo": user.email}
+        
         messages = await db.message.find_many(
-            where={"role": MESSAGE_ROLE_ASSISTANT},
+            where=where_clause,
             include={"conversation": {"include": {"customer": True}}},
             order={"timestamp": "desc"},
             take=limit
@@ -211,11 +243,18 @@ class ConversationRepository(BaseRepository):
             for msg in messages
         ]
     
-    async def get_messages_with_responses(self, limit: int = 50) -> List[Dict]:
+    async def get_messages_with_responses(self, limit: int = 50, user: Any = None) -> List[Dict]:
         """Get conversations with messages and responses."""
         db = await self.get_db()
         
+        where_clause = {}
+        
+        # Filter by assigned user if not admin
+        if user and user.role != "ADMIN":
+            where_clause["assignedTo"] = user.email
+        
         conversations = await db.conversation.find_many(
+            where=where_clause,
             include={
                 "customer": True,
                 "messages": {"order_by": {"timestamp": "asc"}}

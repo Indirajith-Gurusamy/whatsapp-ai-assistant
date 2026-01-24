@@ -8,6 +8,7 @@ class SignupRequest(BaseModel):
     name: str
     email: EmailStr
     password: str
+    role: Optional[str] = "USER"
     
     @field_validator('name')
     @classmethod

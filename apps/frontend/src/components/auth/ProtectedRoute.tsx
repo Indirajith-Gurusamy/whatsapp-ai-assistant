@@ -2,16 +2,17 @@
 
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface ProtectedRouteProps {
     children: React.ReactNode;
+    requiredRole?: string;
 }
 
-const publicRoutes = ["/login", "/signup", "/verify-email", "/forgot-password", "/reset-password"];
+const publicRoutes = ["/login", "/signup", "/verify-email", "/forgot-password", "/reset-password", "/admin/login", "/admin/signup"];
 
-export function ProtectedRoute({ children }: ProtectedRouteProps) {
-    const { isAuthenticated, isLoading } = useAuth();
+export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
+    const { isAuthenticated, isLoading, hasRole } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
 
@@ -31,7 +32,13 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
         if (isAuthenticated && (pathname === "/login" || pathname === "/signup")) {
             router.push("/conversations");
         }
-    }, [isAuthenticated, isLoading, pathname, router]);
+
+        // Check role requirement
+        if (isAuthenticated && requiredRole && !hasRole(requiredRole)) {
+            // User is authenticated but doesn't have required role
+            router.push("/");
+        }
+    }, [isAuthenticated, isLoading, pathname, router, requiredRole, hasRole]);
 
     // Show loading state while checking authentication
     if (isLoading) {
@@ -45,5 +52,24 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
         );
     }
 
+    // Show access denied if role requirement not met
+    if (isAuthenticated && requiredRole && !hasRole(requiredRole)) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-700">
+                <div className="text-white text-center">
+                    <h1 className="text-3xl font-bold mb-4">Access Denied</h1>
+                    <p className="text-lg">You don't have permission to access this page.</p>
+                    <button
+                        onClick={() => router.push("/")}
+                        className="mt-6 px-6 py-2 bg-white text-purple-600 rounded-lg hover:bg-gray-100 transition"
+                    >
+                        Go Home
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     return <>{children}</>;
 }
+

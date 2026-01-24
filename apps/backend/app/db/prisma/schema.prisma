@@ -10,7 +10,7 @@ generator client {
   provider             = "prisma-client-py"
   recursive_type_depth = 5
   interface            = "asyncio"
-  output               = "."
+  output               = "../apps/backend/app/db/prisma"
 }
 
 // User model - represents administrative/system users
@@ -46,7 +46,7 @@ enum UserRole {
 model UserProfile {
   id           Int       @id @default(autoincrement())
   userId       Int       @unique @map("user_id")
-  avatar       String?   @db.Text
+  avatar       String?   @db.VarChar(255)
   bio          String?   @db.Text
   phone        String?   @db.VarChar(50)
   location     Json?     @db.JsonB
@@ -134,3 +134,20 @@ model Session {
   @@map("sessions")
 }
 
+// Notification model - represents system notifications for users
+model Notification {
+  id             Int      @id @default(autoincrement())
+  userId         Int      @map("user_id")
+  type           String   @db.VarChar(50) // 'new_lead' or 'lead_assigned'
+  title          String   @db.VarChar(255)
+  message        String   @db.Text
+  conversationId Int?     @map("conversation_id")
+  isRead         Boolean  @default(false) @map("is_read")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  readAt         DateTime? @map("read_at") @db.Timestamptz()
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}

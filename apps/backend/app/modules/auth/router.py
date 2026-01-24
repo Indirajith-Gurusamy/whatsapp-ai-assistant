@@ -26,6 +26,7 @@ router.include_router(profile_router)
 @router.post("/signup", response_model=MessageResponse, status_code=201)
 async def signup(
     data: SignupRequest,
+    current_user = Depends(get_current_user),
     db: Prisma = Depends(get_db)
 ):
     """
@@ -34,12 +35,29 @@ async def signup(
     - **name**: User's full name (min 2 characters)
     - **email**: Valid email address
     - **password**: Strong password (min 8 chars, uppercase, lowercase, number, special char)
+    - **role**: Role of the user (USER or ADMIN)
     
     Returns a success message. User must verify email before logging in.
     """
-    service = AuthService(db)
-    result = await service.signup(data)
-    return MessageResponse(message=result["message"])
+    if current_user.role != "ADMIN":
+        raise HTTPException(
+            status_code=403,
+            detail="Only admins can create new users"
+        )
+    try:
+        service = AuthService(db)
+        result = await service.signup(data)
+        return MessageResponse(message=result["message"])
+    except HTTPException:
+        raise
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Signup error for {data.email}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Signup failed: {str(e)}"
+        )
 
 
 @router.post("/login", response_model=AuthResponse)
@@ -57,8 +75,19 @@ async def login(
     Returns user data and access/refresh tokens.
     Email must be verified to log in.
     """
-    service = AuthService(db)
-    return await service.login(data, request)
+    try:
+        service = AuthService(db)
+        return await service.login(data, request)
+    except HTTPException:
+        raise
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Login error for {data.email}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Login failed: {str(e)}"
+        )
 
 
 @router.post("/verify-email", response_model=MessageResponse)
@@ -75,9 +104,20 @@ async def verify_email(
     
     Returns success message on verification.
     """
-    service = AuthService(db)
-    result = await service.verify_email(email, otp)
-    return MessageResponse(message=result["message"])
+    try:
+        service = AuthService(db)
+        result = await service.verify_email(email, otp)
+        return MessageResponse(message=result["message"])
+    except HTTPException:
+        raise
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Verify email error for {email}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Email verification failed: {str(e)}"
+        )
 
 
 @router.post("/resend-otp", response_model=MessageResponse)
@@ -92,9 +132,20 @@ async def resend_otp(
     
     Returns success message. Has 30-second cooldown between requests.
     """
-    service = AuthService(db)
-    result = await service.resend_verification_otp(email)
-    return MessageResponse(message=result["message"])
+    try:
+        service = AuthService(db)
+        result = await service.resend_verification_otp(email)
+        return MessageResponse(message=result["message"])
+    except HTTPException:
+        raise
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Resend OTP error for {email}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to resend OTP: {str(e)}"
+        )
 
 
 @router.get("/check-email", response_model=EmailCheckResponse)
@@ -109,9 +160,20 @@ async def check_email(
     
     Returns whether the email is available.
     """
-    service = AuthService(db)
-    result = await service.check_email_availability(email)
-    return EmailCheckResponse(**result)
+    try:
+        service = AuthService(db)
+        result = await service.check_email_availability(email)
+        return EmailCheckResponse(**result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Check email error for {email}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to check email: {str(e)}"
+        )
 
 
 @router.post("/refresh", response_model=TokenResponse)
@@ -125,8 +187,19 @@ async def refresh_token(
     - **refresh_token**: Valid refresh token
     Returns new access and refresh tokens.
     """
-    service = AuthService(db)
-    return await service.refresh_access_token(data.refresh_token)
+    try:
+        service = AuthService(db)
+        return await service.refresh_access_token(data.refresh_token)
+    except HTTPException:
+        raise
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Refresh token error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to refresh token: {str(e)}"
+        )
 
 
 @router.post("/forgot-password", response_model=MessageResponse)
@@ -142,9 +215,20 @@ async def forgot_password(
     Returns success message. OTP will be sent to email if it exists and is verified.
     Has 30-second cooldown between requests.
     """
-    service = AuthService(db)
-    result = await service.forgot_password(data.email)
-    return MessageResponse(message=result["message"])
+    try:
+        service = AuthService(db)
+        result = await service.forgot_password(data.email)
+        return MessageResponse(message=result["message"])
+    except HTTPException:
+        raise
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Forgot password error for {data.email}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to process forgot password request: {str(e)}"
+        )
 
 
 @router.post("/reset-password", response_model=MessageResponse)
@@ -161,8 +245,20 @@ async def reset_password(
     
     Returns success message. All sessions will be invalidated for security.
     """
-    service = AuthService(db)
-    result = await service.reset_password(data.email, data.otp, data.new_password)
+    try:
+        service = AuthService(db)
+        result = await service.reset_password(data.email, data.otp, data.new_password)
+        return MessageResponse(message=result["message"])
+    except HTTPException:
+        raise
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Reset password error for {data.email}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to reset password: {str(e)}"
+        )
     return MessageResponse(message=result["message"])
 
 
