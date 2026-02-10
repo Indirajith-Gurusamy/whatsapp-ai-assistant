@@ -10,7 +10,11 @@ from app.modules.admin.schemas import (
     RoleChangeResponse,
     UserDeleteResponse,
     AdminSignupRequest,
-    AdminStatsResponse
+    AdminStatsResponse,
+    ToggleStatusRequest,
+    ToggleStatusResponse,
+    VerifyUserResponse,
+    ResetPasswordResponse
 )
 from app.modules.auth.schemas import AuthResponse, LoginRequest, MessageResponse
 from app.modules.auth.service import AuthService
@@ -104,7 +108,7 @@ async def admin_signup(
         
         # Send verification email
         try:
-            from app.modules.notifications.email import EmailService
+            from app.core.email import EmailService
             email_service = EmailService()
             email_service.send_verification_otp(
                 email=user.email,
@@ -340,4 +344,132 @@ async def get_admin_stats(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch statistics: {str(e)}"
+        )
+
+
+@router.put("/users/{user_id}/status", response_model=ToggleStatusResponse)
+async def toggle_user_status(
+    user_id: int,
+    data: ToggleStatusRequest,
+    current_user = Depends(require_role(['ADMIN'])),
+    db: Prisma = Depends(get_db)
+):
+    """
+    Enable or disable a user account.
+    
+    **Admin only endpoint.**
+    
+    - **user_id**: ID of the user to modify
+    - **is_active**: True to enable, False to disable
+    """
+    try:
+        service = AdminService(db)
+        updated_user = await service.toggle_user_status(
+            user_id=user_id,
+            is_active=data.is_active,
+            admin_id=current_user.id
+        )
+        
+        action = "enabled" if data.is_active else "disabled"
+        return ToggleStatusResponse(
+            message=f"User {action} successfully",
+            user=UserListItem(
+                id=updated_user.id,
+                email=updated_user.email,
+                name=updated_user.name,
+                role=updated_user.role,
+                is_active=updated_user.isActive,
+                email_verified=updated_user.emailVerified,
+                must_change_password=updated_user.mustChangePassword,
+                last_login=updated_user.lastLogin,
+                created_at=updated_user.createdAt
+            )
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Toggle status error for user {user_id}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to toggle user status: {str(e)}"
+        )
+
+
+@router.put("/users/{user_id}/verify", response_model=VerifyUserResponse)
+async def verify_user_manually(
+    user_id: int,
+    current_user = Depends(require_role(['ADMIN'])),
+    db: Prisma = Depends(get_db)
+):
+    """
+    Manually verify a user's email.
+    
+    **Admin only endpoint.**
+    
+    - **user_id**: ID of the user to verify
+    """
+    try:
+        service = AdminService(db)
+        updated_user = await service.verify_user_manually(
+            user_id=user_id,
+            admin_id=current_user.id
+        )
+        
+        return VerifyUserResponse(
+            message="User verified successfully",
+            user=UserListItem(
+                id=updated_user.id,
+                email=updated_user.email,
+                name=updated_user.name,
+                role=updated_user.role,
+                is_active=updated_user.isActive,
+                email_verified=updated_user.emailVerified,
+                must_change_password=updated_user.mustChangePassword,
+                last_login=updated_user.lastLogin,
+                created_at=updated_user.createdAt
+            )
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Verify user error for user {user_id}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to verify user: {str(e)}"
+        )
+
+
+@router.post("/users/{user_id}/reset-password", response_model=ResetPasswordResponse)
+async def reset_user_password(
+    user_id: int,
+    current_user = Depends(require_role(['ADMIN'])),
+    db: Prisma = Depends(get_db)
+):
+    """
+    Reset user password and send temporary password via email.
+    
+    **Admin only endpoint.**
+    
+    - **user_id**: ID of the user whose password to reset
+    
+    A random password is generated, emailed to the user, and they must change it on first login.
+    """
+    try:
+        service = AdminService(db)
+        message = await service.reset_user_password(
+            user_id=user_id,
+            admin_id=current_user.id
+        )
+        
+        return ResetPasswordResponse(message=message)
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Reset password error for user {user_id}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to reset password: {str(e)}"
         )

@@ -18,18 +18,6 @@ class ConversationService:
         """Get or create conversation."""
         conversation_id, created = await repository.get_or_create_conversation_with_status_check(customer_id)
         
-        if created:
-             # Trigger notification
-            try:
-                from app.modules.notifications.service import NotificationService
-                # Get customer details needed for notification name
-                detail = await repository.get_conversation_detail(conversation_id)
-                customer_name = detail.get("name") if detail else "Unknown"
-                
-                await NotificationService.notify_new_lead(conversation_id, customer_name)
-            except Exception as e:
-                print(f"Failed to send notification: {e}")
-                
         return conversation_id
     
     @staticmethod
@@ -56,18 +44,6 @@ class ConversationService:
     async def assign_lead(conversation_id: int, user_email: str):
         """Assign lead to user."""
         await repository.update_assignment(conversation_id, user_email)
-        
-        # Trigger notification
-        try:
-            from app.modules.notifications.service import NotificationService
-            # Get customer name for the notification
-            detail = await repository.get_conversation_detail(conversation_id)
-            customer_name = detail.get("name") if detail else "Unknown"
-            
-            await NotificationService.notify_lead_assignment(conversation_id, user_email, customer_name)
-        except Exception as e:
-            # Don't fail the assignment if notification fails
-            print(f"Failed to send notification: {e}")
     
     @staticmethod
     async def get_detail(conversation_id: int) -> Optional[Dict]:

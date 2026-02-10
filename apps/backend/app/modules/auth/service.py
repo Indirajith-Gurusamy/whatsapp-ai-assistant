@@ -27,7 +27,7 @@ from app.modules.auth.schemas import (
     UserResponse,
     TokenResponse
 )
-from app.modules.notifications.email import EmailService
+from app.core.email import EmailService
 from app.core.config import settings
 from fastapi import HTTPException, status
 
@@ -145,7 +145,13 @@ class AuthService:
         )
         
         # Create tokens
-        token_data = {"sub": str(user.id), "email": user.email, "name": user.name, "role": user.role}
+        token_data = {
+            "sub": str(user.id), 
+            "email": user.email, 
+            "name": user.name, 
+            "role": user.role,
+            "must_change_password": user.mustChangePassword
+        }
         access_token = create_access_token(token_data)
         refresh_token = create_refresh_token(token_data)
         
@@ -166,7 +172,8 @@ class AuthService:
                 name=user.name,
                 role=user.role,
                 isActive=user.isActive,
-                emailVerified=user.emailVerified
+                emailVerified=user.emailVerified,
+                mustChangePassword=user.mustChangePassword
             ),
             tokens=TokenResponse(
                 access_token=access_token,
@@ -511,7 +518,13 @@ class AuthService:
             )
         
         # Create new tokens
-        token_data = {"sub": user_id, "email": email}
+        token_data = {
+            "sub": user_id, 
+            "email": email,
+            "name": user.name,
+            "role": user.role,
+            "must_change_password": user.mustChangePassword
+        }
         new_access_token = create_access_token(token_data)
         new_refresh_token = create_refresh_token(token_data)
         
@@ -697,3 +710,54 @@ class AuthService:
         except Exception as e:
             # Don't fail request if activity update fails
             logger.debug(f"Failed to update session activity: {e}")
+    
+    async def force_change_password(
+        self, 
+        user_id: int, 
+        current_password: str, 
+        new_password: str
+    ) -> dict:
+        """
+        Force change password after admin reset.
+        
+        Args:
+            user_id: User ID
+            current_password: Current (temporary) password
+            new_password: New password
+            
+        Returns:
+            Success message
+        """
+        user = await self.db.user.find_unique(where={"id": user_id})
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        if not verify_password(current_password, user.password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect"
+            )
+        
+        if current_password == new_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="New password must be different from current password"
+            )
+        
+        hashed_password = hash_password(new_password)
+        
+        await self.db.user.update(
+            where={"id": user_id},
+            data={
+                "password": hashed_password,
+                "mustChangePassword": False
+            }
+        )
+        
+        logger.info(f"User {user_id} changed password after admin reset")
+        
+        return {"message": "Password changed successfully"}

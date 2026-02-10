@@ -11,7 +11,19 @@ security = HTTPBearer()
 async def get_db() -> Prisma:
     """Get database instance."""
     from app.db.client import get_db as get_prisma_client
-    return await get_prisma_client()
+    try:
+        return await get_prisma_client()
+    except Exception as e:
+        error_msg = str(e).lower()
+        if "connection" in error_msg or "connect" in error_msg or "refused" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Unable to connect to the database. Please try again later."
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="A server error occurred. Please try again later."
+        )
 
 
 async def get_current_user(

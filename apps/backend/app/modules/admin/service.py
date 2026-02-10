@@ -1,12 +1,21 @@
 """Service layer for admin operations."""
 import logging
+import secrets
+import string
 from typing import Optional, Tuple
 from datetime import datetime
 from fastapi import HTTPException, status
 from app.db.prisma import Prisma
 from app.db.prisma.enums import UserRole
+from app.modules.auth.utils import hash_password
 
 logger = logging.getLogger(__name__)
+
+
+def generate_random_password(length: int = 12) -> str:
+    """Generate a random password with letters, digits, and special characters."""
+    alphabet = string.ascii_letters + string.digits + "!@#$%&*"
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
 
 
 class AdminService:
@@ -176,3 +185,123 @@ class AdminService:
             "total_active_users": total_active,
             "total_verified_users": total_verified
         }
+    
+    async def toggle_user_status(self, user_id: int, is_active: bool, admin_id: int) -> dict:
+        """
+        Enable or disable a user account.
+        
+        Args:
+            user_id: ID of user to modify
+            is_active: New active status
+            admin_id: ID of admin performing the action
+            
+        Returns:
+            Updated user data
+        """
+        user = await self.db.user.find_unique(where={'id': user_id})
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        if user_id == admin_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You cannot change your own status"
+            )
+        
+        updated_user = await self.db.user.update(
+            where={'id': user_id},
+            data={'isActive': is_active}
+        )
+        
+        action = "enabled" if is_active else "disabled"
+        logger.info(f"Admin {admin_id} {action} user {user_id}")
+        
+        return updated_user
+    
+    async def verify_user_manually(self, user_id: int, admin_id: int) -> dict:
+        """
+        Manually verify a user's email.
+        
+        Args:
+            user_id: ID of user to verify
+            admin_id: ID of admin performing the action
+            
+        Returns:
+            Updated user data
+        """
+        user = await self.db.user.find_unique(where={'id': user_id})
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        if user.emailVerified:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User is already verified"
+            )
+        
+        updated_user = await self.db.user.update(
+            where={'id': user_id},
+            data={
+                'emailVerified': True,
+                'verificationOtp': None,
+                'verificationOtpExp': None
+            }
+        )
+        
+        logger.info(f"Admin {admin_id} manually verified user {user_id}")
+        
+        return updated_user
+    
+    async def reset_user_password(self, user_id: int, admin_id: int) -> str:
+        """
+        Reset user password and send temporary password via email.
+        
+        Args:
+            user_id: ID of user to reset
+            admin_id: ID of admin performing the action
+            
+        Returns:
+            Success message
+        """
+        user = await self.db.user.find_unique(where={'id': user_id})
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        if user_id == admin_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You cannot reset your own password through admin panel"
+            )
+        
+        temp_password = generate_random_password()
+        hashed = hash_password(temp_password)
+        
+        await self.db.user.update(
+            where={'id': user_id},
+            data={
+                'password': hashed,
+                'mustChangePassword': True
+            }
+        )
+        
+        await self.db.session.delete_many(where={'userId': user_id})
+        
+        logger.warning(f"Admin {admin_id} reset password for user {user_id}. Email service not available - temporary password: {temp_password}")
+        
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail="Email service is not available. Password reset cannot be completed."
+        )
+

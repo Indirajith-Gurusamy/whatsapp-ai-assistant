@@ -2,11 +2,13 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useConversations } from '@/hooks/useConversations';
-import { useNotifications } from '@/hooks/useNotifications';
+import { useAuth } from '@/contexts/AuthContext';
 import { fetchConversationDetail } from '@/lib/api';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/data/DataTable';
+import { TableSkeleton } from '@/components/data/TableSkeleton';
 import { StatusBadge } from '@/components/data/StatusBadge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { DetailModal } from '@/components/modals/DetailModal';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -19,6 +21,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { themeClasses } from '@/lib/theme';
 
 const filterTabs: { key: string; label: string; status: LeadStatus | null }[] = [
     { key: 'all', label: 'All', status: null },
@@ -32,18 +35,13 @@ const filterTabs: { key: string; label: string; status: LeadStatus | null }[] = 
 
 export default function ConversationsPage() {
     const { conversations, isLoading, refresh } = useConversations();
-    const { markAsRead } = useNotifications();
+    const { isAdmin } = useAuth();
     const [activeFilter, setActiveFilter] = useState('all');
     const [selectedConversation, setSelectedConversation] = useState<ConversationDetail | null>(null);
     const [detailModalOpen, setDetailModalOpen] = useState(false);
     const [assignModalOpen, setAssignModalOpen] = useState(false);
     const [assignTarget, setAssignTarget] = useState<{ id: number; assignedTo?: string | null } | null>(null);
     const [isExporting, setIsExporting] = useState(false);
-
-    // Mark notifications as read when visiting this page
-    useEffect(() => {
-        markAsRead();
-    }, [markAsRead]);
 
     const filteredConversations = useMemo(() => {
         const filter = filterTabs.find(t => t.key === activeFilter);
@@ -212,10 +210,12 @@ export default function ConversationsPage() {
                             <DropdownMenuItem onClick={() => handleRowClick(item)}>
                                 View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleAssignClick(item)}>
-                                <UserPlus className="mr-2 h-4 w-4" />
-                                Assign Lead
-                            </DropdownMenuItem>
+                            {isAdmin() && (
+                                <DropdownMenuItem onClick={() => handleAssignClick(item)}>
+                                    <UserPlus className="mr-2 h-4 w-4" />
+                                    Assign Lead
+                                </DropdownMenuItem>
+                            )}
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
@@ -225,8 +225,25 @@ export default function ConversationsPage() {
 
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center h-64">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500" />
+            <div className="p-4 md:p-6 space-y-6">
+                {/* Header skeleton */}
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div className="space-y-2">
+                        <Skeleton className="h-8 w-32" />
+                        <Skeleton className="h-4 w-48" />
+                    </div>
+                    <Skeleton className="h-9 w-24" />
+                </div>
+
+                {/* Tabs skeleton */}
+                <div className="flex gap-2">
+                    {Array.from({ length: 7 }).map((_, i) => (
+                        <Skeleton key={i} className="h-9 w-20" />
+                    ))}
+                </div>
+
+                {/* Table skeleton */}
+                <TableSkeleton columns={7} rows={10} showActions={false} />
             </div>
         );
     }
@@ -261,7 +278,7 @@ export default function ConversationsPage() {
                         <TabsTrigger
                             key={tab.key}
                             value={tab.key}
-                            className="data-[state=active]:bg-emerald-500/10 data-[state=active]:text-emerald-600 data-[state=active]:border-b-2 data-[state=active]:border-emerald-500 rounded-none px-4"
+                            className={`data-[state=active]:${themeClasses.sidebarActive} data-[state=active]:border-b-2 data-[state=active]:${themeClasses.borderPrimary} rounded-none px-4`}
                         >
                             {tab.label}
                         </TabsTrigger>

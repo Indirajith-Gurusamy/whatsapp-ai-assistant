@@ -3,7 +3,6 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Toaster } from "@/components/ui/sonner";
-import { NotificationProvider } from "@/hooks/useNotifications";
 import { AuthLayoutWrapper } from "@/components/layout/AuthLayoutWrapper";
 
 const inter = Inter({
@@ -24,16 +23,14 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans`}>
-        <NotificationProvider>
-          <AuthLayoutWrapper>
-            {children}
-          </AuthLayoutWrapper>
-          <Toaster
-            richColors
-            position="top-right"
-            duration={2000}
-          />
-        </NotificationProvider>
+        <AuthLayoutWrapper>
+          {children}
+        </AuthLayoutWrapper>
+        <Toaster
+          richColors
+          position="top-right"
+          duration={2000}
+        />
       </body>
     </html>
   );

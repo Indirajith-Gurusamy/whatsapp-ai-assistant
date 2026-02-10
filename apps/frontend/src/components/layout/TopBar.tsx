@@ -3,7 +3,6 @@
 import { Button } from '@/components/ui/button';
 import { MobileSidebar } from './Sidebar';
 import { Settings, User, LogOut, Shield } from 'lucide-react';
-import { NotificationBell } from './NotificationBell';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import {
@@ -14,8 +13,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-
-// ... imports
+import { themeClasses } from '@/lib/theme';
 
 export function TopBar() {
     const { logout, isAdmin } = useAuth();
@@ -30,9 +28,6 @@ export function TopBar() {
 
             {/* Actions */}
             <div className="flex items-center gap-2">
-                {/* Notification Bell with Dropdown */}
-                <NotificationBell />
-
                 {/* Settings */}
                 <Button
                     variant="ghost"
@@ -50,8 +45,8 @@ export function TopBar() {
                             variant="ghost"
                             className="flex items-center gap-2 h-auto px-2 py-1.5 hover:bg-accent rounded-full"
                         >
-                            <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center border-2 border-emerald-500/20">
-                                <User className="w-4 h-4 text-emerald-600" />
+                            <div className={`w-8 h-8 rounded-full ${themeClasses.bgPrimaryLight} flex items-center justify-center border-2 ${themeClasses.borderPrimaryLight}`}>
+                                <User className={`w-4 h-4 ${themeClasses.textPrimary}`} />
                             </div>
                             <span className="sr-only">Profile</span>
                         </Button>

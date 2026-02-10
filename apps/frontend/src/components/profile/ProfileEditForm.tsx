@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { UserProfile, UpdateProfileData, Location, SocialLink } from '@/types/profile';
 import { profileApi } from '@/lib/api';
+import { themeClasses } from '@/lib/theme';
 import AvatarUpload from './AvatarUpload';
 
 interface ProfileEditFormProps {
@@ -141,7 +142,7 @@ export default function ProfileEditForm({ initialProfile, onSave, onCancel }: Pr
 
                 {/* Success/Error Messages */}
                 {success && (
-                    <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg text-green-800 dark:text-green-200">
+                    <div className={`mb-6 p-4 ${themeClasses.bgPrimaryLight} dark:bg-orange-900/20 border ${themeClasses.borderPrimaryMedium} dark:border-orange-800 rounded-lg ${themeClasses.textPrimaryDark} dark:text-orange-200`}>
                         {success}
                     </div>
                 )}
@@ -252,7 +253,7 @@ export default function ProfileEditForm({ initialProfile, onSave, onCancel }: Pr
                             <button
                                 type="button"
                                 onClick={handleAddSocialLink}
-                                className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                                className="text-sm text-primary dark:text-primary/80 hover:underline"
                             >
                                 + Add Link
                             </button>
@@ -296,7 +297,7 @@ export default function ProfileEditForm({ initialProfile, onSave, onCancel }: Pr
                         <button
                             type="submit"
                             disabled={isSubmitting}
-                            className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="flex-1 px-6 py-3 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {isSubmitting ? 'Saving...' : 'Save Changes'}
                         </button>

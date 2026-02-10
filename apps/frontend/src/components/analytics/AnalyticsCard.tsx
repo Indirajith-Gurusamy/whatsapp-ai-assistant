@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import type { LucideIcon } from 'lucide-react';
+import { themeClasses } from '@/lib/theme';
 
 interface AnalyticsCardProps {
     title: string;
@@ -37,7 +38,7 @@ export function AnalyticsCard({
                 )}
             </CardHeader>
             <CardContent>
-                <div className="text-2xl md:text-3xl font-bold text-emerald-600 dark:text-emerald-400">
+                <div className={`text-2xl md:text-3xl font-bold ${themeClasses.textPrimary} dark:${themeClasses.textPrimaryLight}`}>
                     {value}
                 </div>
                 {description && (

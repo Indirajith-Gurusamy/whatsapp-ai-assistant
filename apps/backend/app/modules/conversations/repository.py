@@ -1,5 +1,5 @@
 """Conversation repository for database operations."""
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime
 from app.db.base import BaseRepository
 from app.db.client import get_db
@@ -47,7 +47,7 @@ class ConversationRepository(BaseRepository):
         # Determining call sites: Service calls this.
         return (await self.get_or_create_conversation_with_status_check(customer_id))[0]
 
-    async def get_or_create_conversation_with_status_check(self, customer_id: int) -> tuple[int, bool]:
+    async def get_or_create_conversation_with_status_check(self, customer_id: int) -> Tuple[int, bool]:
         """Get or create active conversation returning (id, created)."""
         db = await self.get_db()
         

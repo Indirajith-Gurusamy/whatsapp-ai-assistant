@@ -6,7 +6,6 @@ from typing import Dict, Any
 from urllib.parse import parse_qs
 from app.modules.conversations.service import ConversationService
 from app.modules.ai.groq import GroqService
-from app.modules.notifications.email import EmailService
 from app.modules.whatsapp.sender import WhatsAppService
 from app.core.config import settings
 from app.core.constants import MESSAGE_ROLE_USER, MESSAGE_ROLE_ASSISTANT, MESSAGE_STATUS_RECEIVED, MESSAGE_STATUS_SENT, MESSAGE_STATUS_FAILED
@@ -140,12 +139,6 @@ class TwilioWebhookProvider:
                 status=MESSAGE_STATUS_RECEIVED
             )
             logger.info(f"[DB] Message saved (ID: {message_id})")
-
-            # Send email notification
-            try:
-                EmailService.send_message_notification(phone, text, formatted_timestamp)
-            except Exception as e:
-                logger.warning(f"[EMAIL] Notification failed: {e}")
             
             # Generate LLM response
             logger.info(f"[AI] Generating response...")

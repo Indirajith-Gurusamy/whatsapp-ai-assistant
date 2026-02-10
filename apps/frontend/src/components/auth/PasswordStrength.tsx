@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { themeClasses } from '@/lib/theme';
 
 interface PasswordStrengthProps {
     password: string;
@@ -26,7 +27,7 @@ export function PasswordStrength({ password }: PasswordStrengthProps) {
 
         if (score === 5) {
             label = "Strong";
-            color = "bg-green-500";
+            color = themeClasses.bgPrimary;
         } else if (score >= 3) {
             label = "Medium";
             color = "bg-yellow-500";

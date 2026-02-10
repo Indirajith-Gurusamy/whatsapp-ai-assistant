@@ -6,6 +6,7 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
     DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -19,7 +20,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { adminApi, assignLead } from '@/lib/api';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, UserPlus } from 'lucide-react';
 import type { UserListItem } from '@/lib/api';
 
 interface AssignLeadModalProps {
@@ -52,7 +53,6 @@ export function AssignLeadModal({
     const fetchUsers = async () => {
         setIsLoadingUsers(true);
         try {
-            // Fetch all users to populate dropdown
             const response = await adminApi.getAllUsers(0, 100);
             setUsers(response.users);
         } catch (error) {
@@ -64,7 +64,10 @@ export function AssignLeadModal({
     };
 
     const handleAssign = async () => {
-        if (!conversationId || !selectedUser) return;
+        if (!conversationId || !selectedUser) {
+            toast.error('Please select a user');
+            return;
+        }
 
         setIsAssigning(true);
         try {
@@ -84,9 +87,16 @@ export function AssignLeadModal({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>Assign Lead</DialogTitle>
+                    <DialogTitle className="flex items-center gap-2">
+                        <UserPlus className="h-5 w-5 text-primary" />
+                        Assign Lead
+                    </DialogTitle>
+                    <DialogDescription>
+                        Select a user to assign this lead to.
+                    </DialogDescription>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
+
+                <div className="py-4">
                     <div className="space-y-2">
                         <Label htmlFor="user">Select User</Label>
                         <Select
@@ -94,21 +104,27 @@ export function AssignLeadModal({
                             onValueChange={setSelectedUser}
                             disabled={isLoadingUsers}
                         >
-                            <SelectTrigger>
+                            <SelectTrigger className="w-full">
                                 <SelectValue placeholder={isLoadingUsers ? "Loading users..." : "Select a user"} />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent
+                                position="popper"
+                                className="max-h-60 overflow-y-auto"
+                                sideOffset={4}
+                            >
                                 {users.map((user) => (
                                     <SelectItem key={user.id} value={user.email}>
-                                        {user.name} ({user.email})
+                                        <span>{user.name} ({user.email})</span>
                                     </SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
                     </div>
                 </div>
-                <DialogFooter>
+
+                <div className="flex justify-end gap-3 pt-4 border-t mt-2">
                     <Button
+                        type="button"
                         variant="outline"
                         onClick={() => onOpenChange(false)}
                         disabled={isAssigning}
@@ -116,14 +132,15 @@ export function AssignLeadModal({
                         Cancel
                     </Button>
                     <Button
+                        type="button"
                         onClick={handleAssign}
                         disabled={isAssigning || !selectedUser}
-                        className="bg-emerald-600 hover:bg-emerald-700"
+                        className="bg-primary hover:bg-primary/90"
                     >
                         {isAssigning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Confirm Assignment
+                        Assign
                     </Button>
-                </DialogFooter>
+                </div>
             </DialogContent>
         </Dialog>
     );

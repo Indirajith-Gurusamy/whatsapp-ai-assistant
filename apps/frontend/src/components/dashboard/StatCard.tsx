@@ -1,4 +1,5 @@
 import React from 'react';
+import { themeClasses } from '@/lib/theme';
 
 interface StatCardProps {
     title: string;
@@ -18,7 +19,7 @@ export function StatCard({ title, value, icon, trend, trendUp, description }: St
                     <h3 className="text-2xl font-bold mt-2 text-gray-900">{value}</h3>
                 </div>
                 {icon && (
-                    <div className="p-3 bg-indigo-50 rounded-lg text-indigo-600">
+                    <div className="p-3 bg-primary/5 rounded-lg text-primary">
                         {icon}
                     </div>
                 )}
@@ -27,7 +28,7 @@ export function StatCard({ title, value, icon, trend, trendUp, description }: St
             {(trend || description) && (
                 <div className="mt-4 flex items-center text-sm">
                     {trend && (
-                        <span className={`font-medium ${trendUp ? 'text-green-600' : 'text-red-600'} mr-2`}>
+                        <span className={`font-medium ${trendUp ? themeClasses.textPrimary : 'text-red-600'} mr-2`}>
                             {trend}
                         </span>
                     )}

@@ -11,6 +11,24 @@ A full-stack WhatsApp chatbot with AI-powered responses, built with FastAPI (Pyt
 - **Analytics Dashboard**: View conversation statistics and metrics
 - **Email Notifications**: Get notified of new messages
 - **Modern UI**: Built with Next.js, React, and Tailwind CSS
+- **Easy Deployment**: Deploy to free platforms (Render, Vercel, Neon)
+
+## 🌐 Deployment
+
+This application is ready to deploy to production using completely **free hosting platforms**:
+
+- **Backend**: [Render](https://render.com) (750 hrs/month free)
+- **Database**: [Neon](https://neon.tech) (500MB PostgreSQL free)
+- **Frontend**: [Vercel](https://vercel.com) (unlimited deployments)
+
+📖 **[View Complete Deployment Guide →](DEPLOYMENT.md)**
+
+Quick deploy:
+1. Push code to GitHub
+2. Follow the [DEPLOYMENT.md](DEPLOYMENT.md) guide
+3. Configure environment variables
+4. Your app will be live in ~15 minutes!
+
 
 ## 🏗️ Tech Stack
 
@@ -48,11 +66,18 @@ A full-stack WhatsApp chatbot with AI-powered responses, built with FastAPI (Pyt
 ## 🛠️ Setup
 
 ### Prerequisites
+
+**For Local Development:**
 - Python 3.8+
 - Node.js 18+
 - PostgreSQL
 - Twilio account (for WhatsApp)
 - Groq API key
+
+**For Production Deployment:**
+- GitHub account
+- See [DEPLOYMENT.md](DEPLOYMENT.md) for platform-specific requirements
+
 
 ### Backend Setup
 
@@ -68,10 +93,9 @@ A full-stack WhatsApp chatbot with AI-powered responses, built with FastAPI (Pyt
    ```
 
 3. **Set up environment variables:**
-   The backend uses the root `.env` file. You can reference `apps/env/backend.env` for the complete list of required variables.
+   The backend uses `apps/env/backend.env` for configuration.
    ```bash
-   # Edit the root .env file with your actual values
-   # See apps/env/backend.env for all available configuration options
+   # Edit apps/env/backend.env with your actual values
    ```
 
 4. **Run database migrations:**

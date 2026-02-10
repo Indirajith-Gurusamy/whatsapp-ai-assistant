@@ -11,7 +11,8 @@ from app.modules.auth.schemas import (
     RefreshTokenRequest,
     TokenResponse,
     ForgotPasswordRequest,
-    ResetPasswordRequest
+    ResetPasswordRequest,
+    ForceChangePasswordRequest
 )
 from app.modules.auth.session_schemas import SessionListResponse, SessionResponse
 from app.modules.auth.dependencies import get_db, get_current_user
@@ -84,9 +85,15 @@ async def login(
         import logging
         logger = logging.getLogger(__name__)
         logger.error(f"Login error for {data.email}: {str(e)}", exc_info=True)
+        error_msg = str(e).lower()
+        if "connection" in error_msg or "connect" in error_msg or "refused" in error_msg:
+            raise HTTPException(
+                status_code=503,
+                detail="Unable to connect to the database. Please try again later."
+            )
         raise HTTPException(
             status_code=500,
-            detail=f"Login failed: {str(e)}"
+            detail="Login failed. Please try again later."
         )
 
 
@@ -323,5 +330,28 @@ async def delete_all_sessions(
     
     service = AuthService(db)
     result = await service.delete_all_sessions(current_user.id, token)
+    return MessageResponse(message=result["message"])
+
+
+@router.post("/force-change-password", response_model=MessageResponse)
+async def force_change_password(
+    data: ForceChangePasswordRequest,
+    current_user = Depends(get_current_user),
+    db: Prisma = Depends(get_db)
+):
+    """
+    Change password when mustChangePassword flag is set.
+    
+    - **current_password**: Current temporary password
+    - **new_password**: New password (min 8 chars, uppercase, lowercase, number, special char)
+    
+    Clears the mustChangePassword flag after successful change.
+    """
+    service = AuthService(db)
+    result = await service.force_change_password(
+        user_id=current_user.id,
+        current_password=data.current_password,
+        new_password=data.new_password
+    )
     return MessageResponse(message=result["message"])
 

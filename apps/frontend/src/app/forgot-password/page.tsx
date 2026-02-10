@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authApi } from "@/lib/api";
+import { themeClasses } from "@/lib/theme";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
 
-export default function ForgotPasswordPage() {
+function ForgotPasswordContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [email, setEmail] = useState("");
@@ -57,13 +59,13 @@ export default function ForgotPasswordPage() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-700 p-4">
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4">
             <div className="w-full max-w-md">
                 <div className="bg-white rounded-2xl shadow-2xl p-8">
                     {/* Header */}
                     <div className="text-center mb-8">
-                        <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-100 rounded-full mb-4">
-                            <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 rounded-full mb-4">
+                            <svg className="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                             </svg>
                         </div>
@@ -76,7 +78,7 @@ export default function ForgotPasswordPage() {
                     </div>
 
                     {success ? (
-                        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-center">
+                        <div className={`${themeClasses.bgPrimaryLight} border ${themeClasses.borderPrimaryMedium} ${themeClasses.textPrimary} px-4 py-3 rounded-lg text-center`}>
                             <p className="font-semibold mb-1">✓ Code Sent!</p>
                             <p className="text-sm">Check your email for the reset code. Redirecting...</p>
                         </div>
@@ -99,7 +101,7 @@ export default function ForgotPasswordPage() {
                                     id="email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
+                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition"
                                     placeholder="john@example.com"
                                     required
                                     autoComplete="email"
@@ -111,7 +113,7 @@ export default function ForgotPasswordPage() {
                             <button
                                 type="submit"
                                 disabled={isLoading}
-                                className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                                className={`w-full ${themeClasses.bgPrimaryGradient} ${themeClasses.bgPrimaryGradientHover} text-white py-3 rounded-lg font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center`}
                             >
                                 {isLoading ? (
                                     <>
@@ -127,7 +129,7 @@ export default function ForgotPasswordPage() {
 
                     {/* Back to Login Link */}
                     <div className="mt-6 text-center">
-                        <a href="/login" className="text-sm text-purple-600 hover:text-purple-700 font-semibold transition inline-flex items-center">
+                        <a href="/login" className="text-sm text-primary hover:text-primary/90 font-semibold transition inline-flex items-center">
                             <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                             </svg>
@@ -137,5 +139,17 @@ export default function ForgotPasswordPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function ForgotPasswordPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4">
+                <Skeleton className="h-96 w-full max-w-md rounded-2xl" />
+            </div>
+        }>
+            <ForgotPasswordContent />
+        </Suspense>
     );
 }

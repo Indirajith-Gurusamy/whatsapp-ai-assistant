@@ -1,6 +1,7 @@
 import React from 'react';
 import { DashboardActivity } from '@/lib/api';
 import { formatDistanceToNow } from 'date-fns';
+import { themeClasses } from '@/lib/theme';
 
 interface ActivityFeedProps {
     activities: DashboardActivity[];
@@ -29,7 +30,7 @@ export function ActivityFeed({ activities, isLoading }: ActivityFeedProps) {
             {activities.map((activity) => (
                 <div key={activity.id} className="flex items-start space-x-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
                     <div className="flex-shrink-0">
-                        <div className={`w-2 h-2 mt-2 rounded-full ${activity.status === 'active' ? 'bg-green-500' : 'bg-gray-400'
+                        <div className={`w-2 h-2 mt-2 rounded-full ${activity.status === 'active' ? themeClasses.bgPrimary : 'bg-gray-400'
                             }`} />
                     </div>
                     <div className="flex-1 min-w-0">

@@ -22,6 +22,7 @@ model User {
   role                 UserRole     @default(USER)
   isActive             Boolean      @default(true) @map("is_active")
   emailVerified        Boolean      @default(false) @map("email_verified")
+  mustChangePassword   Boolean      @default(false) @map("must_change_password")
   verificationOtp      String?      @map("verification_otp") @db.VarChar(6)
   verificationOtpExp   DateTime?    @map("verification_otp_exp") @db.Timestamptz()
   resetToken           String?      @map("reset_token") @db.VarChar(255)
@@ -132,22 +133,4 @@ model Session {
   @@index([lastActivity])
   @@index([expiresAt])
   @@map("sessions")
-}
-
-// Notification model - represents system notifications for users
-model Notification {
-  id             Int      @id @default(autoincrement())
-  userId         Int      @map("user_id")
-  type           String   @db.VarChar(50) // 'new_lead' or 'lead_assigned'
-  title          String   @db.VarChar(255)
-  message        String   @db.Text
-  conversationId Int?     @map("conversation_id")
-  isRead         Boolean  @default(false) @map("is_read")
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz()
-  readAt         DateTime? @map("read_at") @db.Timestamptz()
-
-  @@index([userId])
-  @@index([isRead])
-  @@index([createdAt])
-  @@map("notifications")
 }

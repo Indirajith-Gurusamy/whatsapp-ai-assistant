@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { authApi, Session } from '@/lib/api';
 import { SessionCard } from '@/components/settings/SessionCard';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Shield, AlertTriangle, LogOut } from 'lucide-react';
 
 export default function SessionsPage() {
@@ -62,8 +63,40 @@ export default function SessionsPage() {
 
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <div className="max-w-4xl mx-auto py-8 px-4">
+                <div className="flex items-center justify-between mb-8">
+                    <div className="space-y-2">
+                        <Skeleton className="h-7 w-40" />
+                        <Skeleton className="h-4 w-72" />
+                    </div>
+                    <Skeleton className="h-9 w-48" />
+                </div>
+
+                <div className="grid gap-4">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="bg-white rounded-lg border border-gray-200 p-4 flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <Skeleton className="h-10 w-10 rounded" />
+                                <div className="space-y-2">
+                                    <Skeleton className="h-4 w-32" />
+                                    <Skeleton className="h-3 w-48" />
+                                    <Skeleton className="h-3 w-24" />
+                                </div>
+                            </div>
+                            <Skeleton className="h-8 w-20" />
+                        </div>
+                    ))}
+                </div>
+
+                <div className="mt-8 p-4 bg-primary/5 rounded-lg">
+                    <div className="flex items-start">
+                        <Skeleton className="h-8 w-8 rounded-full mr-3" />
+                        <div className="space-y-2 flex-1">
+                            <Skeleton className="h-4 w-28" />
+                            <Skeleton className="h-3 w-full max-w-lg" />
+                        </div>
+                    </div>
+                </div>
             </div>
         );
     }
@@ -111,13 +144,13 @@ export default function SessionsPage() {
                 ))}
             </div>
 
-            <div className="mt-8 p-4 bg-blue-50 rounded-lg flex items-start">
-                <div className="p-2 bg-blue-100 rounded-full mr-3">
-                    <Shield className="w-4 h-4 text-blue-600" />
+            <div className="mt-8 p-4 bg-primary/5 rounded-lg flex items-start">
+                <div className="p-2 bg-primary/10 rounded-full mr-3">
+                    <Shield className="w-4 h-4 text-primary" />
                 </div>
                 <div>
-                    <h4 className="text-sm font-semibold text-blue-900">Security Note</h4>
-                    <p className="mt-1 text-sm text-blue-700">
+                    <h4 className="text-sm font-semibold text-primary">Security Note</h4>
+                    <p className="mt-1 text-sm text-primary/90">
                         If you see any suspicious activity, we recommend logging out all other devices and changing your password immediately.
                         Inactive sessions are automatically logged out after 2 days.
                     </p>

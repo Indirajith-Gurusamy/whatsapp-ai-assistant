@@ -10,10 +10,11 @@ class UserListItem(BaseModel):
     email: str
     name: str
     role: str
-    isActive: bool = Field(alias="is_active")
-    emailVerified: bool = Field(alias="email_verified")
-    lastLogin: Optional[datetime] = Field(None, alias="last_login")
-    createdAt: datetime = Field(alias="created_at")
+    isActive: bool = Field(validation_alias="is_active")
+    emailVerified: bool = Field(validation_alias="email_verified")
+    mustChangePassword: bool = Field(False, validation_alias="must_change_password")
+    lastLogin: Optional[datetime] = Field(None, validation_alias="last_login")
+    createdAt: datetime = Field(validation_alias="created_at")
     
     class Config:
         populate_by_name = True
@@ -75,3 +76,25 @@ class AdminStatsResponse(BaseModel):
     total_admins: int
     total_active_users: int
     total_verified_users: int
+
+
+class ToggleStatusRequest(BaseModel):
+    """Request to enable/disable a user."""
+    is_active: bool
+
+
+class ToggleStatusResponse(BaseModel):
+    """Response after toggling user status."""
+    message: str
+    user: UserListItem
+
+
+class VerifyUserResponse(BaseModel):
+    """Response after manually verifying a user."""
+    message: str
+    user: UserListItem
+
+
+class ResetPasswordResponse(BaseModel):
+    """Response after admin resets user password."""
+    message: str

@@ -7,6 +7,7 @@ import { dashboardApi, DashboardStats, DashboardActivity, DashboardSummary } fro
 import { StatCard } from '@/components/dashboard/StatCard';
 import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
 import { QuickActions } from '@/components/dashboard/QuickActions';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function DashboardPage() {
     const { user, isAuthenticated, isLoading: authLoading } = useAuth();
@@ -47,8 +48,72 @@ export default function DashboardPage() {
 
     if (authLoading || (loading && !stats)) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            <div className="min-h-screen bg-gray-50">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                    {/* Header skeleton */}
+                    <div className="mb-8 space-y-2">
+                        <Skeleton className="h-9 w-64" />
+                        <Skeleton className="h-5 w-80" />
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        {/* Left Column */}
+                        <div className="lg:col-span-2 space-y-8">
+                            {/* Stats Grid skeleton */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                {Array.from({ length: 3 }).map((_, i) => (
+                                    <div key={i} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <Skeleton className="h-4 w-24" />
+                                            <Skeleton className="h-6 w-6 rounded" />
+                                        </div>
+                                        <Skeleton className="h-8 w-16" />
+                                        <Skeleton className="h-3 w-20" />
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Recent Activity skeleton */}
+                            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                                <Skeleton className="h-6 w-36 mb-4" />
+                                <div className="space-y-4">
+                                    {Array.from({ length: 5 }).map((_, i) => (
+                                        <div key={i} className="flex items-start gap-3">
+                                            <Skeleton className="h-10 w-10 rounded-full" />
+                                            <div className="flex-1 space-y-2">
+                                                <Skeleton className="h-4 w-48" />
+                                                <Skeleton className="h-3 w-32" />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Right Column */}
+                        <div className="space-y-8">
+                            {/* Quick Actions skeleton */}
+                            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-3">
+                                <Skeleton className="h-6 w-28 mb-2" />
+                                {Array.from({ length: 4 }).map((_, i) => (
+                                    <Skeleton key={i} className="h-10 w-full" />
+                                ))}
+                            </div>
+
+                            {/* Profile card skeleton */}
+                            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                                <div className="flex items-center space-x-4 mb-4">
+                                    <Skeleton className="h-10 w-10 rounded-full" />
+                                    <div className="space-y-2">
+                                        <Skeleton className="h-4 w-24" />
+                                        <Skeleton className="h-3 w-36" />
+                                    </div>
+                                </div>
+                                <Skeleton className="h-3 w-20" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         );
     }
@@ -135,7 +200,7 @@ export default function DashboardPage() {
                         {/* Optional: Mini Profile Card or System Status */}
                         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                             <div className="flex items-center space-x-4 mb-4">
-                                <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold">
+                                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
                                     {user?.name?.charAt(0).toUpperCase()}
                                 </div>
                                 <div>

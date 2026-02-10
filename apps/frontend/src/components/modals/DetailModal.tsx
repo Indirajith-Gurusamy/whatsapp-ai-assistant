@@ -6,6 +6,7 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -20,6 +21,7 @@ import {
 import { updateConversationStatus } from '@/lib/api';
 import type { ConversationDetail, LeadStatus } from '@/types';
 import { toast } from 'sonner';
+import { themeClasses } from '@/lib/theme';
 
 const statusOptions: { value: LeadStatus; label: string }[] = [
     { value: 'new lead', label: 'New Lead' },
@@ -111,7 +113,7 @@ export function DetailModal({
                 <div className="overflow-y-auto overflow-x-hidden px-6 py-4 space-y-6 flex-1">
                     {/* Lead Information */}
                     <section className="space-y-3">
-                        <h3 className="font-semibold text-sm border-b-2 border-emerald-500 pb-2">
+                        <h3 className={`font-semibold text-sm border-b-2 ${themeClasses.borderPrimary} pb-2`}>
                             Lead Information
                         </h3>
                         <div className="grid grid-cols-[100px_1fr] gap-2 text-sm">
@@ -126,10 +128,10 @@ export function DetailModal({
 
                     {/* Enquiry */}
                     <section className="space-y-3">
-                        <h3 className="font-semibold text-sm border-b-2 border-emerald-500 pb-2">
+                        <h3 className={`font-semibold text-sm border-b-2 ${themeClasses.borderPrimary} pb-2`}>
                             Enquiry
                         </h3>
-                        <div className="bg-muted/50 p-4 rounded-lg border-l-4 border-emerald-500">
+                        <div className={`bg-muted/50 p-4 rounded-lg border-l-4 ${themeClasses.borderPrimary}`}>
                             <p className="text-sm whitespace-pre-wrap">{conversation.message}</p>
                         </div>
                     </section>
@@ -151,10 +153,9 @@ export function DetailModal({
                             </div>
                         </section>
                     )}
-
                     {/* Status & Comments */}
                     <section className="space-y-3">
-                        <h3 className="font-semibold text-sm border-b-2 border-emerald-500 pb-2">
+                        <h3 className={`font-semibold text-sm border-b-2 ${themeClasses.borderPrimary} pb-2`}>
                             Lead Status & Comments
                         </h3>
                         <Select value={status} onValueChange={(v) => setStatus(v as LeadStatus)}>
@@ -183,7 +184,7 @@ export function DetailModal({
                         <Button
                             onClick={handleUpdate}
                             disabled={isUpdating}
-                            className="w-full bg-emerald-600 hover:bg-emerald-700"
+                            className={`w-full h-11 text-base font-semibold shadow-md mt-4 ${themeClasses.btnPrimary}`}
                         >
                             {isUpdating ? 'Updating...' : 'Update Status'}
                         </Button>
