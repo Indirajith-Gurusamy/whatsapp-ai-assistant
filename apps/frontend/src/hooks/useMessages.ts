@@ -9,9 +9,12 @@ export function useMessages(limit = 500) {
         ['messages', limit],
         () => fetchMessages(limit),
         {
-            revalidateOnFocus: true,
-            refreshInterval: 1000, // Auto-refresh every 1 second
-            dedupingInterval: 500,
+            revalidateOnFocus: false,
+            revalidateOnReconnect: false,
+            revalidateIfStale: false,
+            refreshInterval: 0,
+            shouldRetryOnError: false,
+            dedupingInterval: 5000,
         }
     );
 

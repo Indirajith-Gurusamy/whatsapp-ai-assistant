@@ -10,27 +10,28 @@ generator client {
   provider             = "prisma-client-py"
   recursive_type_depth = 5
   interface            = "asyncio"
-  output               = "."
+  output               = "../apps/backend/app/db/prisma"
 }
 
 // User model - represents administrative/system users
 model User {
-  id                   Int          @id @default(autoincrement())
-  email                String       @unique @db.VarChar(255)
-  password             String       @db.VarChar(255)
-  name                 String       @db.VarChar(255)
-  role                 UserRole     @default(USER)
-  isActive             Boolean      @default(true) @map("is_active")
-  emailVerified        Boolean      @default(false) @map("email_verified")
-  verificationOtp      String?      @map("verification_otp") @db.VarChar(6)
-  verificationOtpExp   DateTime?    @map("verification_otp_exp") @db.Timestamptz()
-  resetToken           String?      @map("reset_token") @db.VarChar(255)
-  resetTokenExp        DateTime?    @map("reset_token_exp") @db.Timestamptz()
-  lastLogin            DateTime?    @map("last_login") @db.Timestamptz()
-  createdAt            DateTime     @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt            DateTime     @updatedAt @map("updated_at") @db.Timestamptz()
-  profile              UserProfile?
-  sessions             Session[]
+  id                 Int          @id @default(autoincrement())
+  email              String       @unique @db.VarChar(255)
+  password           String       @db.VarChar(255)
+  name               String       @db.VarChar(255)
+  role               UserRole     @default(USER)
+  isActive           Boolean      @default(true) @map("is_active")
+  emailVerified      Boolean      @default(false) @map("email_verified")
+  mustChangePassword Boolean      @default(false) @map("must_change_password")
+  verificationOtp    String?      @map("verification_otp") @db.VarChar(6)
+  verificationOtpExp DateTime?    @map("verification_otp_exp") @db.Timestamptz()
+  resetToken         String?      @map("reset_token") @db.VarChar(255)
+  resetTokenExp      DateTime?    @map("reset_token_exp") @db.Timestamptz()
+  lastLogin          DateTime?    @map("last_login") @db.Timestamptz()
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz()
+  profile            UserProfile?
+  sessions           Session[]
 
   @@index([email])
   @@index([verificationOtp])
@@ -44,15 +45,15 @@ enum UserRole {
 }
 
 model UserProfile {
-  id           Int       @id @default(autoincrement())
-  userId       Int       @unique @map("user_id")
-  avatar       String?   @db.Text
-  bio          String?   @db.Text
-  phone        String?   @db.VarChar(50)
-  location     Json?     @db.JsonB
-  dateOfBirth  DateTime? @map("date_of_birth") @db.Date
-  socialLinks  Json?     @map("social_links") @db.JsonB
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          Int       @id @default(autoincrement())
+  userId      Int       @unique @map("user_id")
+  avatar      String?   @db.VarChar(255)
+  bio         String?   @db.Text
+  phone       String?   @db.VarChar(50)
+  location    Json?     @db.JsonB
+  dateOfBirth DateTime? @map("date_of_birth") @db.Date
+  socialLinks Json?     @map("social_links") @db.JsonB
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_profiles")
 }
@@ -133,4 +134,3 @@ model Session {
   @@index([expiresAt])
   @@map("sessions")
 }
-

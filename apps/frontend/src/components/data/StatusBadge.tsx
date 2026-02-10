@@ -1,12 +1,13 @@
 import type { LeadStatus } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { themeClasses } from '@/lib/theme';
 
 const statusStyles: Record<LeadStatus, string> = {
     'new lead': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-    'application sent': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+    'application sent': `${themeClasses.badgePrimary} ${themeClasses.badgePrimaryDark}`,
     'application in': 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
-    'nurture': 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
+    'nurture': `${themeClasses.badgePrimary} ${themeClasses.badgePrimaryDark}`,
     'follow up': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
     'on hold': 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
     'lost': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',

@@ -3,6 +3,7 @@
 import React from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { Session } from '@/lib/api';
+import { themeClasses } from '@/lib/theme';
 import {
     Monitor,
     Smartphone,
@@ -31,7 +32,7 @@ export const SessionCard: React.FC<SessionCardProps> = ({
             case 'tablet':
                 return <Tablet className="w-5 h-5 text-purple-500" />;
             case 'desktop':
-                return <Monitor className="w-5 h-5 text-green-500" />;
+                return <Monitor className={`w-5 h-5 ${themeClasses.iconPrimary}`} />;
             default:
                 return <Monitor className="w-5 h-5 text-gray-500" />;
         }
@@ -51,7 +52,7 @@ export const SessionCard: React.FC<SessionCardProps> = ({
                                 {session.browser || 'Unknown Browser'}
                             </h3>
                             {session.isCurrent && (
-                                <span className="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded-full">
+                                <span className={`px-2 py-0.5 text-xs font-medium ${themeClasses.badgePrimary} rounded-full`}>
                                     Current Session
                                 </span>
                             )}

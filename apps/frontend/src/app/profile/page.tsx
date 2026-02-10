@@ -10,10 +10,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Loader2, User, Shield, CheckCircle2, XCircle, Eye, EyeOff, Camera, X } from 'lucide-react';
 import { PasswordStrength } from "@/components/auth/PasswordStrength";
+import { themeClasses } from '@/lib/theme';
 
 export default function ProfilePage() {
     const router = useRouter();
@@ -307,8 +308,8 @@ export default function ProfilePage() {
                                         className="w-full h-full object-cover"
                                     />
                                 ) : (
-                                    <div className="w-full h-full bg-emerald-500/10 flex items-center justify-center">
-                                        <User className="w-10 h-10 text-emerald-600" />
+                                    <div className={`w-full h-full ${themeClasses.avatarBg} flex items-center justify-center`}>
+                                        <User className={`w-10 h-10 ${themeClasses.iconPrimaryDark}`} />
                                     </div>
                                 )}
 
@@ -348,7 +349,7 @@ export default function ProfilePage() {
                                 <p className="text-base font-medium">{profile.email}</p>
                             </div>
                             {selectedFile && (
-                                <p className="text-xs text-emerald-600 font-medium animate-pulse">
+                                <p className={`text-xs ${themeClasses.textPrimary} font-medium animate-pulse`}>
                                     New avatar selected - Click Save to upload
                                 </p>
                             )}
@@ -358,6 +359,7 @@ export default function ProfilePage() {
                             variant="outline"
                             size="sm"
                             onClick={() => setShowPasswordChange(!showPasswordChange)}
+                            className="bg-background hover:bg-orange-50 text-orange-600 border-orange-200 hover:border-orange-300 transition-all font-medium rounded-lg px-4 shadow-sm"
                         >
                             <Shield className="w-4 h-4 mr-2" />
                             Edit Password
@@ -368,12 +370,14 @@ export default function ProfilePage() {
 
             {/* Password Change Modal */}
             <Dialog open={showPasswordChange} onOpenChange={setShowPasswordChange}>
-                <DialogContent>
+                <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
                         <DialogTitle>Change Password</DialogTitle>
+                        <DialogDescription>
+                            Enter your current password and a new password to update your account security.
+                        </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4 mt-4">
-
+                    <div className="space-y-4 py-2">
                         <div className="space-y-2">
                             <Label htmlFor="currentPassword">Current Password</Label>
                             <div className="relative">
@@ -441,14 +445,14 @@ export default function ProfilePage() {
                             </div>
                             {passwordErrors.confirmPassword && <p className="text-red-500 text-xs">{passwordErrors.confirmPassword}</p>}
                         </div>
-                        <div className="flex gap-2 justify-end pt-4">
-                            <Button variant="outline" onClick={() => setShowPasswordChange(false)}>
-                                Cancel
-                            </Button>
-                            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleUpdatePassword}>
-                                Update Password
-                            </Button>
-                        </div>
+                    </div>
+                    <div className="flex gap-2 justify-end pt-4 border-t mt-4">
+                        <Button variant="outline" onClick={() => setShowPasswordChange(false)}>
+                            Cancel
+                        </Button>
+                        <Button className={themeClasses.btnPrimary} onClick={handleUpdatePassword}>
+                            Update Password
+                        </Button>
                     </div>
                 </DialogContent>
             </Dialog>
@@ -532,21 +536,19 @@ export default function ProfilePage() {
                 </CardContent>
             </Card>
 
-            {/* Save Button at Bottom */}
-            <div className="flex justify-end pt-4 border-t">
+            <div className="flex justify-center md:justify-end pt-8 pb-12">
                 <Button
                     onClick={handleSave}
                     disabled={isSaving}
-                    className="bg-emerald-600 hover:bg-emerald-700 px-8"
-                    size="lg"
+                    className={`${themeClasses.btnPrimary} px-12 h-14 text-lg font-bold shadow-xl shadow-orange-500/20 transition-all hover:scale-[1.02] active:scale-95 w-full md:w-auto rounded-xl`}
                 >
                     {isSaving ? (
                         <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Saving...
+                            <Loader2 className="w-6 h-6 mr-2 animate-spin" />
+                            Saving Changes...
                         </>
                     ) : (
-                        'Save'
+                        'Save Changes'
                     )}
                 </Button>
             </div>

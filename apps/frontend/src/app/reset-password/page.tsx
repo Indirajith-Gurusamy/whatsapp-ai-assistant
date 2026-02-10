@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { authApi } from "@/lib/api";
+import { themeClasses } from "@/lib/theme";
 import { toast } from "sonner";
 import { PasswordStrength } from "@/components/auth/PasswordStrength";
 
@@ -101,13 +102,13 @@ export default function ResetPasswordPage() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-700 p-4">
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4">
             <div className="w-full max-w-md">
                 <div className="bg-white rounded-2xl shadow-2xl p-8">
                     {/* Header */}
                     <div className="text-center mb-8">
-                        <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-100 rounded-full mb-4">
-                            <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 rounded-full mb-4">
+                            <svg className="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                             </svg>
                         </div>
@@ -120,9 +121,9 @@ export default function ResetPasswordPage() {
                     </div>
 
                     {success ? (
-                        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-4 rounded-lg text-center">
+                        <div className={`${themeClasses.bgPrimaryLight} border ${themeClasses.borderPrimaryMedium} ${themeClasses.textPrimary} px-4 py-4 rounded-lg text-center`}>
                             <div className="flex items-center justify-center mb-2">
-                                <svg className="w-12 h-12 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className={`w-12 h-12 ${themeClasses.iconPrimary}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                             </div>
@@ -163,7 +164,7 @@ export default function ResetPasswordPage() {
                                         type="button"
                                         onClick={handleResendCode}
                                         disabled={isResending}
-                                        className="text-sm text-purple-600 hover:text-purple-700 font-semibold transition disabled:opacity-50"
+                                        className="text-sm text-primary hover:text-primary/90 font-semibold transition disabled:opacity-50"
                                     >
                                         {isResending ? "Sending..." : "Resend Code"}
                                     </button>
@@ -173,7 +174,7 @@ export default function ResetPasswordPage() {
                                     id="otp"
                                     value={otp}
                                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                                    className={`w-full px-4 py-3 rounded-lg border ${errors.otp ? "border-red-500" : "border-gray-300"} focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition text-center text-2xl tracking-widest font-mono`}
+                                    className={`w-full px-4 py-3 rounded-lg border ${errors.otp ? "border-red-500" : "border-gray-300"} focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition text-center text-2xl tracking-widest font-mono`}
                                     placeholder="000000"
                                     maxLength={6}
                                     required
@@ -192,7 +193,7 @@ export default function ResetPasswordPage() {
                                         id="newPassword"
                                         value={newPassword}
                                         onChange={(e) => setNewPassword(e.target.value)}
-                                        className={`w-full px-4 py-3 rounded-lg border ${errors.newPassword ? "border-red-500" : "border-gray-300"} focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition pr-12`}
+                                        className={`w-full px-4 py-3 rounded-lg border ${errors.newPassword ? "border-red-500" : "border-gray-300"} focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition pr-12`}
                                         placeholder="••••••••"
                                         required
                                     />
@@ -227,7 +228,7 @@ export default function ResetPasswordPage() {
                                     id="confirmPassword"
                                     value={confirmPassword}
                                     onChange={(e) => setConfirmPassword(e.target.value)}
-                                    className={`w-full px-4 py-3 rounded-lg border ${errors.confirmPassword ? "border-red-500" : "border-gray-300"} focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition`}
+                                    className={`w-full px-4 py-3 rounded-lg border ${errors.confirmPassword ? "border-red-500" : "border-gray-300"} focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition`}
                                     placeholder="••••••••"
                                     required
                                 />
@@ -238,7 +239,7 @@ export default function ResetPasswordPage() {
                             <button
                                 type="submit"
                                 disabled={isLoading}
-                                className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                                className={`w-full ${themeClasses.bgPrimaryGradient} ${themeClasses.bgPrimaryGradientHover} text-white py-3 rounded-lg font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center`}
                             >
                                 {isLoading ? (
                                     <>
@@ -254,7 +255,7 @@ export default function ResetPasswordPage() {
 
                     {/* Back to Login Link */}
                     <div className="mt-6 text-center">
-                        <a href="/login" className="text-sm text-purple-600 hover:text-purple-700 font-semibold transition inline-flex items-center">
+                        <a href="/login" className="text-sm text-primary hover:text-primary/90 font-semibold transition inline-flex items-center">
                             <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                             </svg>

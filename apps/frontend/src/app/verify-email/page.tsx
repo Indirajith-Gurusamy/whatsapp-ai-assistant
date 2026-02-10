@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authApi } from "@/lib/api";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [otp, setOtp] = useState(["", "", "", "", "", ""]);
@@ -132,15 +133,15 @@ export default function VerifyEmailPage() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-700 p-4">
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4">
             <div className="w-full max-w-md">
                 <div className="bg-white rounded-2xl shadow-2xl p-8">
                     {/* Header */}
                     <div className="text-center mb-8">
                         <div className="flex justify-center mb-4">
-                            <div className="h-16 w-16 bg-purple-100 rounded-full flex items-center justify-center">
+                            <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center">
                                 <svg
-                                    className="h-8 w-8 text-purple-600"
+                                    className="h-8 w-8 text-primary"
                                     fill="none"
                                     stroke="currentColor"
                                     viewBox="0 0 24 24"
@@ -160,7 +161,7 @@ export default function VerifyEmailPage() {
                         <p className="text-gray-600">
                             We've sent a 6-digit code to
                         </p>
-                        <p className="text-purple-600 font-semibold">{email}</p>
+                        <p className="text-primary font-semibold">{email}</p>
                     </div>
 
                     {/* OTP Form */}
@@ -181,7 +182,7 @@ export default function VerifyEmailPage() {
                                         onChange={(e) => handleOtpChange(index, e.target.value)}
                                         onKeyDown={(e) => handleKeyDown(index, e)}
                                         onPaste={handlePaste}
-                                        className="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition"
+                                        className="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition"
                                         required
                                     />
                                 ))}
@@ -194,7 +195,7 @@ export default function VerifyEmailPage() {
                         <button
                             type="submit"
                             disabled={isVerifying || otp.join("").length !== 6}
-                            className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                            className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                         >
                             {isVerifying ? (
                                 <>
@@ -214,7 +215,7 @@ export default function VerifyEmailPage() {
                             <button
                                 onClick={handleResend}
                                 disabled={resendCooldown > 0 || isResending}
-                                className="text-purple-600 font-semibold hover:text-purple-700 transition disabled:text-gray-400 disabled:cursor-not-allowed"
+                                className="text-primary font-semibold hover:text-primary/90 transition disabled:text-gray-400 disabled:cursor-not-allowed"
                             >
                                 {isResending
                                     ? "Sending..."
@@ -230,5 +231,17 @@ export default function VerifyEmailPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function VerifyEmailPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4">
+                <Skeleton className="h-96 w-full max-w-md rounded-2xl" />
+            </div>
+        }>
+            <VerifyEmailContent />
+        </Suspense>
     );
 }

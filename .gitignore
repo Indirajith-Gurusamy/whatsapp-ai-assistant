@@ -2,6 +2,8 @@
 .env
 .env.local
 .env.*.local
+!.env.example
+
 
 # Database
 *.db
@@ -79,3 +81,36 @@ next-env.d.ts
 # Generated Prisma Client
 apps/backend/app/db/prisma/*
 !apps/backend/app/db/prisma/schema.prisma
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Deployment and Cloud
+.vercel/
+.railway/
+.render/
+.terraform/
+.aws/
+.docker/
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+vercel.json
+render.yaml
+Procfile
+runtime.txt
+netlify.toml
+fly.toml
+firebase.json
+captain-definition
+ecosystem.config.js
+.heroku/
+heroku.yml
+.caprover/
+.env.example
+AGENTS.md
+DEPLOYMENT.md

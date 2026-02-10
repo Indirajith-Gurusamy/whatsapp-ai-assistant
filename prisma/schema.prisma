@@ -22,6 +22,7 @@ model User {
   role                 UserRole     @default(USER)
   isActive             Boolean      @default(true) @map("is_active")
   emailVerified        Boolean      @default(false) @map("email_verified")
+  mustChangePassword   Boolean      @default(false) @map("must_change_password")
   verificationOtp      String?      @map("verification_otp") @db.VarChar(6)
   verificationOtpExp   DateTime?    @map("verification_otp_exp") @db.Timestamptz()
   resetToken           String?      @map("reset_token") @db.VarChar(255)
@@ -133,4 +134,3 @@ model Session {
   @@index([expiresAt])
   @@map("sessions")
 }
-

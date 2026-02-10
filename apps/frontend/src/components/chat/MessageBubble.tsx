@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { themeClasses } from '@/lib/theme';
 
 interface MessageBubbleProps {
     content: string;
@@ -29,7 +30,7 @@ export function MessageBubble({
         >
             <span className={cn(
                 "text-xs font-medium mb-1 px-1",
-                isCustomer ? "text-muted-foreground" : "text-emerald-600"
+                isCustomer ? "text-muted-foreground" : themeClasses.textPrimary
             )}>
                 {displayName}
             </span>
@@ -38,7 +39,7 @@ export function MessageBubble({
                     "rounded-2xl px-4 py-3 shadow-sm",
                     isCustomer
                         ? "bg-muted rounded-tl-sm"
-                        : "bg-emerald-500 text-white rounded-tr-sm"
+                        : `${themeClasses.bgPrimary} text-white rounded-tr-sm`
                 )}
             >
                 <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">

@@ -11,14 +11,20 @@ interface User {
     role: string;
     isActive: boolean;
     emailVerified: boolean;
+    mustChangePassword: boolean;
 }
 
 interface AuthContextType {
     user: User | null;
     isAuthenticated: boolean;
     isLoading: boolean;
+    mustChangePassword: boolean;
     login: (user: User, accessToken: string, refreshToken: string, rememberMe?: boolean) => void;
     logout: () => void;
+    isAdmin: () => boolean;
+    hasRole: (role: string) => boolean;
+    hasAnyRole: (roles: string[]) => boolean;
+    clearMustChangePassword: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -60,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                             role: payload.role || "USER",
                             isActive: true,
                             emailVerified: true,
+                            mustChangePassword: payload.must_change_password || false,
                         });
                     }
                 } catch (error) {
@@ -82,7 +89,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const logout = () => {
         setUser(null);
         tokenStorage.clearTokens();
-        router.push("/login");
+        window.location.href = "/login";
+    };
+
+    const isAdmin = () => {
+        return user?.role === "ADMIN";
+    };
+
+    const hasRole = (role: string) => {
+        return user?.role === role;
+    };
+
+    const hasAnyRole = (roles: string[]) => {
+        return user ? roles.includes(user.role) : false;
+    };
+
+    const clearMustChangePassword = () => {
+        if (user) {
+            setUser({ ...user, mustChangePassword: false });
+        }
     };
 
     return (
@@ -91,8 +116,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 user,
                 isAuthenticated: !!user,
                 isLoading,
+                mustChangePassword: user?.mustChangePassword || false,
                 login,
                 logout,
+                isAdmin,
+                hasRole,
+                hasAnyRole,
+                clearMustChangePassword,
             }}
         >
             {children}

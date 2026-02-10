@@ -2,6 +2,7 @@
 
 import { useCustomers } from '@/hooks/useCustomers';
 import { DataTable } from '@/components/data/DataTable';
+import { TableSkeleton } from '@/components/data/TableSkeleton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -13,6 +14,7 @@ import {
 import { MoreVertical, Eye, Edit, Trash2 } from 'lucide-react';
 import type { Customer } from '@/types';
 import { useRouter } from 'next/navigation';
+import { themeClasses } from '@/lib/theme';
 
 const categoryKeywords: Record<string, string[]> = {
     'Loan': ['loan', 'credit', 'borrow', 'finance', 'lending'],
@@ -27,9 +29,9 @@ const categoryKeywords: Record<string, string[]> = {
 
 const categoryColors: Record<string, string> = {
     'Loan': 'bg-blue-100 text-blue-800',
-    'Insurance': 'bg-green-100 text-green-800',
+    'Insurance': themeClasses.badgePrimary,
     'Investment': 'bg-purple-100 text-purple-800',
-    'Savings': 'bg-orange-100 text-orange-800',
+    'Savings': themeClasses.badgePrimary,
     'Business': 'bg-amber-100 text-amber-800',
     'Education': 'bg-lime-100 text-lime-800',
     'Property': 'bg-pink-100 text-pink-800',
@@ -50,6 +52,15 @@ function categorizeCustomer(message: string | null): string {
     return 'General';
 }
 
+function formatDate(dateString: string | null | undefined): { date: string; time: string } {
+    if (!dateString) return { date: '-', time: '' };
+    const date = new Date(dateString);
+    return {
+        date: date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
+        time: date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
+    };
+}
+
 export default function CustomersPage() {
     const { customers, isLoading } = useCustomers();
     const router = useRouter();
@@ -59,13 +70,19 @@ export default function CustomersPage() {
     };
 
     const handleEdit = (customer: Customer) => {
-        // TODO: Implement edit functionality
         console.log('Edit customer:', customer);
     };
 
     const handleDelete = (customer: Customer) => {
-        // TODO: Implement delete functionality
         console.log('Delete customer:', customer);
+    };
+
+    const handleAdd = () => {
+        console.log('Add new customer');
+    };
+
+    const handleExport = () => {
+        console.log('Export customers');
     };
 
     const columns = [
@@ -73,7 +90,9 @@ export default function CustomersPage() {
             key: 'name',
             header: 'Name',
             cell: (item: Customer) => (
-                <div className="font-medium">{item.name || 'User'}</div>
+                <span className="text-indigo-600 hover:text-indigo-800 font-medium">
+                    {item.name || 'Unnamed'}
+                </span>
             ),
         },
         {
@@ -89,15 +108,38 @@ export default function CustomersPage() {
             cell: (item: Customer) => {
                 const category = categorizeCustomer(item.message);
                 return (
-                    <Badge className={`${categoryColors[category]} font-medium`}>
+                    <Badge className={`${categoryColors[category]} font-medium text-xs`}>
                         {category}
                     </Badge>
                 );
             },
         },
         {
+            key: 'status',
+            header: 'Status',
+            cell: () => (
+                <Badge className="bg-emerald-100 text-emerald-700 text-xs font-medium">
+                    Active
+                </Badge>
+            ),
+        },
+        {
+            key: 'created',
+            header: 'Created',
+            cell: (item: Customer) => {
+                const { date, time } = formatDate(item.message_time);
+                return (
+                    <div className="text-right">
+                        <div className="font-medium text-sm">{date}</div>
+                        <div className="text-xs text-muted-foreground">{time}</div>
+                    </div>
+                );
+            },
+            className: 'text-right',
+        },
+        {
             key: 'actions',
-            header: 'Actions',
+            header: '',
             cell: (item: Customer) => (
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -107,7 +149,7 @@ export default function CustomersPage() {
                             className="h-8 w-8 p-0"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <MoreVertical className="h-4 w-4" />
+                            <MoreVertical className="h-4 w-4 text-muted-foreground" />
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
@@ -142,30 +184,29 @@ export default function CustomersPage() {
                     </DropdownMenuContent>
                 </DropdownMenu>
             ),
+            className: 'w-12',
         },
     ];
 
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center h-64">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500" />
+            <div className="p-4 md:p-6">
+                <TableSkeleton columns={5} rows={10} title="Customers" />
             </div>
         );
     }
 
     return (
-        <div className="p-4 md:p-6 space-y-6">
-            {/* Page Header */}
-            <div>
-                <h1 className="text-2xl md:text-3xl font-bold">Customers</h1>
-                <p className="text-muted-foreground">Unique customers and their enquiries</p>
-            </div>
-
-            {/* Data Table */}
+        <div className="p-4 md:p-6">
             <DataTable
                 data={customers.map(c => ({ ...c, id: c.customer_id }))}
                 columns={columns}
                 onRowClick={handleViewDetails}
+                title="Customers"
+                searchPlaceholder="Search"
+                onAdd={handleAdd}
+                onExport={handleExport}
+                searchFields={['name', 'phone'] as (keyof Customer)[]}
             />
         </div>
     );

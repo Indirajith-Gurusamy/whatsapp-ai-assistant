@@ -2,16 +2,17 @@
 
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface ProtectedRouteProps {
     children: React.ReactNode;
+    requiredRole?: string;
 }
 
-const publicRoutes = ["/login", "/signup", "/verify-email", "/forgot-password", "/reset-password"];
+const publicRoutes = ["/login", "/signup", "/verify-email", "/forgot-password", "/reset-password", "/admin/login", "/admin/signup"];
 
-export function ProtectedRoute({ children }: ProtectedRouteProps) {
-    const { isAuthenticated, isLoading } = useAuth();
+export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
+    const { isAuthenticated, isLoading, hasRole } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
 
@@ -31,15 +32,41 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
         if (isAuthenticated && (pathname === "/login" || pathname === "/signup")) {
             router.push("/conversations");
         }
-    }, [isAuthenticated, isLoading, pathname, router]);
 
-    // Show loading state while checking authentication
+        // Check role requirement
+        if (isAuthenticated && requiredRole && !hasRole(requiredRole)) {
+            // User is authenticated but doesn't have required role
+            router.push("/");
+        }
+    }, [isAuthenticated, isLoading, pathname, router, requiredRole, hasRole]);
+
+    // Don't block rendering while checking authentication
+    // The layout (sidebar/navbar) should render immediately
+    // Individual pages handle their own loading states with skeletons
     if (isLoading) {
+        // For public routes, just render children (auth pages handle their own state)
+        const isPublicRoute = publicRoutes.some(route => pathname?.startsWith(route));
+        if (isPublicRoute) {
+            return <>{children}</>;
+        }
+        // For protected routes during initial auth check, render children
+        // Pages will show their skeleton states
+        return <>{children}</>;
+    }
+
+    // Show access denied if role requirement not met
+    if (isAuthenticated && requiredRole && !hasRole(requiredRole)) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-700">
-                <div className="text-white text-center">
-                    <div className="animate-spin h-12 w-12 border-4 border-white border-t-transparent rounded-full mx-auto mb-4"></div>
-                    <p className="text-lg">Loading...</p>
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+                <div className="text-gray-900 dark:text-white text-center">
+                    <h1 className="text-3xl font-bold mb-4">Access Denied</h1>
+                    <p className="text-lg">You don't have permission to access this page.</p>
+                    <button
+                        onClick={() => router.push("/")}
+                        className="mt-6 px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition"
+                    >
+                        Go Home
+                    </button>
                 </div>
             </div>
         );
@@ -47,3 +74,4 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
     return <>{children}</>;
 }
+

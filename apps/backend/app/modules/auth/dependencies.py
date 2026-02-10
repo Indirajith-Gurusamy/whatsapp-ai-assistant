@@ -1,5 +1,5 @@
 """FastAPI dependencies for authentication."""
-from typing import Optional
+from typing import Optional, List
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.db.prisma import Prisma
@@ -11,7 +11,19 @@ security = HTTPBearer()
 async def get_db() -> Prisma:
     """Get database instance."""
     from app.db.client import get_db as get_prisma_client
-    return await get_prisma_client()
+    try:
+        return await get_prisma_client()
+    except Exception as e:
+        error_msg = str(e).lower()
+        if "connection" in error_msg or "connect" in error_msg or "refused" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Unable to connect to the database. Please try again later."
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="A server error occurred. Please try again later."
+        )
 
 
 async def get_current_user(
@@ -97,3 +109,30 @@ async def get_current_admin_user(
         )
     
     return current_user
+
+
+def require_role(allowed_roles: List[str]):
+    """
+    Create a dependency that requires the user to have one of the specified roles.
+    
+    Args:
+        allowed_roles: List of role names that are allowed (e.g., ['ADMIN', 'MODERATOR'])
+        
+    Returns:
+        FastAPI dependency function
+        
+    Example:
+        @router.get("/admin/users", dependencies=[Depends(require_role(['ADMIN']))])
+        async def get_users():
+            ...
+    """
+    async def role_checker(current_user = Depends(get_current_user)):
+        """Check if current user has one of the required roles."""
+        if current_user.role not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access denied. Required role: {' or '.join(allowed_roles)}"
+            )
+        return current_user
+    
+    return role_checker

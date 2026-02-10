@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authApi } from "@/lib/api";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { Skeleton } from "@/components/ui/skeleton";
 
-export default function LoginPage() {
+function LoginContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { login, isAuthenticated } = useAuth();
+    const { login, isAuthenticated, user } = useAuth();
     const [formData, setFormData] = useState({
         email: "",
         password: "",
@@ -21,10 +22,10 @@ export default function LoginPage() {
 
     // Check if user is already logged in
     useEffect(() => {
-        if (isAuthenticated) {
-            router.push("/conversations");
+        if (isAuthenticated && user) {
+            router.push(user.role === "ADMIN" ? "/conversations" : "/dashboard");
         }
-    }, [isAuthenticated, router]);
+    }, [isAuthenticated, user, router]);
 
     const validateField = (name: string, value: string): string | null => {
         switch (name) {
@@ -46,15 +47,14 @@ export default function LoginPage() {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
 
-        // Real-time validation
+        // Real-time validation - also clear general error when user types
         const error = validateField(name, value);
         setErrors((prev) => {
+            const { general: _, [name]: __, ...rest } = prev;
             if (error) {
-                return { ...prev, [name]: error };
-            } else {
-                const { [name]: _, ...rest } = prev;
-                return rest;
+                return { ...rest, [name]: error };
             }
+            return rest;
         });
     };
 
@@ -92,8 +92,8 @@ export default function LoginPage() {
 
             toast.success(`Welcome back, ${response.user.name}!`);
 
-            // Redirect to the page they were trying to access, or conversations
-            const redirectTo = searchParams.get("redirect") || "/conversations";
+            // Redirect based on role
+            const redirectTo = searchParams.get("redirect") || (response.user.role === "ADMIN" ? "/conversations" : "/dashboard");
             router.push(redirectTo);
         } catch (error: any) {
             // Handle specific error cases
@@ -126,9 +126,9 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-700 p-4">
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4">
             <div className="w-full max-w-md">
-                <div className="bg-white rounded-2xl shadow-2xl p-8">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8">
                     {/* Header */}
                     <div className="text-center mb-8">
                         <h1 className="text-3xl font-bold text-gray-900 mb-2">
@@ -158,7 +158,7 @@ export default function LoginPage() {
                                 value={formData.email}
                                 onChange={handleChange}
                                 className={`w-full px-4 py-3 rounded-lg border ${errors.email ? "border-red-500" : "border-gray-300"
-                                    } focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition`}
+                                    } focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition`}
                                 placeholder="john@example.com"
                                 required
                                 autoComplete="email"
@@ -179,7 +179,7 @@ export default function LoginPage() {
                                     value={formData.password}
                                     onChange={handleChange}
                                     className={`w-full px-4 py-3 rounded-lg border ${errors.password ? "border-red-500" : "border-gray-300"
-                                        } focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition pr-12`}
+                                        } focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition pr-12`}
                                     placeholder="••••••••"
                                     required
                                     autoComplete="current-password"
@@ -212,13 +212,13 @@ export default function LoginPage() {
                                     type="checkbox"
                                     checked={rememberMe}
                                     onChange={(e) => setRememberMe(e.target.checked)}
-                                    className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500 cursor-pointer"
+                                    className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary cursor-pointer"
                                 />
                                 <span className="ml-2 text-sm text-gray-700">Remember me</span>
                             </label>
                             <a
                                 href={`/forgot-password${formData.email ? `?email=${encodeURIComponent(formData.email)}` : ""}`}
-                                className="text-sm text-purple-600 hover:text-purple-700 font-semibold transition"
+                                className="text-sm text-primary hover:text-primary/90 font-semibold transition"
                             >
                                 Forgot Password?
                             </a>
@@ -228,7 +228,7 @@ export default function LoginPage() {
                         <button
                             type="submit"
                             disabled={isLoading || Object.keys(errors).length > 0}
-                            className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                            className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                         >
                             {isLoading ? (
                                 <>
@@ -241,17 +241,29 @@ export default function LoginPage() {
                         </button>
                     </form>
 
-                    {/* Sign Up Link */}
-                    <div className="mt-6 text-center">
+                    {/* Sign Up Link Removed */
+                    /* <div className="mt-6 text-center">
                         <p className="text-gray-600">
                             Don't have an account?{" "}
                             <a href="/signup" className="text-purple-600 font-semibold hover:text-purple-700 transition">
                                 Sign Up
                             </a>
                         </p>
-                    </div>
+                    </div> */}
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4">
+                <Skeleton className="h-[500px] w-full max-w-md rounded-2xl" />
+            </div>
+        }>
+            <LoginContent />
+        </Suspense>
     );
 }
