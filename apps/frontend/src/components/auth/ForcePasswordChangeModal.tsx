@@ -12,8 +12,7 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FloatingInput } from '@/components/ui/floating-input';
 import { PasswordStrength } from "@/components/auth/PasswordStrength";
 import { AlertTriangle, KeyRound, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -81,45 +80,38 @@ export function ForcePasswordChangeModal({ open }: ForcePasswordChangeModalProps
                         </div>
                     )}
 
-                    <div className="space-y-2">
-                        <Label htmlFor="currentPassword">Temporary Password</Label>
-                        <Input
-                            id="currentPassword"
-                            type="password"
-                            value={currentPassword}
-                            onChange={(e) => setCurrentPassword(e.target.value)}
-                            placeholder="Enter temporary password from email"
-                            required
-                            disabled={isLoading}
-                        />
-                    </div>
+                    <FloatingInput
+                        id="currentPassword"
+                        label="Temporary Password *"
+                        type="password"
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        required
+                        disabled={isLoading}
+                    />
 
-                    <div className="space-y-2">
-                        <Label htmlFor="newPassword">New Password</Label>
-                        <Input
+                    <div>
+                        <FloatingInput
                             id="newPassword"
+                            label="New Password *"
                             type="password"
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
-                            placeholder="Enter new password"
                             required
                             disabled={isLoading}
                         />
                         {newPassword && <PasswordStrength password={newPassword} />}
                     </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                        <Input
-                            id="confirmPassword"
-                            type="password"
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                            placeholder="Confirm new password"
-                            required
-                            disabled={isLoading}
-                        />
-                    </div>
+                    <FloatingInput
+                        id="confirmPassword"
+                        label="Confirm New Password *"
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                        disabled={isLoading}
+                    />
 
                     <div className="pt-4 border-t mt-4">
                         <Button

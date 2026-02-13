@@ -38,9 +38,9 @@ export default function DashboardPage() {
             setStats(statsData);
             setActivity(activityData);
             setSummary(summaryData);
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Failed to fetch dashboard data:', err);
-            setError(err.message || 'Failed to load dashboard data');
+            setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
         } finally {
             setLoading(false);
         }

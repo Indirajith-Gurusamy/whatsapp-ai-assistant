@@ -4,7 +4,9 @@
 
 export interface Location {
     city?: string;
+    state?: string;
     country?: string;
+    postalCode?: string;
 }
 
 export interface SocialLink {
@@ -29,6 +31,7 @@ export interface UserProfile {
 
 export interface UpdateProfileData {
     name?: string;
+    email?: string;
     bio?: string;
     phone?: string;
     location?: Location;

@@ -57,7 +57,7 @@ async def signup(
         logger.error(f"Signup error for {data.email}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Signup failed: {str(e)}"
+            detail="Signup failed. Please try again later."
         )
 
 
@@ -123,7 +123,7 @@ async def verify_email(
         logger.error(f"Verify email error for {email}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Email verification failed: {str(e)}"
+            detail="Email verification failed. Please try again later."
         )
 
 
@@ -151,7 +151,7 @@ async def resend_otp(
         logger.error(f"Resend OTP error for {email}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to resend OTP: {str(e)}"
+            detail="Failed to resend OTP. Please try again later."
         )
 
 
@@ -179,7 +179,7 @@ async def check_email(
         logger.error(f"Check email error for {email}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to check email: {str(e)}"
+            detail="Failed to check email. Please try again later."
         )
 
 
@@ -205,7 +205,7 @@ async def refresh_token(
         logger.error(f"Refresh token error: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to refresh token: {str(e)}"
+            detail="Failed to refresh token. Please try again later."
         )
 
 
@@ -234,7 +234,7 @@ async def forgot_password(
         logger.error(f"Forgot password error for {data.email}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to process forgot password request: {str(e)}"
+            detail="Failed to process forgot password request. Please try again later."
         )
 
 
@@ -264,7 +264,7 @@ async def reset_password(
         logger.error(f"Reset password error for {data.email}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to reset password: {str(e)}"
+            detail="Failed to reset password. Please try again later."
         )
     return MessageResponse(message=result["message"])
 

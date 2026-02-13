@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { adminApi } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { XCircle } from "lucide-react";
+import { FloatingInput } from '@/components/ui/floating-input';
 
 export default function AdminLoginPage() {
     const router = useRouter();
@@ -14,9 +16,11 @@ export default function AdminLoginPage() {
         password: ""
     });
     const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState("");
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setError("");
         setIsLoading(true);
 
         try {
@@ -24,14 +28,19 @@ export default function AdminLoginPage() {
             login(response.user, response.tokens.access_token, response.tokens.refresh_token, false);
             toast.success("Welcome back, Administrator!");
             router.push("/admin/panel");
-        } catch (err: any) {
-            console.error("Login failed", err);
-            // Specific message for authorization errors if possible, otherwise generic
-            if (err.response?.status === 403 || err.message?.includes("authorized")) {
-                toast.error("You are not authorized to view this.");
-            } else {
-                toast.error(err.message || "Admin login failed");
+        } catch (err: unknown) {
+            let message = "Login failed. Please try again.";
+            if (err instanceof Error) {
+                if (err.message?.includes("authorized") || err.message?.includes("403")) {
+                    message = "You are not authorized to access the admin panel.";
+                } else if (err.message?.includes("Invalid")) {
+                    message = "Invalid email or password. Please try again.";
+                } else if (err.message) {
+                    message = err.message;
+                }
             }
+            setError(message);
+            toast.error(message);
         } finally {
             setIsLoading(false);
         }
@@ -46,27 +55,24 @@ export default function AdminLoginPage() {
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-6">
-                        <div>
-                            <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
-                                Email Address
-                            </label>
-                            <input
-                                id="email"
-                                type="email"
-                                required
-                                autoComplete="email"
-                                value={formData.email}
-                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition text-gray-900"
-                                placeholder="admin@example.com"
-                            />
-                        </div>
+                        {error && (
+                            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-start gap-2">
+                                <XCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                                <span>{error}</span>
+                            </div>
+                        )}
+                        <FloatingInput
+                            id="email"
+                            label="Email Address *"
+                            type="email"
+                            value={formData.email}
+                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                            required
+                            autoComplete="email"
+                        />
 
                         <div>
-                            <div className="flex items-center justify-between mb-2">
-                                <label htmlFor="password" className="block text-sm font-semibold text-gray-700">
-                                    Password
-                                </label>
+                            <div className="flex items-center justify-end mb-2">
                                 <button
                                     type="button"
                                     onClick={() => router.push("/forgot-password")}
@@ -75,15 +81,14 @@ export default function AdminLoginPage() {
                                     Forgot password?
                                 </button>
                             </div>
-                            <input
+                            <FloatingInput
                                 id="password"
+                                label="Password *"
                                 type="password"
-                                required
-                                autoComplete="current-password"
                                 value={formData.password}
                                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition text-gray-900"
-                                placeholder="••••••••"
+                                required
+                                autoComplete="current-password"
                             />
                         </div>
 

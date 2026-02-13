@@ -112,6 +112,22 @@ class ProfileService:
                 data={'name': data.name}
             )
         
+        # Update user email if provided
+        if data.email is not None:
+            # Check if email is already in use by another user
+            existing = await self.db.user.find_first(
+                where={
+                    'email': data.email,
+                    'NOT': {'id': user_id}
+                }
+            )
+            if existing:
+                raise HTTPException(status_code=400, detail="Email already in use by another account")
+            await self.db.user.update(
+                where={'id': user_id},
+                data={'email': data.email, 'emailVerified': False}
+            )
+        
         # Prepare profile data
         profile_data = {}
         

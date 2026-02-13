@@ -119,8 +119,8 @@ export default function ConversationsPage() {
             const detail = await fetchConversationDetail(conversation.message_id);
             setSelectedConversation(detail);
             setDetailModalOpen(true);
-        } catch (error) {
-            console.error('Failed to fetch conversation detail:', error);
+        } catch (error: unknown) {
+            toast.error(error instanceof Error ? error.message : 'Failed to load conversation details. Please try again.');
         }
     };
 

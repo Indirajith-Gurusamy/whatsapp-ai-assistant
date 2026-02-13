@@ -1,9 +1,8 @@
 'use client';
 
 import React from 'react';
-import Image from 'next/image';
 import { UserProfile } from '@/types/profile';
-import { themeClasses } from '@/lib/theme';
+import { User, Mail, Phone, MapPin, Calendar, ExternalLink } from 'lucide-react';
 
 interface ProfileViewProps {
     profile: UserProfile;
@@ -22,136 +21,138 @@ export default function ProfileView({ profile, onEdit }: ProfileViewProps) {
         });
     };
 
-    const avatarUrl = profile.avatar ? `${API_BASE_URL}${profile.avatar}` : null;
+    const avatarUrl = profile.avatar
+        ? (profile.avatar.startsWith('http') || profile.avatar.startsWith('data:')
+            ? profile.avatar
+            : `${API_BASE_URL}${profile.avatar}`)
+        : null;
 
     return (
-        <div className="max-w-4xl mx-auto p-6">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
-                {/* Header */}
-                <div className="bg-gradient-to-r from-blue-500 to-purple-600 h-32"></div>
+        <div className="max-w-3xl mx-auto p-4 md:p-6 lg:p-8">
+            {/* Page Header */}
+            <div className="flex items-center justify-between mb-8">
+                <h1 className="text-2xl font-bold tracking-tight">Profile</h1>
+                <button
+                    onClick={onEdit}
+                    className="px-5 py-2.5 bg-gray-900 dark:bg-white dark:text-gray-900 text-white text-sm font-semibold rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors"
+                >
+                    Edit Profile
+                </button>
+            </div>
 
-                {/* Profile Content */}
-                <div className="relative px-8 pb-8">
-                    {/* Avatar */}
-                    <div className="absolute -top-16 left-8">
-                        <div className="w-32 h-32 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 border-4 border-white dark:border-gray-800 shadow-lg">
-                            {avatarUrl ? (
-                                <Image
-                                    src={avatarUrl}
-                                    alt={profile.name}
-                                    width={128}
-                                    height={128}
-                                    className="w-full h-full object-cover"
-                                />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center text-gray-400 dark:text-gray-500">
-                                    <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                                    </svg>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Edit Button */}
-                    <div className="pt-4 flex justify-end">
-                        <button
-                            onClick={onEdit}
-                            className="px-6 py-2 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
-                        >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                            Edit Profile
-                        </button>
-                    </div>
-
-                    {/* Profile Info */}
-                    <div className="mt-4 space-y-6">
-                        {/* Name and Email */}
-                        <div>
-                            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{profile.name}</h1>
-                            <p className="text-gray-600 dark:text-gray-400 mt-1">{profile.email}</p>
-                            <div className="mt-2 flex items-center gap-2">
-                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${profile.emailVerified
-                                        ? `${themeClasses.badgePrimary} ${themeClasses.badgePrimaryDark}`
-                                        : 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200'
-                                    }`}>
-                                    {profile.emailVerified ? '✓ Verified' : 'Not Verified'}
-                                </span>
-                                <span className="px-3 py-1 rounded-full text-xs font-medium bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary-foreground">
-                                    {profile.role}
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* Bio */}
-                        {profile.bio && (
-                            <div>
-                                <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">About</h2>
-                                <p className="text-gray-600 dark:text-gray-400">{profile.bio}</p>
+            {/* Main Content */}
+            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 md:p-8">
+                {/* Avatar + Name */}
+                <div className="flex items-start gap-5 mb-8">
+                    <div className="w-24 h-24 rounded-xl overflow-hidden border-2 border-gray-200 dark:border-gray-700 shrink-0">
+                        {avatarUrl ? (
+                            <img
+                                src={avatarUrl}
+                                alt={profile.name}
+                                className="w-full h-full object-cover"
+                            />
+                        ) : (
+                            <div className="w-full h-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                                <User className="w-10 h-10 text-gray-400" />
                             </div>
                         )}
-
-                        {/* Contact Info */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* Phone */}
-                            {profile.phone && (
-                                <div>
-                                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Phone</h3>
-                                    <p className="text-gray-600 dark:text-gray-400">{profile.phone}</p>
-                                </div>
-                            )}
-
-                            {/* Location */}
-                            {profile.location && (profile.location.city || profile.location.country) && (
-                                <div>
-                                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Location</h3>
-                                    <p className="text-gray-600 dark:text-gray-400">
-                                        {[profile.location.city, profile.location.country].filter(Boolean).join(', ')}
-                                    </p>
-                                </div>
-                            )}
-
-                            {/* Date of Birth */}
-                            {profile.dateOfBirth && (
-                                <div>
-                                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Date of Birth</h3>
-                                    <p className="text-gray-600 dark:text-gray-400">{formatDate(profile.dateOfBirth)}</p>
-                                </div>
-                            )}
-
-                            {/* Member Since */}
-                            <div>
-                                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Member Since</h3>
-                                <p className="text-gray-600 dark:text-gray-400">{formatDate(profile.createdAt)}</p>
-                            </div>
+                    </div>
+                    <div className="pt-1">
+                        <h2 className="text-xl font-bold text-gray-900 dark:text-white">{profile.name}</h2>
+                        <p className="text-sm text-muted-foreground mt-0.5">{profile.email}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${profile.emailVerified
+                                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                    : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                                }`}>
+                                {profile.emailVerified ? '✓ Verified' : 'Not Verified'}
+                            </span>
+                            <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 capitalize">
+                                {profile.role}
+                            </span>
                         </div>
-
-                        {/* Social Links */}
-                        {profile.socialLinks && profile.socialLinks.length > 0 && (
-                            <div>
-                                <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Social Links</h2>
-                                <div className="flex flex-wrap gap-3">
-                                    {profile.socialLinks.map((link, index) => (
-                                        <a
-                                            key={index}
-                                            href={link.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors flex items-center gap-2"
-                                        >
-                                            <span className="capitalize">{link.platform}</span>
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                            </svg>
-                                        </a>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
                     </div>
                 </div>
+
+                {/* Bio */}
+                {profile.bio && (
+                    <div className="mb-6">
+                        <h3 className="text-sm font-medium text-muted-foreground mb-1">Bio</h3>
+                        <p className="text-sm text-gray-700 dark:text-gray-300">{profile.bio}</p>
+                    </div>
+                )}
+
+                {/* Info Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {profile.phone && (
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center shrink-0">
+                                <Phone className="w-4 h-4 text-gray-500" />
+                            </div>
+                            <div>
+                                <p className="text-xs text-muted-foreground">Phone</p>
+                                <p className="text-sm font-medium">{profile.phone}</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {profile.location && (profile.location.city || profile.location.country) && (
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center shrink-0">
+                                <MapPin className="w-4 h-4 text-gray-500" />
+                            </div>
+                            <div>
+                                <p className="text-xs text-muted-foreground">Location</p>
+                                <p className="text-sm font-medium">
+                                    {[profile.location.city, profile.location.country].filter(Boolean).join(', ')}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    {profile.dateOfBirth && (
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center shrink-0">
+                                <Calendar className="w-4 h-4 text-gray-500" />
+                            </div>
+                            <div>
+                                <p className="text-xs text-muted-foreground">Date of Birth</p>
+                                <p className="text-sm font-medium">{formatDate(profile.dateOfBirth)}</p>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center shrink-0">
+                            <Calendar className="w-4 h-4 text-gray-500" />
+                        </div>
+                        <div>
+                            <p className="text-xs text-muted-foreground">Member Since</p>
+                            <p className="text-sm font-medium">{formatDate(profile.createdAt)}</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Social Links */}
+                {profile.socialLinks && profile.socialLinks.length > 0 && (
+                    <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-800">
+                        <h3 className="text-sm font-medium text-muted-foreground mb-3">Social Links</h3>
+                        <div className="flex flex-wrap gap-2">
+                            {profile.socialLinks.map((link, index) => (
+                                <a
+                                    key={index}
+                                    href={link.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors capitalize"
+                                >
+                                    {link.platform}
+                                    <ExternalLink className="w-3 h-3" />
+                                </a>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

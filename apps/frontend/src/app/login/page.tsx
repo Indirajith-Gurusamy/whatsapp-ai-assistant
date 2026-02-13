@@ -6,6 +6,8 @@ import { authApi } from "@/lib/api";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FloatingInput } from "@/components/ui/floating-input";
+
 
 function LoginContent() {
     const router = useRouter();
@@ -95,13 +97,13 @@ function LoginContent() {
             // Redirect based on role
             const redirectTo = searchParams.get("redirect") || (response.user.role === "ADMIN" ? "/conversations" : "/dashboard");
             router.push(redirectTo);
-        } catch (error: any) {
-            // Handle specific error cases
-            if (error.message.includes("verify your email")) {
-                setErrors({ general: error.message });
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : "";
+            if (message.includes("verify your email")) {
+                setErrors({ email: "Your email is not verified. Please verify your email to continue." });
                 toast.error(
                     <div>
-                        <p>{error.message}</p>
+                        <p>Your email is not verified. Please verify your email to continue.</p>
                         <button
                             onClick={() => router.push(`/verify-email?email=${encodeURIComponent(formData.email)}`)}
                             className="mt-2 text-sm underline font-semibold"
@@ -110,15 +112,16 @@ function LoginContent() {
                         </button>
                     </div>
                 );
-            } else if (error.message.includes("deactivated")) {
-                setErrors({ general: "Your account has been deactivated. Please contact support." });
-                toast.error("Account deactivated");
-            } else if (error.message.includes("Invalid email or password")) {
-                setErrors({ general: "Invalid email or password" });
-                toast.error("Invalid credentials");
+            } else if (message.includes("deactivated")) {
+                setErrors({ email: "Your account has been deactivated. Please contact your administrator." });
+                toast.error("Your account has been deactivated. Please contact your administrator for assistance.");
+            } else if (message.includes("Invalid email or password")) {
+                setErrors({ email: " ", password: "The email or password you entered is incorrect." });
+                toast.error("The email or password you entered is incorrect. Please try again.");
+            } else if (!message || message === "Failed to fetch") {
+                toast.error("Unable to connect to the server. Please check your internet connection.");
             } else {
-                setErrors({ general: error.message || "Login failed. Please try again." });
-                toast.error(error.message || "Login failed");
+                toast.error(message);
             }
         } finally {
             setIsLoading(false);
@@ -139,55 +142,36 @@ function LoginContent() {
 
                     {/* Login Form */}
                     <form onSubmit={handleLogin} className="space-y-5">
-                        {/* General Error */}
-                        {errors.general && (
-                            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                                {errors.general}
-                            </div>
-                        )}
 
                         {/* Email Field */}
-                        <div>
-                            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                                Email Address
-                            </label>
-                            <input
-                                type="email"
-                                id="email"
-                                name="email"
-                                value={formData.email}
-                                onChange={handleChange}
-                                className={`w-full px-4 py-3 rounded-lg border ${errors.email ? "border-red-500" : "border-gray-300"
-                                    } focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition`}
-                                placeholder="john@example.com"
-                                required
-                                autoComplete="email"
-                            />
-                            {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
-                        </div>
+                        <FloatingInput
+                            id="email"
+                            name="email"
+                            label="Email Address *"
+                            type="email"
+                            value={formData.email}
+                            onChange={handleChange}
+                            error={errors.email}
+                            required
+                            autoComplete="email"
+                        />
 
                         {/* Password Field */}
-                        <div>
-                            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                                Password
-                            </label>
-                            <div className="relative">
-                                <input
-                                    type={showPassword ? "text" : "password"}
-                                    id="password"
-                                    name="password"
-                                    value={formData.password}
-                                    onChange={handleChange}
-                                    className={`w-full px-4 py-3 rounded-lg border ${errors.password ? "border-red-500" : "border-gray-300"
-                                        } focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition pr-12`}
-                                    placeholder="••••••••"
-                                    required
-                                    autoComplete="current-password"
-                                />
+                        <FloatingInput
+                            id="password"
+                            name="password"
+                            label="Password *"
+                            type={showPassword ? "text" : "password"}
+                            value={formData.password}
+                            onChange={handleChange}
+                            error={errors.password}
+                            required
+                            autoComplete="current-password"
+                            endIcon={
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition"
+                                    className="text-gray-500 hover:text-gray-700 transition"
                                     aria-label={showPassword ? "Hide password" : "Show password"}
                                 >
                                     {showPassword ? (
@@ -201,9 +185,8 @@ function LoginContent() {
                                         </svg>
                                     )}
                                 </button>
-                            </div>
-                            {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
-                        </div>
+                            }
+                        />
 
                         {/* Remember Me & Forgot Password */}
                         <div className="flex items-center justify-between">
@@ -227,7 +210,7 @@ function LoginContent() {
                         {/* Submit Button */}
                         <button
                             type="submit"
-                            disabled={isLoading || Object.keys(errors).length > 0}
+                            disabled={isLoading}
                             className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                         >
                             {isLoading ? (

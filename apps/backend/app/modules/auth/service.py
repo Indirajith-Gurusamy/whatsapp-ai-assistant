@@ -203,7 +203,7 @@ class AuthService:
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="User not found"
+                detail="No account found with this email address"
             )
         
         # Check if OTP is expired
@@ -213,7 +213,7 @@ class AuthService:
         if is_expired:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Code expired"
+                detail="Verification code has expired. Please request a new one."
             )
 
         # Check if OTP matches
@@ -221,7 +221,7 @@ class AuthService:
         if not user.verificationOtp or user.verificationOtp != otp:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid code"
+                detail="Incorrect verification code. Please check and try again."
             )
         
         # Update user
@@ -358,10 +358,9 @@ class AuthService:
         user = await self.db.user.find_unique(where={"email": email})
         
         if not user:
-            # For security, don't reveal if email exists
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="If this email is registered, you will receive a password reset code"
+                detail="No account found with this email address"
             )
         
         # Check if email is verified
@@ -434,7 +433,7 @@ class AuthService:
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid reset code"
+                detail="No account found with this email address"
             )
         
         # Check if OTP is expired
@@ -444,7 +443,7 @@ class AuthService:
         if is_expired:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Code expired"
+                detail="Reset code has expired. Please request a new one."
             )
 
         # Check if OTP matches
@@ -452,7 +451,7 @@ class AuthService:
         if not user.resetToken or user.resetToken != otp:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid code"
+                detail="Incorrect reset code. Please check and try again."
             )
         
         # Hash new password

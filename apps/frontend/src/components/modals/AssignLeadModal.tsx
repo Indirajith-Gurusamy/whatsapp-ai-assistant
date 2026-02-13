@@ -55,9 +55,8 @@ export function AssignLeadModal({
         try {
             const response = await adminApi.getAllUsers(0, 100);
             setUsers(response.users);
-        } catch (error) {
-            console.error('Failed to fetch users:', error);
-            toast.error('Failed to load users');
+        } catch (error: unknown) {
+            toast.error(error instanceof Error ? error.message : 'Failed to load users. Please try again.');
         } finally {
             setIsLoadingUsers(false);
         }
@@ -75,9 +74,8 @@ export function AssignLeadModal({
             toast.success('Lead assigned successfully');
             onOpenChange(false);
             onSuccess?.();
-        } catch (error) {
-            console.error('Failed to assign lead:', error);
-            toast.error('Failed to assign lead');
+        } catch (error: unknown) {
+            toast.error(error instanceof Error ? error.message : 'Failed to assign lead. Please try again.');
         } finally {
             setIsAssigning(false);
         }

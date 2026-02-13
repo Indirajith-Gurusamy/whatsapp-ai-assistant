@@ -129,7 +129,7 @@ async def admin_signup(
         logger.error(f"Admin signup error for {data.email}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Signup failed: {str(e)}"
+            detail="Signup failed. Please try again later."
         )
 
 
@@ -173,7 +173,7 @@ async def admin_login(
         # Return detailed error message
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Login failed: {str(e)}"
+            detail="Login failed. Please try again later."
         )
 
 
@@ -226,7 +226,7 @@ async def get_all_users(
         logger.error(f"Get users error: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch users: {str(e)}"
+            detail="Failed to fetch users. Please try again later."
         )
 
 
@@ -276,7 +276,7 @@ async def change_user_role(
         logger.error(f"Change role error for user {user_id}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to change user role: {str(e)}"
+            detail="Failed to change user role. Please try again later."
         )
 
 
@@ -315,7 +315,7 @@ async def delete_user(
         logger.error(f"Delete user error for user {user_id}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete user: {str(e)}"
+            detail="Failed to delete user. Please try again later."
         )
 
 
@@ -343,7 +343,7 @@ async def get_admin_stats(
         logger.error(f"Get stats error: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch statistics: {str(e)}"
+            detail="Failed to fetch statistics. Please try again later."
         )
 
 
@@ -392,7 +392,7 @@ async def toggle_user_status(
         logger.error(f"Toggle status error for user {user_id}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to toggle user status: {str(e)}"
+            detail="Failed to toggle user status. Please try again later."
         )
 
 
@@ -437,7 +437,7 @@ async def verify_user_manually(
         logger.error(f"Verify user error for user {user_id}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to verify user: {str(e)}"
+            detail="Failed to verify user. Please try again later."
         )
 
 
@@ -471,5 +471,5 @@ async def reset_user_password(
         logger.error(f"Reset password error for user {user_id}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to reset password: {str(e)}"
+            detail="Failed to reset password. Please try again later."
         )

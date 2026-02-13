@@ -179,9 +179,16 @@ function CustomerDetailContent() {
                         </CardHeader>
                         <CardContent className="flex-1 min-h-0 p-0 overflow-hidden">
                             {isLoading ? (
-                                <div className="flex flex-col items-center justify-center h-full gap-4">
-                                    <div className="animate-spin rounded-full h-10 w-10 border-4 border-emerald-500/20 border-t-emerald-500" />
-                                    <p className="text-muted-foreground animate-pulse text-xs">Loading interaction history...</p>
+                                <div className="p-4 space-y-3">
+                                    {Array.from({ length: 5 }).map((_, i) => (
+                                        <div key={i} className="flex items-start gap-3">
+                                            <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+                                            <div className="flex-1 space-y-2">
+                                                <Skeleton className="h-4 w-3/4" />
+                                                <Skeleton className="h-3 w-1/2" />
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             ) : history.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center h-full text-center px-6">

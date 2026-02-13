@@ -89,7 +89,9 @@ export interface UserProfile {
   country: string | null;
   location: {
     city: string | null;
+    state: string | null;
     country: string | null;
+    postalCode: string | null;
   } | null;
   dateOfBirth: string | null;
   socialLinks: SocialLink[];

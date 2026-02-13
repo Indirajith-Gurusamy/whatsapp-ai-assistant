@@ -6,6 +6,8 @@ import { authApi } from "@/lib/api";
 import { themeClasses } from "@/lib/theme";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FloatingInput } from "@/components/ui/floating-input";
+import { XCircle } from "lucide-react";
 
 function ForgotPasswordContent() {
     const router = useRouter();
@@ -50,9 +52,28 @@ function ForgotPasswordContent() {
             setTimeout(() => {
                 router.push(`/reset-password`);
             }, 2000);
-        } catch (error: any) {
-            setError(error.message || "Failed to send reset code. Please try again.");
-            toast.error(error.message || "Failed to send reset code");
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : "";
+
+            if (message.toLowerCase().includes("no account found")) {
+                const msg = "No account found with this email. Please check your email or contact your administrator.";
+                setError(msg);
+                toast.error(msg);
+            } else if (message.toLowerCase().includes("verify your email")) {
+                const msg = "Please verify your email before resetting your password. Check your inbox or go to the verification page.";
+                setError(msg);
+                toast.error(msg);
+            } else if (message.toLowerCase().includes("wait")) {
+                setError(message);
+                toast.error(message);
+            } else if (!message || message.toLowerCase().includes("failed to fetch") || message.toLowerCase().includes("network")) {
+                const msg = "Unable to connect. Please check your internet connection and try again.";
+                setError(msg);
+                toast.error(msg);
+            } else {
+                setError(message || "Failed to send reset code. Please try again.");
+                toast.error(message || "Failed to send reset code");
+            }
         } finally {
             setIsLoading(false);
         }
@@ -86,28 +107,23 @@ function ForgotPasswordContent() {
                         <form onSubmit={handleSubmit} className="space-y-5">
                             {/* Error Message */}
                             {error && (
-                                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                                    {error}
+                                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-start gap-2">
+                                    <XCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                                    <span>{error}</span>
                                 </div>
                             )}
 
                             {/* Email Field */}
-                            <div>
-                                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                                    Email Address
-                                </label>
-                                <input
-                                    type="email"
-                                    id="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition"
-                                    placeholder="john@example.com"
-                                    required
-                                    autoComplete="email"
-                                    autoFocus
-                                />
-                            </div>
+                            <FloatingInput
+                                id="email"
+                                label="Email Address *"
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                required
+                                autoComplete="email"
+                                autoFocus
+                            />
 
                             {/* Submit Button */}
                             <button

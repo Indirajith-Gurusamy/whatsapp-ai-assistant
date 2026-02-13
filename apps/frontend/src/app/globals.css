@@ -158,4 +158,14 @@
   [data-sonner-toast] button[aria-label="Close toast"] {
     display: none !important;
   }
+
+  /* Floating label background - covers the border behind the label */
+  .floating-label-bg {
+    background-color: var(--background);
+  }
+
+  .dark .floating-label-bg {
+    background-color: var(--card);
+  }
 }
+

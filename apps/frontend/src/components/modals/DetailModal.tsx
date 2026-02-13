@@ -69,9 +69,8 @@ export function DetailModal({
             toast.success('Status updated successfully');
             onOpenChange(false);
             onUpdate?.();
-        } catch (error) {
-            toast.error('Failed to update status');
-            console.error(error);
+        } catch (error: unknown) {
+            toast.error(error instanceof Error ? error.message : 'Failed to update status. Please try again.');
         } finally {
             setIsUpdating(false);
         }

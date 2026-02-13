@@ -7,7 +7,9 @@ from datetime import date, datetime
 class LocationData(BaseModel):
     """User location data."""
     city: Optional[str] = None
+    state: Optional[str] = None
     country: Optional[str] = None
+    postalCode: Optional[str] = None
 
 
 class SocialLink(BaseModel):
@@ -46,6 +48,7 @@ class ProfileResponse(BaseModel):
 class UpdateProfileRequest(BaseModel):
     """Request to update user profile."""
     name: Optional[str] = None
+    email: Optional[str] = None
     bio: Optional[str] = None
     phone: Optional[str] = None
     location: Optional[LocationData] = None

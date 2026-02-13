@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { authApi } from "@/lib/api";
 import { themeClasses } from "@/lib/theme";
 import { toast } from "sonner";
+import { XCircle } from "lucide-react";
 import { PasswordStrength } from "@/components/auth/PasswordStrength";
+import { FloatingInput } from '@/components/ui/floating-input';
 
 export default function ResetPasswordPage() {
     const router = useRouter();
@@ -40,8 +42,8 @@ export default function ResetPasswordPage() {
         try {
             await authApi.forgotPassword(email);
             toast.success("New code sent to your email");
-        } catch (error: any) {
-            toast.error(error.message || "Failed to resend code");
+        } catch (error: unknown) {
+            toast.error(error instanceof Error ? error.message : "Failed to resend code");
         } finally {
             setIsResending(false);
         }
@@ -92,8 +94,22 @@ export default function ResetPasswordPage() {
             setTimeout(() => {
                 router.push("/login");
             }, 3000);
-        } catch (error: any) {
-            const errorMessage = error.message || "Failed to reset password";
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : "";
+            let errorMessage: string;
+
+            if (message.toLowerCase().includes("expired")) {
+                errorMessage = message;
+            } else if (message.toLowerCase().includes("incorrect")) {
+                errorMessage = message;
+            } else if (message.toLowerCase().includes("account")) {
+                errorMessage = "No account found with this email. Please go back and try again.";
+            } else if (!message || message.toLowerCase().includes("network") || message.toLowerCase().includes("fetch")) {
+                errorMessage = "Unable to connect. Please check your internet connection and try again.";
+            } else {
+                errorMessage = message;
+            }
+
             setErrors({ general: errorMessage });
             toast.error(errorMessage);
         } finally {
@@ -134,32 +150,49 @@ export default function ResetPasswordPage() {
                         <form onSubmit={handleSubmit} className="space-y-5">
                             {/* General Error */}
                             {errors.general && (
-                                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                                    {errors.general}
+                                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-start gap-2">
+                                    <XCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                                    <span>{errors.general}</span>
                                 </div>
                             )}
 
                             {/* Email Field */}
-                            <div>
-                                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                                    Email Address
-                                </label>
-                                <input
-                                    type="email"
-                                    id="email"
-                                    value={email}
-                                    readOnly
-                                    className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed outline-none"
-                                    placeholder="john@example.com"
-                                />
-                            </div>
+                            <FloatingInput
+                                id="email"
+                                label="Email Address"
+                                type="email"
+                                value={email}
+                                readOnly
+                                className="bg-gray-50 text-gray-500 cursor-not-allowed"
+                            />
 
                             {/* OTP Field */}
                             <div>
-                                <div className="flex items-center justify-between mb-1">
-                                    <label htmlFor="otp" className="block text-sm font-medium text-gray-700">
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        id="otp"
+                                        value={otp}
+                                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                                        className={`w-full h-[52px] px-4 pt-5 pb-2 rounded-lg border ${errors.otp ? "border-red-500" : "border-input"} focus:border-foreground outline-none transition text-center text-2xl tracking-widest font-mono`}
+                                        placeholder=""
+                                        maxLength={6}
+                                        required
+                                    />
+                                    <label
+                                        htmlFor="otp"
+                                        className={`absolute left-2.5 z-10 pointer-events-none transition-all duration-200 px-1 ${
+                                            otp ? 'text-xs font-medium floating-label-bg text-orange-500' : 'top-1/2 -translate-y-1/2 text-sm text-muted-foreground'
+                                        }`}
+                                        style={otp ? { top: 0, transform: 'translateY(-50%)' } : undefined}
+                                    >
                                         Verification Code
                                     </label>
+                                </div>
+                                <div className="flex items-center justify-between mt-1.5">
+                                    {errors.otp ? (
+                                        <p className="text-red-500 text-sm flex items-center gap-1"><XCircle className="h-3 w-3 shrink-0" />{errors.otp}</p>
+                                    ) : <span />}
                                     <button
                                         type="button"
                                         onClick={handleResendCode}
@@ -169,71 +202,50 @@ export default function ResetPasswordPage() {
                                         {isResending ? "Sending..." : "Resend Code"}
                                     </button>
                                 </div>
-                                <input
-                                    type="text"
-                                    id="otp"
-                                    value={otp}
-                                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                                    className={`w-full px-4 py-3 rounded-lg border ${errors.otp ? "border-red-500" : "border-gray-300"} focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition text-center text-2xl tracking-widest font-mono`}
-                                    placeholder="000000"
-                                    maxLength={6}
-                                    required
-                                />
-                                {errors.otp && <p className="text-red-500 text-sm mt-1">{errors.otp}</p>}
                             </div>
 
                             {/* New Password Field */}
                             <div>
-                                <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                                    New Password
-                                </label>
-                                <div className="relative">
-                                    <input
-                                        type={showPassword ? "text" : "password"}
-                                        id="newPassword"
-                                        value={newPassword}
-                                        onChange={(e) => setNewPassword(e.target.value)}
-                                        className={`w-full px-4 py-3 rounded-lg border ${errors.newPassword ? "border-red-500" : "border-gray-300"} focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition pr-12`}
-                                        placeholder="••••••••"
-                                        required
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition"
-                                    >
-                                        {showPassword ? (
-                                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                                            </svg>
-                                        ) : (
-                                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                            </svg>
-                                        )}
-                                    </button>
-                                </div>
-                                {errors.newPassword && <p className="text-red-500 text-sm mt-1">{errors.newPassword}</p>}
+                                <FloatingInput
+                                    id="newPassword"
+                                    label="New Password *"
+                                    type={showPassword ? "text" : "password"}
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    error={errors.newPassword}
+                                    required
+                                    endIcon={
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="text-gray-500 hover:text-gray-700 transition"
+                                        >
+                                            {showPassword ? (
+                                                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                                </svg>
+                                            ) : (
+                                                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                </svg>
+                                            )}
+                                        </button>
+                                    }
+                                />
                                 <PasswordStrength password={newPassword} />
                             </div>
 
                             {/* Confirm Password Field */}
-                            <div>
-                                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                                    Confirm New Password
-                                </label>
-                                <input
-                                    type="password"
-                                    id="confirmPassword"
-                                    value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                    className={`w-full px-4 py-3 rounded-lg border ${errors.confirmPassword ? "border-red-500" : "border-gray-300"} focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition`}
-                                    placeholder="••••••••"
-                                    required
-                                />
-                                {errors.confirmPassword && <p className="text-red-500 text-sm mt-1">{errors.confirmPassword}</p>}
-                            </div>
+                            <FloatingInput
+                                id="confirmPassword"
+                                label="Confirm New Password *"
+                                type="password"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                error={errors.confirmPassword}
+                                required
+                            />
 
                             {/* Submit Button */}
                             <button

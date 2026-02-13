@@ -1,8 +1,10 @@
 """FastAPI application entry point."""
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.exceptions import RequestValidationError
 from pathlib import Path
 from app.core.logging import setup_logging
 from app.lifespan import lifespan
@@ -27,6 +29,35 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# --- Global Exception Handlers ---
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc: RequestValidationError):
+    """Return a clean {detail: string} for validation errors instead of FastAPI's verbose default."""
+    errors = exc.errors()
+    if errors:
+        first = errors[0]
+        field = " → ".join(str(loc) for loc in first.get("loc", []) if loc != "body")
+        msg = f"{field}: {first.get('msg', 'Invalid value')}" if field else first.get("msg", "Validation error")
+    else:
+        msg = "Invalid request data"
+    return JSONResponse(status_code=422, content={"detail": msg})
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc: Exception):
+    """Catch-all for unhandled exceptions. Logs full traceback, returns generic message."""
+    logging.getLogger("app.global").error(
+        f"Unhandled error on {request.method} {request.url.path}: {exc}",
+        exc_info=True,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "An internal server error occurred. Please try again later."},
+    )
+
 
 # Include API router
 app.include_router(api_router)

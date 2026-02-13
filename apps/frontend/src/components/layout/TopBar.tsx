@@ -2,22 +2,19 @@
 
 import { Button } from '@/components/ui/button';
 import { MobileSidebar } from './Sidebar';
-import { Settings, User, LogOut, Shield } from 'lucide-react';
+import { Settings, User, LogOut } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useCurrentUser } from '@/hooks/useCurrentUser';
+
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { themeClasses } from '@/lib/theme';
 
 export function TopBar() {
-    const { logout, isAdmin } = useAuth();
-    const { user, isLoading } = useCurrentUser();
+    const { logout } = useAuth();
 
     return (
         <header className="sticky top-0 z-40 flex items-center gap-4 px-4 md:px-6 py-3 bg-card/80 backdrop-blur-md border-b border-border/50">
@@ -51,29 +48,11 @@ export function TopBar() {
                             <span className="sr-only">Profile</span>
                         </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuLabel>
-                            <div className="flex flex-col space-y-1">
-                                <p className="text-sm font-medium leading-none">{user?.name || 'User'}</p>
-                                <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
-                            </div>
-                        </DropdownMenuLabel>
-                        <DropdownMenuSeparator />
+                    <DropdownMenuContent align="end" className="w-44">
                         <DropdownMenuItem className="cursor-pointer" onClick={() => window.location.href = '/profile'}>
                             <User className="mr-2 h-4 w-4" />
                             <span>My Profile</span>
                         </DropdownMenuItem>
-                        {isAdmin() && (
-                            <DropdownMenuItem className="cursor-pointer" onClick={() => window.location.href = '/admin/panel'}>
-                                <Shield className="mr-2 h-4 w-4" />
-                                <span>Admin Panel</span>
-                            </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem className="cursor-pointer" onClick={() => window.location.href = '/settings/sessions'}>
-                            <Shield className="mr-2 h-4 w-4" />
-                            <span>Active Sessions</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
                         <DropdownMenuItem className="text-red-600 cursor-pointer focus:text-red-600" onClick={logout}>
                             <LogOut className="mr-2 h-4 w-4" />
                             <span>Sign Out</span>

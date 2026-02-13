@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authApi } from "@/lib/api";
 import { toast } from "sonner";
+import { XCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 function VerifyEmailContent() {
@@ -103,9 +104,21 @@ function VerifyEmailContent() {
             setTimeout(() => {
                 router.push("/login");
             }, 1500);
-        } catch (error: any) {
-            setError(error.message || "Verification failed");
-            toast.error(error.message || "Invalid OTP code");
+        } catch (error: unknown) {
+            let errorMsg = "Unable to connect. Please check your internet connection and try again.";
+            if (error instanceof Error && error.message) {
+                if (error.message.toLowerCase().includes("expired")) {
+                    errorMsg = error.message;
+                } else if (error.message.toLowerCase().includes("incorrect")) {
+                    errorMsg = error.message;
+                } else if (error.message.toLowerCase().includes("account")) {
+                    errorMsg = "No account found with this email. Please check and try again.";
+                } else {
+                    errorMsg = error.message;
+                }
+            }
+            setError(errorMsg);
+            toast.error(errorMsg);
         } finally {
             setIsVerifying(false);
         }
@@ -123,8 +136,8 @@ function VerifyEmailContent() {
             setResendCooldown(30); // 30-second cooldown
             setOtp(["", "", "", "", "", ""]); // Clear OTP inputs
             document.getElementById("otp-0")?.focus();
-        } catch (error: any) {
-            const errorMsg = error.message || "Failed to resend code";
+        } catch (error: unknown) {
+            const errorMsg = error instanceof Error ? (error.message || "Failed to resend code. Please try again later.") : "Failed to resend code. Please try again later.";
             setError(errorMsg);
             toast.error(errorMsg);
         } finally {
@@ -188,7 +201,10 @@ function VerifyEmailContent() {
                                 ))}
                             </div>
                             {error && (
-                                <p className="text-red-500 text-sm mt-3 text-center">{error}</p>
+                                <div className="flex items-center justify-center gap-1.5 mt-3">
+                                    <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />
+                                    <p className="text-red-500 text-sm">{error}</p>
+                                </div>
                             )}
                         </div>
 

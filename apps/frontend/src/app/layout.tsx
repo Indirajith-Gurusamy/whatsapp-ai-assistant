@@ -4,6 +4,7 @@ import "./globals.css";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthLayoutWrapper } from "@/components/layout/AuthLayoutWrapper";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -23,13 +24,15 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans`}>
-        <AuthLayoutWrapper>
-          {children}
-        </AuthLayoutWrapper>
+        <ErrorBoundary>
+          <AuthLayoutWrapper>
+            {children}
+          </AuthLayoutWrapper>
+        </ErrorBoundary>
         <Toaster
           richColors
           position="top-right"
-          duration={2000}
+          duration={4000}
         />
       </body>
     </html>

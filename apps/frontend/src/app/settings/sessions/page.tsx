@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { authApi, Session } from '@/lib/api';
 import { SessionCard } from '@/components/settings/SessionCard';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -20,9 +21,10 @@ export default function SessionsPage() {
             const data = await authApi.getSessions();
             setSessions(data.sessions);
             setError(null);
-        } catch (err) {
-            setError('Failed to load sessions');
-            console.error(err);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Failed to load sessions. Please try again.';
+            setError(message);
+            toast.error(message);
         } finally {
             setIsLoading(false);
         }
@@ -39,8 +41,8 @@ export default function SessionsPage() {
         try {
             await authApi.deleteSession(sessionId);
             setSessions(prev => prev.filter(s => s.id !== sessionId));
-        } catch (err) {
-            alert('Failed to logout session');
+        } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : 'Failed to logout session. Please try again.');
         } finally {
             setLoggingOutId(null);
         }
@@ -54,8 +56,8 @@ export default function SessionsPage() {
             await authApi.deleteAllSessions();
             // Refresh list to show only current session
             loadSessions();
-        } catch (err) {
-            alert('Failed to logout all sessions');
+        } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : 'Failed to logout all sessions. Please try again.');
         } finally {
             setIsLoggingOutAll(false);
         }
