@@ -7,7 +7,6 @@ from urllib.parse import parse_qs
 from app.modules.conversations.service import ConversationService
 from app.modules.ai.groq import GroqService
 from app.modules.whatsapp.sender import WhatsAppService
-from app.core.config import settings
 from app.core.constants import MESSAGE_ROLE_USER, MESSAGE_ROLE_ASSISTANT, MESSAGE_STATUS_RECEIVED, MESSAGE_STATUS_SENT, MESSAGE_STATUS_FAILED
 
 logger = logging.getLogger(__name__)
@@ -140,14 +139,13 @@ class TwilioWebhookProvider:
             )
             logger.info(f"[DB] Message saved (ID: {message_id})")
             
-            # Generate LLM response
-            logger.info(f"[AI] Generating response...")
-            response_text = GroqService.generate_response_safe(text)
+            # Generate LLM response with conversation history for this user
+            logger.info(f"[AI] Generating response for conversation {conversation_id}...")
+            response_text = await GroqService.generate_response_safe(text, conversation_id)
             
-            # Send reply
-            response_target = settings.RESPONSE_PHONE_NUMBER if settings.RESPONSE_PHONE_NUMBER else phone
-            logger.info(f"[SEND] Sending reply to {response_target}")
-            send_success = await WhatsAppService.send_message(response_target, response_text)
+            # Always reply to the sender
+            logger.info(f"[SEND] Sending reply to {phone}")
+            send_success = await WhatsAppService.send_message(phone, response_text)
             
             # Save response as assistant message
             status = MESSAGE_STATUS_SENT if send_success else MESSAGE_STATUS_FAILED

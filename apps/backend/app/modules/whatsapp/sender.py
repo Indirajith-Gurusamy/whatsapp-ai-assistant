@@ -1,56 +1,148 @@
-"""WhatsApp messaging service using Twilio API."""
+"""WhatsApp messaging service supporting multiple platforms (Twilio, Meta)."""
 import logging
+import json
+import httpx
 from twilio.rest import Client
-from app.core.config import settings
+from app.core.config import settings as app_settings
+from app.db.client import get_db
+from app.modules.settings.service import SettingsService
 
 logger = logging.getLogger(__name__)
 
 
 class WhatsAppService:
-    """Service for sending WhatsApp messages via Twilio."""
+    """Service for sending WhatsApp messages via various providers."""
     
     @staticmethod
-    async def send_message(phone_number: str, message_text: str) -> bool:
+    async def send_message(phone_number: str, message_text: str, is_template: bool = False) -> bool:
         """
-        Send a WhatsApp message via Twilio API.
-        
-        Args:
-            phone_number: Recipient's phone number (can be with or without 'whatsapp:' prefix)
-            message_text: Message to send
-            
-        Returns:
-            True if sent successfully, False otherwise
+        Send a WhatsApp message using the active account configuration.
         """
-        logger.info(f"Attempting to send WhatsApp message to {phone_number}")
-        
-        if not settings.TWILIO_ACCOUNT_SID or not settings.TWILIO_AUTH_TOKEN or not settings.TWILIO_WHATSAPP_NUMBER:
-            logger.error("[ERROR] Twilio credentials not configured")
-            return False
+        logger.info(f"Attempting to send WhatsApp message to {phone_number} (template={is_template})")
         
         try:
-            # Initialize Twilio client
-            client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+            db = await get_db()
+            settings_svc = SettingsService(db)
+            settings_data = await settings_svc.get_settings("WHATSAPP")
             
-            # Clean and format phone numbers
-            clean_number = phone_number.replace("+", "").replace(" ", "").replace("whatsapp:", "")
+            # 1. Try to find active account from multi-account list
+            accounts_json = settings_data.get("whatsapp_accounts", "[]")
+            accounts = json.loads(accounts_json)
+            active_acc = next((a for a in accounts if a.get("active")), None)
             
-            # Ensure numbers have whatsapp: prefix
-            from_number = settings.TWILIO_WHATSAPP_NUMBER if settings.TWILIO_WHATSAPP_NUMBER.startswith("whatsapp:") else f"whatsapp:{settings.TWILIO_WHATSAPP_NUMBER}"
+            if active_acc:
+                platform = active_acc.get("platform")
+                config = active_acc.get("config", {})
+                
+                if platform == "meta":
+                    return await WhatsAppService._send_meta(phone_number, message_text, config, is_template)
+                elif platform == "twilio":
+                    return await WhatsAppService._send_twilio(phone_number, message_text, config)
+            
+            # 2. Fallback to legacy env vars (Twilio)
+            legacy_config = {
+                "account_sid": settings_data.get("twilio_account_sid") or app_settings.TWILIO_ACCOUNT_SID,
+                "auth_token": settings_data.get("twilio_auth_token") or app_settings.TWILIO_AUTH_TOKEN,
+                "whatsapp_number": settings_data.get("twilio_whatsapp_number") or app_settings.TWILIO_WHATSAPP_NUMBER
+            }
+            
+            if legacy_config["account_sid"] and legacy_config["auth_token"]:
+                return await WhatsAppService._send_twilio(phone_number, message_text, legacy_config)
+            
+            logger.error("No active WhatsApp account configured")
+            return False
+            
+        except Exception as e:
+            logger.error(f"[ERROR] send_message failed: {e}", exc_info=True)
+            return False
+
+    @staticmethod
+    async def _send_twilio(phone_number: str, message_text: str, config: dict) -> bool:
+        """Internal helper for Twilio sending."""
+        try:
+            sid = config.get("account_sid")
+            token = config.get("auth_token")
+            from_number = config.get("whatsapp_number")
+            
+            if not sid or not token or not from_number:
+                logger.error("Incomplete Twilio configuration")
+                return False
+                
+            client = Client(sid, token)
+            
+            # Clean number: remove non-digits, then add whatsapp: prefix
+            import re
+            clean_number = re.sub(r"\D", "", phone_number)
             to_number = f"whatsapp:+{clean_number}" if not phone_number.startswith("whatsapp:") else phone_number
             
-            logger.info(f"Sending from {from_number} to {to_number}")
+            send_from = from_number if from_number.startswith("whatsapp:") else f"whatsapp:{from_number}"
             
-            # Send message via Twilio
+            logger.info(f"Twilio sending from {send_from} to {to_number}")
             message = client.messages.create(
-                from_=from_number,
+                from_=send_from,
                 body=message_text,
                 to=to_number
             )
-            
-            logger.info(f"[OK] WhatsApp message sent successfully - SID: {message.sid}")
-            logger.debug(f"Message status: {message.status}")
+            logger.info(f"[OK] Twilio sent - SID: {message.sid}")
             return True
-            
         except Exception as e:
-            logger.error(f"[ERROR] Twilio send failed: {e}", exc_info=True)
+            logger.error(f"Twilio send failed: {e}")
+            return False
+
+    @staticmethod
+    async def _send_meta(phone_number: str, message_text: str, config: dict, is_template: bool = False) -> bool:
+        """Internal helper for Meta (WhatsApp Cloud API) sending."""
+        try:
+            phone_id = config.get("phone_number_id")
+            token = config.get("access_token")
+            
+            if not phone_id or not token:
+                logger.error("Incomplete Meta configuration")
+                return False
+            
+            import re
+            clean_number = re.sub(r"\D", "", phone_number)
+            
+            url = f"https://graph.facebook.com/v17.0/{phone_id}/messages"
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json"
+            }
+            
+            if is_template:
+                # Use template registry for cleaner management
+                from app.modules.whatsapp.templates import WhatsAppTemplates
+                
+                # Default to order_confirmation template
+                # You can make this configurable later
+                payload = WhatsAppTemplates.get_template_payload(
+                    template_key="order_confirmation",
+                    recipient=clean_number,
+                    params=[
+                        message_text or "Test User",  # Customer name
+                        "123456",                      # Order ID
+                        "Feb 17, 2026"                # Delivery date
+                    ]
+                )
+            else:
+                payload = {
+                    "messaging_product": "whatsapp",
+                    "recipient_type": "individual",
+                    "to": clean_number,
+                    "type": "text",
+                    "text": {"body": message_text}
+                }
+            
+            logger.info(f"Meta sending (template={is_template}) to {clean_number} via {phone_id}")
+            async with httpx.AsyncClient() as client:
+                response = await client.post(url, headers=headers, json=payload)
+                
+            if response.status_code in [200, 201]:
+                logger.info(f"[OK] Meta sent - ID: {response.json().get('messages', [{}])[0].get('id')}")
+                return True
+            else:
+                logger.error(f"Meta send failed: {response.status_code} - {response.text}")
+                return False
+        except Exception as e:
+            logger.error(f"Meta send failed exception: {e}")
             return False

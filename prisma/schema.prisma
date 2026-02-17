@@ -32,6 +32,7 @@ model User {
   updatedAt            DateTime     @updatedAt @map("updated_at") @db.Timestamptz()
   profile              UserProfile?
   sessions             Session[]
+  auditLogs            AuditLog[]
 
   @@index([email])
   @@index([verificationOtp])
@@ -42,6 +43,14 @@ model User {
 enum UserRole {
   USER
   ADMIN
+}
+
+// Setting category enum for system settings
+enum SettingCategory {
+  WHATSAPP
+  AI
+  AUTOMATION
+  CRM
 }
 
 model UserProfile {
@@ -56,6 +65,38 @@ model UserProfile {
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_profiles")
+}
+
+// System settings - key/value config per category with optional encryption
+model SystemSetting {
+  id          String          @id @default(uuid()) @db.Uuid
+  category    SettingCategory
+  key         String          @db.VarChar(255)
+  value       String          @db.Text
+  isEncrypted Boolean         @default(false) @map("is_encrypted")
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz()
+
+  @@unique([category, key])
+  @@index([category])
+  @@map("system_settings")
+}
+
+// Audit log - tracks all admin setting changes
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  adminUserId Int      @map("admin_user_id")
+  action      String   @db.VarChar(255)
+  category    String   @db.VarChar(50)
+  oldValue    Json?    @map("old_value") @db.JsonB
+  newValue    Json?    @map("new_value") @db.JsonB
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  adminUser   User     @relation(fields: [adminUserId], references: [id])
+
+  @@index([adminUserId])
+  @@index([category])
+  @@index([createdAt])
+  @@map("audit_logs")
 }
 
 // Customer model - represents WhatsApp customers (formerly User model)

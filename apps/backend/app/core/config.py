@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     # Admin Configuration
     ADMIN_SIGNUP_CODE: str = "CHANGE_THIS_ADMIN_CODE_IN_PRODUCTION"
     
+    # Security
+    ENCRYPTION_KEY: Optional[str] = None
+
     # Logging Configuration
     LOG_LEVEL: str = "INFO"
     
