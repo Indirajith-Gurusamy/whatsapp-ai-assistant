@@ -12,7 +12,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { FloatingInput } from "@/components/ui/floating-input";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
     Dialog,
@@ -338,25 +338,21 @@ export default function AdminUsersPage() {
                                 <DialogTitle>Create New User</DialogTitle>
                             </DialogHeader>
                             <form onSubmit={handleCreateUser} className="space-y-4 pt-4">
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Full Name</label>
-                                    <Input
-                                        value={newUser.name}
-                                        onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
-                                        placeholder="John Doe"
-                                        required
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Email Address</label>
-                                    <Input
-                                        type="email"
-                                        value={newUser.email}
-                                        onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                                        placeholder="john@example.com"
-                                        required
-                                    />
-                                </div>
+                                <FloatingInput
+                                    label="Full Name"
+                                    value={newUser.name}
+                                    onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+                                    autoComplete="off"
+                                    required
+                                />
+                                <FloatingInput
+                                    label="Email Address"
+                                    type="email"
+                                    value={newUser.email}
+                                    onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                                    autoComplete="off"
+                                    required
+                                />
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium">Role</label>
                                     <Select
@@ -373,12 +369,12 @@ export default function AdminUsersPage() {
                                     </Select>
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium">Password</label>
-                                    <Input
+                                    <FloatingInput
+                                        label="Password"
                                         type="password"
                                         value={newUser.password}
                                         onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                                        placeholder="••••••••"
+                                        autoComplete="new-password"
                                         required
                                     />
                                     {newUser.password && <PasswordStrength password={newUser.password} />}
