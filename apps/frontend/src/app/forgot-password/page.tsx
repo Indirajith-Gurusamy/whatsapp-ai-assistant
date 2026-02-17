@@ -6,6 +6,7 @@ import { authApi } from "@/lib/api";
 import { themeClasses } from "@/lib/theme";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FloatingInput } from "@/components/ui/floating-input";
 
 function ForgotPasswordContent() {
     const router = useRouter();
@@ -92,22 +93,16 @@ function ForgotPasswordContent() {
                             )}
 
                             {/* Email Field */}
-                            <div>
-                                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                                    Email Address
-                                </label>
-                                <input
-                                    type="email"
-                                    id="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition"
-                                    placeholder="john@example.com"
-                                    required
-                                    autoComplete="email"
-                                    autoFocus
-                                />
-                            </div>
+                            <FloatingInput
+                                label="Email Address"
+                                type="email"
+                                id="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                autoComplete="email"
+                                required
+                                autoFocus
+                            />
 
                             {/* Submit Button */}
                             <button

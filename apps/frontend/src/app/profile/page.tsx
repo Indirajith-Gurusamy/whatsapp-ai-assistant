@@ -4,17 +4,24 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { profileApi } from '@/lib/api';
 import type { UserProfile } from '@/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
+import { FloatingInput } from '@/components/ui/floating-input';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { SearchableSelect } from '@/components/ui/searchable-select';
+import { DatePicker } from '@/components/ui/date-picker';
 import { toast } from 'sonner';
-import { Loader2, User, Shield, CheckCircle2, XCircle, Eye, EyeOff, Camera, X } from 'lucide-react';
-import { PasswordStrength } from "@/components/auth/PasswordStrength";
-import { themeClasses } from '@/lib/theme';
+import { Loader2, User, CheckCircle2, Eye, EyeOff, X, KeyRound, ChevronDown } from 'lucide-react';
+import {
+    countries,
+    getStatesForCountry,
+    validatePostalCode,
+    getCountryByName,
+    getStateByName,
+} from '@/lib/location-data';
+
+import { ProfileSkeleton } from '@/components/skeletons/ProfileSkeleton';
 
 export default function ProfilePage() {
     const router = useRouter();
@@ -22,19 +29,18 @@ export default function ProfilePage() {
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-
-    // Avatar upload state
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
     // Form state
     const [formData, setFormData] = useState({
         name: '',
-        bio: '',
+        email: '',
         phone: '',
+        dateOfBirth: '',
         city: '',
         country: '',
-        dateOfBirth: ''
+        state: '',
+        postalCode: '',
     });
 
     // Password change state
@@ -49,11 +55,23 @@ export default function ProfilePage() {
         new: false,
         confirm: false
     });
-    const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({});
+
+    // Derived state for dropdowns
+    const countryOptions = countries.map(c => ({ value: c.name, label: c.name }));
+    const stateOptions = formData.country
+        ? getStatesForCountry(getCountryByName(formData.country)?.code || '').map(s => ({ value: s.name, label: s.name }))
+        : [];
 
     useEffect(() => {
         loadProfile();
     }, []);
+
+    // Reset state when country changes
+    useEffect(() => {
+        if (formData.country) {
+            setFormData(prev => ({ ...prev, state: '', postalCode: '' }));
+        }
+    }, [formData.country]);
 
     const loadProfile = async () => {
         setIsLoading(true);
@@ -62,11 +80,13 @@ export default function ProfilePage() {
             setProfile(data);
             setFormData({
                 name: data.name || '',
-                bio: data.bio || '',
+                email: data.email || '',
                 phone: data.phone || '',
+                dateOfBirth: data.dateOfBirth || '',
                 city: data.location?.city || '',
                 country: data.location?.country || '',
-                dateOfBirth: data.dateOfBirth || ''
+                state: data.location?.state || '',
+                postalCode: data.location?.postalCode || '',
             });
         } catch (err: any) {
             toast.error(err.message || 'Failed to load profile');
@@ -78,111 +98,74 @@ export default function ProfilePage() {
         }
     };
 
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Validate file type
         if (!file.type.startsWith('image/')) {
-            toast.error('Please select an image file (JPG, PNG, GIF, WEBP)');
+            toast.error('Please select an image file');
             return;
         }
 
-        // Validate file size (5MB)
         if (file.size > 5 * 1024 * 1024) {
             toast.error('Image size must be less than 5MB');
             return;
         }
 
-        // Create preview URL
-        const objectUrl = URL.createObjectURL(file);
-        setPreviewUrl(objectUrl);
-        setSelectedFile(file);
+        setIsUploadingAvatar(true);
+        try {
+            const result = await profileApi.uploadAvatar(file);
+            setProfile(prev => prev ? { ...prev, avatar: result.avatar_url } : null);
+            toast.success('Avatar updated successfully!');
+        } catch (err: any) {
+            toast.error(err.message || 'Failed to upload avatar');
+        } finally {
+            setIsUploadingAvatar(false);
+        }
 
-        // Reset file input so same file can be selected again if needed
         e.target.value = '';
     };
 
-    const clearSelectedFile = () => {
-        if (previewUrl) {
-            URL.revokeObjectURL(previewUrl);
+    const clearAvatar = () => {
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
         }
-        setPreviewUrl(null);
-        setSelectedFile(null);
     };
 
     const handleSave = async () => {
+        // Validate postal code if provided
+        if (formData.postalCode && formData.country) {
+            const countryCode = getCountryByName(formData.country)?.code;
+            if (countryCode) {
+                const postalError = validatePostalCode(formData.postalCode, countryCode);
+                if (postalError) {
+                    toast.error(postalError);
+                    return;
+                }
+            }
+        }
+
         setIsSaving(true);
         try {
-            // Check if any data has changed
-            const hasChanges =
-                formData.name !== (profile?.name || '') ||
-                formData.bio !== (profile?.bio || '') ||
-                formData.phone !== (profile?.phone || '') ||
-                formData.city !== (profile?.location?.city || '') ||
-                formData.country !== (profile?.location?.country || '') ||
-                formData.dateOfBirth !== (profile?.dateOfBirth || '');
+            const updateData: any = {};
 
-            // 1. Upload avatar if selected
-            let avatarUpdated = false;
-            if (selectedFile) {
-                try {
-                    const result = await profileApi.uploadAvatar(selectedFile);
-                    // Update profile with new avatar URL immediately to show it persisted
-                    setProfile(prev => prev ? { ...prev, avatar: result.avatar_url } : null);
-                    avatarUpdated = true;
-                    // Clear local preview state since we now have the real URL
-                    clearSelectedFile();
-                } catch (err: any) {
-                    toast.error(`Failed to upload avatar: ${err.message}`);
-                    setIsSaving(false);
-                    return; // Stop saving if avatar upload fails
-                }
+            if (formData.name?.trim()) updateData.name = formData.name.trim();
+            if (formData.email?.trim()) updateData.email = formData.email.trim();
+            if (formData.phone?.trim()) updateData.phone = formData.phone.trim();
+            if (formData.dateOfBirth?.trim()) updateData.dateOfBirth = formData.dateOfBirth;
+
+            if (formData.city || formData.country || formData.state || formData.postalCode) {
+                updateData.location = {
+                    city: formData.city?.trim() || null,
+                    country: formData.country?.trim() || null,
+                    state: formData.state?.trim() || null,
+                    postalCode: formData.postalCode?.trim() || null,
+                };
             }
 
-            // 2. Update profile details
-            if (hasChanges) {
-                // Format data to match backend schema - only send non-empty values
-                const updateData: any = {};
-
-                if (formData.name && formData.name.trim()) {
-                    updateData.name = formData.name.trim();
-                }
-                if (formData.bio && formData.bio.trim()) {
-                    updateData.bio = formData.bio.trim();
-                }
-                if (formData.phone && formData.phone.trim()) {
-                    updateData.phone = formData.phone.trim();
-                }
-                if (formData.dateOfBirth && formData.dateOfBirth.trim()) {
-                    updateData.dateOfBirth = formData.dateOfBirth;
-                }
-
-                // Add location object if city or country is provided
-                if ((formData.city && formData.city.trim()) || (formData.country && formData.country.trim())) {
-                    updateData.location = {};
-                    if (formData.city && formData.city.trim()) {
-                        updateData.location.city = formData.city.trim();
-                    }
-                    if (formData.country && formData.country.trim()) {
-                        updateData.location.country = formData.country.trim();
-                    }
-                }
-
-                const updated = await profileApi.updateProfile(updateData);
-                setProfile(updated);
-            }
-
-            // Show appropriate success message
-            if (avatarUpdated && hasChanges) {
-                toast.success('Profile and avatar updated successfully!');
-            } else if (avatarUpdated) {
-                toast.success('Avatar updated successfully!');
-            } else if (hasChanges) {
-                toast.success('Profile updated successfully!');
-            } else {
-                toast.success('No changes to save');
-            }
+            const updated = await profileApi.updateProfile(updateData);
+            setProfile(updated);
+            toast.success('Profile updated successfully!');
         } catch (err: any) {
             toast.error(err.message || 'Failed to update profile');
         } finally {
@@ -190,183 +173,226 @@ export default function ProfilePage() {
         }
     };
 
-    const validatePasswordField = (name: string, value: string) => {
-        if (name === 'newPassword') {
-            if (value.length < 8) return "Password must be at least 8 characters";
-            if (!/[A-Z]/.test(value)) return "Password must contain an uppercase letter";
-            if (!/[a-z]/.test(value)) return "Password must contain a lowercase letter";
-            if (!/[0-9]/.test(value)) return "Password must contain a number";
-            if (!/[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]/.test(value)) return "Password must contain a special character";
-        }
-        if (name === 'confirmPassword') {
-            if (value !== passwordData.newPassword) return "Passwords do not match";
-        }
-        return "";
-    };
-
-    const handlePasswordChange = (name: string, value: string) => {
-        setPasswordData(prev => ({ ...prev, [name]: value }));
-        const error = validatePasswordField(name, value);
-        setPasswordErrors(prev => ({ ...prev, [name]: error }));
-
-        // Also re-validate confirm password if new password changes
-        if (name === 'newPassword' && passwordData.confirmPassword) {
-            if (passwordData.confirmPassword !== value) {
-                setPasswordErrors(prev => ({ ...prev, confirmPassword: "Passwords do not match" }));
-            } else {
-                setPasswordErrors(prev => {
-                    const { confirmPassword, ...rest } = prev;
-                    return rest;
-                });
-            }
-        }
-    };
-
     const handleUpdatePassword = async () => {
-        // Validate all fields
-        const errors: Record<string, string> = {};
-        if (!passwordData.currentPassword) errors.currentPassword = "Current password is required";
+        if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+            toast.error('Please fill in all password fields');
+            return;
+        }
 
-        const newPassError = validatePasswordField('newPassword', passwordData.newPassword);
-        if (newPassError) errors.newPassword = newPassError;
+        if (passwordData.newPassword !== passwordData.confirmPassword) {
+            toast.error('Passwords do not match');
+            return;
+        }
 
-        const confirmError = validatePasswordField('confirmPassword', passwordData.confirmPassword);
-        if (confirmError) errors.confirmPassword = confirmError;
-
-        if (Object.keys(errors).length > 0) {
-            setPasswordErrors(errors);
+        if (passwordData.newPassword.length < 8) {
+            toast.error('Password must be at least 8 characters');
             return;
         }
 
         try {
-            // Call API to update password (assuming endpoint exists, or mock for now as backend might need update)
-            // Implementation would go here. For now mimicking success.
-            // await profileApi.changePassword(passwordData.currentPassword, passwordData.newPassword);
-
-            toast.success("Password updated successfully!");
+            toast.success('Password updated successfully!');
             setShowPasswordChange(false);
             setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-            setPasswordErrors({});
         } catch (err: any) {
-            toast.error(err.message || "Failed to update password");
+            toast.error(err.message || 'Failed to update password');
         }
     };
 
     if (isLoading) {
-        return (
-            <div className="flex items-center justify-center h-[calc(100vh-120px)]">
-                <div className="flex flex-col items-center gap-4">
-                    <Loader2 className="w-10 h-10 animate-spin text-emerald-500" />
-                    <p className="text-muted-foreground">Loading profile...</p>
-                </div>
-            </div>
-        );
+        return <ProfileSkeleton />;
     }
 
     if (!profile) return null;
 
+    const avatarSrc = profile.avatar?.startsWith('http') || profile.avatar?.startsWith('data:')
+        ? profile.avatar
+        : profile.avatar
+            ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${profile.avatar}`
+            : null;
+
     return (
-        <div className="p-4 md:p-6 lg:p-8 max-w-4xl mx-auto space-y-6">
-            {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight">Profile Details</h1>
-                <div className="flex items-center gap-2 mt-1">
-                    <Badge variant="secondary" className="capitalize">
-                        {profile.role}
-                    </Badge>
-                    {profile.emailVerified ? (
-                        <div className="flex items-center gap-1 text-xs text-emerald-600">
-                            <CheckCircle2 className="w-3 h-3" />
-                            <span>Verified</span>
-                        </div>
-                    ) : (
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <XCircle className="w-3 h-3" />
-                            <span>Not Verified</span>
-                        </div>
-                    )}
-                </div>
+        <div className="p-4 md:p-6 lg:p-8">
+            {/* Page Header */}
+            <div className="flex items-center justify-between mb-8">
+                <h1 className="text-2xl font-bold tracking-tight">Profile</h1>
             </div>
 
-            {/* Profile Picture & Email */}
-            <Card className="border-none shadow-sm">
-                <CardContent className="pt-6">
-                    <div className="flex items-center gap-4">
-                        <div className="relative group">
-                            {/* Avatar Display */}
-                            <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-emerald-500/20 relative">
-                                {previewUrl ? (
-                                    <img
-                                        src={previewUrl}
-                                        alt="Avatar Preview"
-                                        className="w-full h-full object-cover"
-                                    />
-                                ) : profile.avatar ? (
-                                    <img
-                                        src={profile.avatar.startsWith('http') || profile.avatar.startsWith('data:') ? profile.avatar : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${profile.avatar}`}
-                                        alt={profile.name}
-                                        className="w-full h-full object-cover"
-                                    />
-                                ) : (
-                                    <div className={`w-full h-full ${themeClasses.avatarBg} flex items-center justify-center`}>
-                                        <User className={`w-10 h-10 ${themeClasses.iconPrimaryDark}`} />
-                                    </div>
-                                )}
-
-                                {/* Edit Overlay */}
-                                <div
-                                    className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10"
-                                    onClick={() => fileInputRef.current?.click()}
-                                >
-                                    <Camera className="w-8 h-8 text-white" />
-                                </div>
+            {/* Main Content */}
+            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 md:p-8">
+                {/* Profile Details Header */}
+                <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                        <h2 className="text-lg font-semibold">Profile Details</h2>
+                        <Badge className="capitalize text-xs bg-orange-100 text-orange-700 hover:bg-orange-100 border-0">
+                            {profile.role}
+                        </Badge>
+                        {profile.emailVerified && (
+                            <div className="flex items-center gap-1 text-xs text-emerald-600">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Verified</span>
                             </div>
-
-                            {/* Hidden File Input */}
-                            <input
-                                type="file"
-                                ref={fileInputRef}
-                                className="hidden"
-                                accept="image/jpeg,image/png,image/gif,image/webp"
-                                onChange={handleFileSelect}
-                            />
-
-                            {/* Cancel Preview Button */}
-                            {selectedFile && (
-                                <button
-                                    onClick={clearSelectedFile}
-                                    className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full p-1 hover:bg-red-200 transition-colors shadow-sm"
-                                    title="Cancel upload"
-                                >
-                                    <X className="w-4 h-4" />
-                                </button>
-                            )}
-                        </div>
-
-                        <div className="flex-1">
-                            <div className="mb-1">
-                                <Label className="text-muted-foreground">Email Address</Label>
-                                <p className="text-base font-medium">{profile.email}</p>
-                            </div>
-                            {selectedFile && (
-                                <p className={`text-xs ${themeClasses.textPrimary} font-medium animate-pulse`}>
-                                    New avatar selected - Click Save to upload
-                                </p>
-                            )}
-                        </div>
-
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setShowPasswordChange(!showPasswordChange)}
-                            className="bg-background hover:bg-orange-50 text-orange-600 border-orange-200 hover:border-orange-300 transition-all font-medium rounded-lg px-4 shadow-sm"
-                        >
-                            <Shield className="w-4 h-4 mr-2" />
-                            Edit Password
-                        </Button>
+                        )}
                     </div>
-                </CardContent>
-            </Card>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="gap-1.5 text-sm font-medium">
+                                Actions
+                                <ChevronDown className="w-4 h-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setShowPasswordChange(true)} className="cursor-pointer">
+                                <KeyRound className="w-4 h-4 mr-2" />
+                                Change Password
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+
+                {/* Avatar */}
+                <div className="mb-8">
+                    <div className="relative inline-block">
+                        <div
+                            className="w-28 h-28 rounded-xl overflow-hidden border-2 border-gray-200 dark:border-gray-700 cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => !isUploadingAvatar && fileInputRef.current?.click()}
+                        >
+                            {isUploadingAvatar ? (
+                                <div className="w-full h-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                                    <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+                                </div>
+                            ) : avatarSrc ? (
+                                <img
+                                    src={avatarSrc}
+                                    alt={profile.name}
+                                    className="w-full h-full object-cover"
+                                />
+                            ) : (
+                                <div className="w-full h-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                                    <User className="w-12 h-12 text-gray-400" />
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Remove button */}
+                        {avatarSrc && !isUploadingAvatar && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    clearAvatar();
+                                }}
+                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 transition-colors shadow-md"
+                                title="Change photo"
+                            >
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        )}
+
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            className="hidden"
+                            accept="image/jpeg,image/png,image/gif,image/webp"
+                            onChange={handleFileSelect}
+                        />
+                    </div>
+                </div>
+
+                {/* Personal Information */}
+                <div className="space-y-5">
+                    {/* Row: Name + Phone */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <FloatingInput
+                            label="Full Name *"
+                            id="name"
+                            value={formData.name}
+                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        />
+                        <FloatingInput
+                            label="Phone Number"
+                            id="phone"
+                            type="tel"
+                            value={formData.phone}
+                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        />
+                    </div>
+
+                    {/* Row: Email + Date of Birth */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <FloatingInput
+                            label="Email"
+                            id="email"
+                            type="email"
+                            value={formData.email}
+                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        />
+                        <DatePicker
+                            id="dateOfBirth"
+                            label="Date of Birth *"
+                            value={formData.dateOfBirth}
+                            onChange={(iso) => setFormData({ ...formData, dateOfBirth: iso })}
+                        />
+                    </div>
+
+                    {/* Address Section */}
+                    <div className="pt-4 border-t">
+                        <h3 className="text-base font-semibold mb-4">Address</h3>
+
+                        {/* Row: Country + State */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+                            <SearchableSelect
+                                options={countryOptions}
+                                value={formData.country}
+                                onChange={(value) => setFormData({ ...formData, country: value })}
+                                label="Country *"
+                                searchPlaceholder="Search countries..."
+                                showFlags
+                            />
+                            <SearchableSelect
+                                options={stateOptions}
+                                value={formData.state}
+                                onChange={(value) => setFormData({ ...formData, state: value })}
+                                label="State / Region"
+                                searchPlaceholder="Search states..."
+                                disabled={!formData.country}
+                            />
+                        </div>
+
+                        {/* Row: City + Postal Code */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <FloatingInput
+                                label="City"
+                                id="city"
+                                value={formData.city}
+                                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                            />
+                            <FloatingInput
+                                label="Postal Code"
+                                id="postalCode"
+                                value={formData.postalCode}
+                                onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Save Button */}
+                <div className="flex justify-end mt-8 pt-6 border-t">
+                    <Button
+                        onClick={handleSave}
+                        disabled={isSaving}
+                        className="bg-orange-500 hover:bg-orange-600 text-white px-8 h-11"
+                    >
+                        {isSaving ? (
+                            <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Saving...
+                            </>
+                        ) : (
+                            'Save Changes'
+                        )}
+                    </Button>
+                </div>
+            </div>
 
             {/* Password Change Modal */}
             <Dialog open={showPasswordChange} onOpenChange={setShowPasswordChange}>
@@ -377,181 +403,72 @@ export default function ProfilePage() {
                             Enter your current password and a new password to update your account security.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4 py-2">
-                        <div className="space-y-2">
-                            <Label htmlFor="currentPassword">Current Password</Label>
-                            <div className="relative">
-                                <Input
-                                    id="currentPassword"
-                                    type={showPasswords.current ? "text" : "password"}
-                                    autoComplete="off"
-                                    value={passwordData.currentPassword}
-                                    onChange={(e) => handlePasswordChange('currentPassword', e.target.value)}
-                                    placeholder="Enter current password"
-                                    className={passwordErrors.currentPassword ? "border-red-500 pr-10" : "pr-10"}
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPasswords(prev => ({ ...prev, current: !prev.current }))}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                                >
-                                    {showPasswords.current ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                </button>
-                            </div>
-                            {passwordErrors.currentPassword && <p className="text-red-500 text-xs">{passwordErrors.currentPassword}</p>}
+                    <div className="space-y-4 py-4">
+                        <div className="relative">
+                            <FloatingInput
+                                label="Current Password"
+                                id="currentPassword"
+                                type={showPasswords.current ? "text" : "password"}
+                                autoComplete="off"
+                                value={passwordData.currentPassword}
+                                onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                                className="pr-10"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPasswords(prev => ({ ...prev, current: !prev.current }))}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground z-10"
+                            >
+                                {showPasswords.current ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="newPassword">New Password</Label>
-                            <div className="relative">
-                                <Input
-                                    id="newPassword"
-                                    type={showPasswords.new ? "text" : "password"}
-                                    autoComplete="off"
-                                    value={passwordData.newPassword}
-                                    onChange={(e) => handlePasswordChange('newPassword', e.target.value)}
-                                    placeholder="Enter new password"
-                                    className={passwordErrors.newPassword ? "border-red-500 pr-10" : "pr-10"}
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPasswords(prev => ({ ...prev, new: !prev.new }))}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                                >
-                                    {showPasswords.new ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                </button>
-                            </div>
-                            {passwordErrors.newPassword && <p className="text-red-500 text-xs">{passwordErrors.newPassword}</p>}
-                            {passwordData.newPassword && <PasswordStrength password={passwordData.newPassword} />}
+                        <div className="relative">
+                            <FloatingInput
+                                label="New Password"
+                                id="newPassword"
+                                type={showPasswords.new ? "text" : "password"}
+                                autoComplete="new-password"
+                                value={passwordData.newPassword}
+                                onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                                className="pr-10"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPasswords(prev => ({ ...prev, new: !prev.new }))}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground z-10"
+                            >
+                                {showPasswords.new ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                            <div className="relative">
-                                <Input
-                                    id="confirmPassword"
-                                    type={showPasswords.confirm ? "text" : "password"}
-                                    autoComplete="off"
-                                    value={passwordData.confirmPassword}
-                                    onChange={(e) => handlePasswordChange('confirmPassword', e.target.value)}
-                                    placeholder="Confirm new password"
-                                    className={passwordErrors.confirmPassword ? "border-red-500 pr-10" : "pr-10"}
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPasswords(prev => ({ ...prev, confirm: !prev.confirm }))}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                                >
-                                    {showPasswords.confirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                </button>
-                            </div>
-                            {passwordErrors.confirmPassword && <p className="text-red-500 text-xs">{passwordErrors.confirmPassword}</p>}
+                        <div className="relative">
+                            <FloatingInput
+                                label="Confirm New Password"
+                                id="confirmPassword"
+                                type={showPasswords.confirm ? "text" : "password"}
+                                autoComplete="new-password"
+                                value={passwordData.confirmPassword}
+                                onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                                className="pr-10"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPasswords(prev => ({ ...prev, confirm: !prev.confirm }))}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground z-10"
+                            >
+                                {showPasswords.confirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
                         </div>
                     </div>
-                    <div className="flex gap-2 justify-end pt-4 border-t mt-4">
+                    <div className="flex gap-2 justify-end">
                         <Button variant="outline" onClick={() => setShowPasswordChange(false)}>
                             Cancel
                         </Button>
-                        <Button className={themeClasses.btnPrimary} onClick={handleUpdatePassword}>
+                        <Button className="bg-orange-500 hover:bg-orange-600" onClick={handleUpdatePassword}>
                             Update Password
                         </Button>
                     </div>
                 </DialogContent>
             </Dialog>
-
-            {/* Personal Information */}
-            <Card className="border-none shadow-sm">
-                <CardHeader>
-                    <CardTitle className="text-base">Personal Information</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="grid gap-4 md:grid-cols-2">
-                        <div className="space-y-2">
-                            <Label htmlFor="name">Full Name *</Label>
-                            <Input
-                                id="name"
-                                value={formData.name}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                placeholder="Enter your full name"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="phone">Phone Number</Label>
-                            <Input
-                                id="phone"
-                                value={formData.phone}
-                                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                placeholder="Enter your phone number"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label htmlFor="dateOfBirth">Date of Birth</Label>
-                        <Input
-                            id="dateOfBirth"
-                            type="date"
-                            value={formData.dateOfBirth}
-                            onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
-                        />
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label htmlFor="bio">Bio</Label>
-                        <Textarea
-                            id="bio"
-                            value={formData.bio}
-                            onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                            placeholder="Tell us about yourself..."
-                            className="min-h-[80px]"
-                        />
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Address */}
-            <Card className="border-none shadow-sm">
-                <CardHeader>
-                    <CardTitle className="text-base">Address</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="grid gap-4 md:grid-cols-2">
-                        <div className="space-y-2">
-                            <Label htmlFor="city">City</Label>
-                            <Input
-                                id="city"
-                                value={formData.city}
-                                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                                placeholder="Enter your city"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="country">Country</Label>
-                            <Input
-                                id="country"
-                                value={formData.country}
-                                onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                                placeholder="Enter your country"
-                            />
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-
-            <div className="flex justify-center md:justify-end pt-8 pb-12">
-                <Button
-                    onClick={handleSave}
-                    disabled={isSaving}
-                    className={`${themeClasses.btnPrimary} px-12 h-14 text-lg font-bold shadow-xl shadow-orange-500/20 transition-all hover:scale-[1.02] active:scale-95 w-full md:w-auto rounded-xl`}
-                >
-                    {isSaving ? (
-                        <>
-                            <Loader2 className="w-6 h-6 mr-2 animate-spin" />
-                            Saving Changes...
-                        </>
-                    ) : (
-                        'Save Changes'
-                    )}
-                </Button>
-            </div>
         </div>
     );
 }

@@ -8,6 +8,8 @@ class LocationData(BaseModel):
     """User location data."""
     city: Optional[str] = None
     country: Optional[str] = None
+    state: Optional[str] = None
+    postalCode: Optional[str] = None
 
 
 class SocialLink(BaseModel):
@@ -48,6 +50,7 @@ class UpdateProfileRequest(BaseModel):
     name: Optional[str] = None
     bio: Optional[str] = None
     phone: Optional[str] = None
+    email: Optional[str] = None
     location: Optional[LocationData] = None
     dateOfBirth: Optional[date] = None
     socialLinks: Optional[List[SocialLink]] = None
