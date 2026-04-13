@@ -1,5 +1,5 @@
 """Admin router with API endpoints for user management."""
-from fastapi import APIRouter, Depends, Query, Request, HTTPException, status
+from fastapi import APIRouter, Depends, Query, Request, HTTPException, status, UploadFile, File
 from app.db.prisma import Prisma
 from app.modules.auth.dependencies import get_db, require_role, get_current_user
 from app.modules.admin.service import AdminService
@@ -17,6 +17,7 @@ from app.modules.admin.schemas import (
     ResetPasswordResponse
 )
 from app.modules.auth.schemas import AuthResponse, LoginRequest, MessageResponse
+from app.modules.auth.profile_schemas import UpdateProfileRequest
 from app.modules.auth.service import AuthService
 from app.core.config import settings
 import logging
@@ -472,4 +473,71 @@ async def reset_user_password(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to reset password: {str(e)}"
+        )
+
+
+@router.get("/users/{user_id}/profile")
+async def get_user_profile(
+    user_id: int,
+    current_user = Depends(require_role(['ADMIN'])),
+    db: Prisma = Depends(get_db)
+):
+    """Get a user's complete profile. Admin only."""
+    try:
+        from app.modules.auth.profile_service import ProfileService
+        service = ProfileService(db)
+        return await service.get_user_profile(user_id)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Get user profile error for user {user_id}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch user profile: {str(e)}"
+        )
+
+
+@router.put("/users/{user_id}/profile")
+async def update_user_profile(
+    user_id: int,
+    data: UpdateProfileRequest,
+    current_user = Depends(require_role(['ADMIN'])),
+    db: Prisma = Depends(get_db)
+):
+    """Update a user's profile. Admin only."""
+    try:
+        from app.modules.auth.profile_service import ProfileService
+        service = ProfileService(db)
+        return await service.update_user_profile(user_id, data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Update user profile error for user {user_id}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update user profile: {str(e)}"
+        )
+
+
+@router.patch("/users/{user_id}/avatar")
+async def update_user_avatar(
+    user_id: int,
+    file: UploadFile = File(..., description="Avatar image file"),
+    current_user = Depends(require_role(['ADMIN'])),
+    db: Prisma = Depends(get_db)
+):
+    """Upload and update a user's avatar. Admin only."""
+    try:
+        from app.modules.auth.profile_service import ProfileService
+        from app.modules.auth.profile_schemas import UpdateAvatarResponse
+        service = ProfileService(db)
+        result = await service.update_avatar(user_id, file)
+        return UpdateAvatarResponse(**result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Update user avatar error for user {user_id}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update user avatar: {str(e)}"
         )

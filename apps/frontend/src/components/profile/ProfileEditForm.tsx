@@ -152,7 +152,7 @@ export default function ProfileEditForm({ initialProfile, onSave, onCancel }: Pr
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-6">
+                <form onSubmit={handleSubmit} autoComplete="off" className="space-y-6">
                     {/* Name */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

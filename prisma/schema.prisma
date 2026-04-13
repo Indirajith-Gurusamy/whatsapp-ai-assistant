@@ -32,6 +32,7 @@ model User {
   updatedAt            DateTime     @updatedAt @map("updated_at") @db.Timestamptz()
   profile              UserProfile?
   sessions             Session[]
+  auditLogs            AuditLog[]
 
   @@index([email])
   @@index([verificationOtp])
@@ -42,6 +43,14 @@ model User {
 enum UserRole {
   USER
   ADMIN
+}
+
+// Setting category enum for system settings
+enum SettingCategory {
+  WHATSAPP
+  AI
+  AUTOMATION
+  CRM
 }
 
 model UserProfile {
@@ -58,9 +67,42 @@ model UserProfile {
   @@map("user_profiles")
 }
 
+// System settings - key/value config per category with optional encryption
+model SystemSetting {
+  id          String          @id @default(uuid()) @db.Uuid
+  category    SettingCategory
+  key         String          @db.VarChar(255)
+  value       String          @db.Text
+  isEncrypted Boolean         @default(false) @map("is_encrypted")
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz()
+
+  @@unique([category, key])
+  @@index([category])
+  @@map("system_settings")
+}
+
+// Audit log - tracks all admin setting changes
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  adminUserId Int      @map("admin_user_id")
+  action      String   @db.VarChar(255)
+  category    String   @db.VarChar(50)
+  oldValue    Json?    @map("old_value") @db.JsonB
+  newValue    Json?    @map("new_value") @db.JsonB
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  adminUser   User     @relation(fields: [adminUserId], references: [id])
+
+  @@index([adminUserId])
+  @@index([category])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
 // Customer model - represents WhatsApp customers (formerly User model)
 model Customer {
   id            Int            @id @default(autoincrement())
+  uuid          String         @unique @default(uuid()) @map("uuid") @db.Uuid
   waId          String         @unique @map("wa_id") @db.VarChar(255)
   phone         String         @db.VarChar(50)
   name          String?        @db.VarChar(255)
@@ -68,6 +110,7 @@ model Customer {
   updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz()
   conversations Conversation[]
 
+  @@index([uuid])
   @@index([waId])
   @@index([phone])
   @@map("customers")
@@ -76,9 +119,11 @@ model Customer {
 // Conversation model - represents chat sessions
 model Conversation {
   id         Int       @id @default(autoincrement())
+  uuid       String    @unique @default(uuid()) @map("uuid") @db.Uuid
   customerId Int       @map("customer_id")
   status     String    @default("active") @db.VarChar(50)
   leadStatus String    @default("new lead") @map("lead_status") @db.VarChar(100)
+  aiEnabled  Boolean   @default(true) @map("ai_enabled")
   comments   String?   @db.Text
   assignedTo String?   @map("assigned_to") @db.VarChar(255)
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz()
@@ -87,6 +132,7 @@ model Conversation {
   customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
   messages   Message[]
 
+  @@index([uuid])
   @@index([customerId])
   @@index([status])
   @@index([leadStatus])

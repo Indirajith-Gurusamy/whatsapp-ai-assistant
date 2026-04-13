@@ -5,7 +5,7 @@ interface MessageBubbleProps {
     content: string;
     name: string;
     timestamp: string;
-    role: 'customer' | 'agent';
+    role: 'customer' | 'agent' | 'human_agent';
     className?: string;
 }
 
@@ -17,8 +17,8 @@ export function MessageBubble({
     className,
 }: MessageBubbleProps) {
     const isCustomer = role === 'customer';
-    // Show customer name for customer messages, "AI Assistant" for agent responses
-    const displayName = isCustomer ? name : 'AI Assistant';
+    const isHumanAgent = name === 'Human Agent';
+    const displayName = isCustomer ? name : (isHumanAgent ? '👤 Human Agent' : '🤖 AI Assistant');
 
     return (
         <div
@@ -30,7 +30,11 @@ export function MessageBubble({
         >
             <span className={cn(
                 "text-xs font-medium mb-1 px-1",
-                isCustomer ? "text-muted-foreground" : themeClasses.textPrimary
+                isCustomer
+                    ? "text-muted-foreground"
+                    : isHumanAgent
+                        ? "text-blue-500"
+                        : themeClasses.textPrimary
             )}>
                 {displayName}
             </span>
@@ -39,7 +43,9 @@ export function MessageBubble({
                     "rounded-2xl px-4 py-3 shadow-sm",
                     isCustomer
                         ? "bg-muted rounded-tl-sm"
-                        : `${themeClasses.bgPrimary} text-white rounded-tr-sm`
+                        : isHumanAgent
+                            ? "bg-blue-500 text-white rounded-tr-sm"
+                            : `${themeClasses.bgPrimary} text-white rounded-tr-sm`
                 )}
             >
                 <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
@@ -52,4 +58,3 @@ export function MessageBubble({
         </div>
     );
 }
-

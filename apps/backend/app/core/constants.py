@@ -20,6 +20,7 @@ LEAD_STATUSES = [
 # Message roles
 MESSAGE_ROLE_USER = "user"
 MESSAGE_ROLE_ASSISTANT = "assistant"
+MESSAGE_ROLE_AGENT = "agent"
 
 # Message statuses
 MESSAGE_STATUS_RECEIVED = "received"

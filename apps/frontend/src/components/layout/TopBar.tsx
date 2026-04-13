@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { MobileSidebar } from './Sidebar';
 import { Settings, User, LogOut, Shield } from 'lucide-react';
@@ -33,9 +34,12 @@ export function TopBar() {
                     variant="ghost"
                     size="icon"
                     className="text-muted-foreground hover:text-foreground"
+                    asChild
                 >
-                    <Settings className="w-4 h-4" />
-                    <span className="sr-only">Settings</span>
+                    <Link href="/settings">
+                        <Settings className="w-4 h-4" />
+                        <span className="sr-only">Settings</span>
+                    </Link>
                 </Button>
 
                 {/* Profile Dropdown */}

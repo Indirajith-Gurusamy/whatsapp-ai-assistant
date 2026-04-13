@@ -18,13 +18,13 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { adminApi, assignLead } from '@/lib/api';
+import { adminApi, assignLeadByUuid } from '@/lib/api';
 import { toast } from 'sonner';
 import { Loader2, UserPlus } from 'lucide-react';
 import type { UserListItem } from '@/lib/api';
 
 interface AssignLeadModalProps {
-    conversationId: number | null;
+    conversationId: string | null;
     currentAssignee?: string | null;
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -71,7 +71,7 @@ export function AssignLeadModal({
 
         setIsAssigning(true);
         try {
-            await assignLead(conversationId, selectedUser);
+            await assignLeadByUuid(conversationId, selectedUser);
             toast.success('Lead assigned successfully');
             onOpenChange(false);
             onSuccess?.();

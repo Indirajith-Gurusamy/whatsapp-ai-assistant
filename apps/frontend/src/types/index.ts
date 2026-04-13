@@ -19,6 +19,7 @@ export interface Message {
 
 export interface Conversation {
   message_id: number;
+  uuid: string;
   phone: string;
   name: string | null;
   message: string;
@@ -29,16 +30,20 @@ export interface Conversation {
   lead_status: LeadStatus;
   comments: string | null;
   assigned_to?: string | null;
+  ai_enabled?: boolean;
 }
 
 export interface Customer {
   customer_id: number;
+  uuid: string;
   phone: string;
   name: string | null;
   message: string;
   message_time: string;
   lead_status: LeadStatus;
   comments: string | null;
+  conversation_uuid?: string | null;
+  ai_enabled?: boolean;
 }
 
 export interface Analytics {
@@ -51,7 +56,7 @@ export interface Analytics {
 }
 
 export interface ConversationHistory {
-  role: 'customer' | 'agent';
+  role: 'customer' | 'agent' | 'human_agent';
   name: string;
   content: string;
   timestamp: string;
@@ -59,6 +64,7 @@ export interface ConversationHistory {
 
 export interface ConversationDetail {
   message_id: number;
+  uuid: string;
   phone: string;
   name: string | null;
   message: string;
@@ -68,6 +74,7 @@ export interface ConversationDetail {
   lead_status: LeadStatus;
   comments: string | null;
   status_updated_at: string | null;
+  ai_enabled?: boolean;
 }
 
 export interface SocialLink {
@@ -97,4 +104,70 @@ export interface UserProfile {
   socialLinks: SocialLink[];
   createdAt: string;
   updatedAt: string;
+}
+
+// Task Management Types
+export type TaskStatus = 
+  | 'todo'
+  | 'in_progress'
+  | 'review'
+  | 'completed'
+  | 'cancelled';
+
+export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
+
+export interface Task {
+  id: number;
+  uuid: string;
+  title: string;
+  description: string | null;
+  status: TaskStatus;
+  priority: TaskPriority;
+  due_date: string | null;
+  assigned_to: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TaskDetail {
+  id: number;
+  uuid: string;
+  title: string;
+  description: string | null;
+  status: TaskStatus;
+  priority: TaskPriority;
+  due_date: string | null;
+  assigned_to: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  comments: TaskComment[];
+}
+
+export interface TaskComment {
+  id: number;
+  task_id: number;
+  user_id: string;
+  user_name: string;
+  content: string;
+  created_at: string;
+}
+
+export interface CreateTaskPayload {
+  title: string;
+  description?: string;
+  status?: TaskStatus;
+  priority: TaskPriority;
+  due_date?: string;
+  assigned_to?: string;
+}
+
+export interface UpdateTaskPayload {
+  title?: string;
+  description?: string;
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  due_date?: string;
+  assigned_to?: string;
 }

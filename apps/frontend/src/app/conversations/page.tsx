@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useConversations } from '@/hooks/useConversations';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchConversationDetail } from '@/lib/api';
+import { fetchConversationDetailByUuid } from '@/lib/api';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/data/DataTable';
 import { TableSkeleton } from '@/components/data/TableSkeleton';
@@ -40,7 +40,7 @@ export default function ConversationsPage() {
     const [selectedConversation, setSelectedConversation] = useState<ConversationDetail | null>(null);
     const [detailModalOpen, setDetailModalOpen] = useState(false);
     const [assignModalOpen, setAssignModalOpen] = useState(false);
-    const [assignTarget, setAssignTarget] = useState<{ id: number; assignedTo?: string | null } | null>(null);
+    const [assignTarget, setAssignTarget] = useState<{ uuid: string; assignedTo?: string | null } | null>(null);
     const [isExporting, setIsExporting] = useState(false);
 
     const filteredConversations = useMemo(() => {
@@ -115,8 +115,7 @@ export default function ConversationsPage() {
 
     const handleRowClick = async (conversation: Conversation) => {
         try {
-            // Use 'message_id' as it is the primary key from old API
-            const detail = await fetchConversationDetail(conversation.message_id);
+            const detail = await fetchConversationDetailByUuid(conversation.uuid);
             setSelectedConversation(detail);
             setDetailModalOpen(true);
         } catch (error) {
@@ -126,7 +125,7 @@ export default function ConversationsPage() {
 
     const handleAssignClick = (conversation: Conversation) => {
         setAssignTarget({
-            id: conversation.message_id,
+            uuid: conversation.uuid,
             assignedTo: conversation.assigned_to
         });
         setAssignModalOpen(true);
@@ -193,7 +192,16 @@ export default function ConversationsPage() {
         {
             key: 'status',
             header: 'Status',
-            cell: (item: Conversation) => <StatusBadge status={item.lead_status} />,
+            cell: (item: Conversation) => (
+                <div className="flex items-center gap-1.5">
+                    <StatusBadge status={item.lead_status} />
+                    {item.ai_enabled === false && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" title="Human agent is in control">
+                            👤
+                        </span>
+                    )}
+                </div>
+            ),
         },
         {
             key: 'action',
@@ -288,7 +296,7 @@ export default function ConversationsPage() {
 
             {/* Data Table */}
             <DataTable
-                data={filteredConversations.map(c => ({ ...c, id: c.message_id }))}
+                data={filteredConversations.map(c => ({ ...c, id: c.uuid }))}
                 columns={columns}
                 onRowClick={(item) => handleRowClick(item as Conversation)}
                 emptyMessage="No leads assigned"
@@ -303,7 +311,7 @@ export default function ConversationsPage() {
             />
 
             <AssignLeadModal
-                conversationId={assignTarget?.id || null}
+                conversationId={assignTarget?.uuid || null}
                 currentAssignee={assignTarget?.assignedTo}
                 open={assignModalOpen}
                 onOpenChange={setAssignModalOpen}

@@ -1,18 +1,17 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
-import { useParams, useSearchParams, useRouter } from 'next/navigation';
-import { fetchCustomerHistory } from '@/lib/api';
+import { useEffect, useState, useRef } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { fetchCustomerByUuid, fetchCustomerHistoryByUuid, toggleConversationAI, sendAgentMessage } from '@/lib/api';
 import { MessageBubble } from '@/components/chat/MessageBubble';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, User, Phone, Calendar, Tag } from 'lucide-react';
-import { useCustomers } from '@/hooks/useCustomers';
-import type { ConversationHistory } from '@/types';
+import { ArrowLeft, User, Phone, Calendar, Tag, Bot, UserRound, Send } from 'lucide-react';
+import type { Customer, ConversationHistory } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { themeClasses } from '@/lib/theme';
-import { Skeleton } from '@/components/ui/skeleton';
+import { toast } from 'sonner';
 
 const categoryKeywords: Record<string, string[]> = {
     'Loan': ['loan', 'credit', 'borrow', 'finance'],
@@ -34,34 +33,100 @@ function categorizeMessage(message: string | null): string {
     return 'General';
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function CustomerDetailContent() {
     const params = useParams();
-    const searchParams = useSearchParams();
     const router = useRouter();
-    const { customers } = useCustomers();
 
-    const customerId = Number(params.id);
-    const phone = searchParams.get('phone') || '';
+    const customerUuid = params.uuid as string;
+    const isValidUuid = UUID_REGEX.test(customerUuid);
 
+    const [customer, setCustomer] = useState<Customer | null>(null);
     const [history, setHistory] = useState<ConversationHistory[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-
-    const customer = customers.find(c => c.customer_id === customerId);
+    const [aiEnabled, setAiEnabled] = useState(true);
+    const [isTogglingAI, setIsTogglingAI] = useState(false);
+    const [agentMessage, setAgentMessage] = useState('');
+    const [isSending, setIsSending] = useState(false);
+    const [conversationUuid, setConversationUuid] = useState<string | null>(null);
+    const messagesEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        async function loadHistory() {
-            if (!phone) return;
+        if (!isValidUuid) {
+            router.replace('/customers');
+            return;
+        }
+
+        async function loadData() {
             try {
-                const data = await fetchCustomerHistory(phone);
-                setHistory(Array.isArray(data) ? data : []);
+                const [customerData, historyData] = await Promise.all([
+                    fetchCustomerByUuid(customerUuid),
+                    fetchCustomerHistoryByUuid(customerUuid),
+                ]);
+                setCustomer(customerData);
+                setHistory(Array.isArray(historyData) ? historyData : []);
+                setAiEnabled(customerData.ai_enabled ?? true);
+                setConversationUuid(customerData.conversation_uuid ?? null);
             } catch (error) {
-                console.error('Failed to load customer history:', error);
+                console.error('Failed to load customer data:', error);
             } finally {
                 setIsLoading(false);
             }
         }
-        loadHistory();
-    }, [phone]);
+        loadData();
+    }, [customerUuid, isValidUuid, router]);
+
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [history]);
+
+    const handleToggleAI = async () => {
+        if (!conversationUuid) return;
+        const uuid = conversationUuid;
+        setIsTogglingAI(true);
+        try {
+            const newEnabled = !aiEnabled;
+            await toggleConversationAI(uuid, newEnabled);
+            setAiEnabled(newEnabled);
+            toast.success(newEnabled ? 'AI Assistant enabled' : 'AI disabled — you are now in control');
+        } catch {
+            toast.error('Failed to toggle AI');
+        } finally {
+            setIsTogglingAI(false);
+        }
+    };
+
+    const handleSendMessage = async () => {
+        if (!conversationUuid) return;
+        const uuid = conversationUuid;
+        const text = agentMessage.trim();
+        if (!text) return;
+
+        setIsSending(true);
+        try {
+            await sendAgentMessage(uuid, text);
+            setAgentMessage('');
+            toast.success('Message sent');
+
+            // Refresh history
+            const historyData = await fetchCustomerHistoryByUuid(customerUuid);
+            setHistory(Array.isArray(historyData) ? historyData : []);
+        } catch {
+            toast.error('Failed to send message');
+        } finally {
+            setIsSending(false);
+        }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSendMessage();
+        }
+    };
+
+    if (!isValidUuid) return null;
 
     if (!customer && !isLoading) {
         return (
@@ -171,13 +236,42 @@ function CustomerDetailContent() {
 
                 <TabsContent value="history" className="flex-1 flex flex-col min-h-0 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <Card className="flex-1 flex flex-col min-h-0 border-none shadow-xl bg-card/50 backdrop-blur-sm overflow-hidden">
-                        <CardHeader className="flex-none border-b bg-muted/10 py-4">
-                            <CardTitle className="text-base flex items-center gap-2">
-                                <Calendar className={`w-4 h-4 ${themeClasses.iconPrimary}`} />
-                                Conversation History
-                            </CardTitle>
+                        <CardHeader className="flex-none border-b bg-muted/10 py-3 px-4">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-base flex items-center gap-2">
+                                    <Calendar className={`w-4 h-4 ${themeClasses.iconPrimary}`} />
+                                    Conversation History
+                                </CardTitle>
+                                <Button
+                                    variant={aiEnabled ? "outline" : "default"}
+                                    size="sm"
+                                    onClick={handleToggleAI}
+                                    disabled={isTogglingAI || !conversationUuid}
+                                    className={aiEnabled
+                                        ? "border-green-500 text-green-600 hover:bg-green-50 hover:text-green-700"
+                                        : "bg-blue-500 hover:bg-blue-600 text-white"
+                                    }
+                                >
+                                    {aiEnabled ? (
+                                        <>
+                                            <Bot className="w-4 h-4 mr-1.5" />
+                                            AI Active
+                                        </>
+                                    ) : (
+                                        <>
+                                            <UserRound className="w-4 h-4 mr-1.5" />
+                                            Human Control
+                                        </>
+                                    )}
+                                </Button>
+                            </div>
+                            {!aiEnabled && (
+                                <p className="text-xs text-blue-500 mt-1">
+                                    AI is paused. You can reply directly to the customer below.
+                                </p>
+                            )}
                         </CardHeader>
-                        <CardContent className="flex-1 min-h-0 p-0 overflow-hidden">
+                        <CardContent className="flex-1 min-h-0 p-0 overflow-hidden flex flex-col">
                             {isLoading ? (
                                 <div className="flex flex-col items-center justify-center h-full gap-4">
                                     <div className="animate-spin rounded-full h-10 w-10 border-4 border-emerald-500/20 border-t-emerald-500" />
@@ -194,7 +288,7 @@ function CustomerDetailContent() {
                                     </p>
                                 </div>
                             ) : (
-                                <div className="h-full p-4 md:p-6 space-y-4 overflow-y-auto scroll-smooth custom-scrollbar-hidden">
+                                <div className="flex-1 p-4 md:p-6 space-y-4 overflow-y-auto scroll-smooth custom-scrollbar-hidden">
                                     {history.map((item, index) => (
                                         <MessageBubble
                                             key={index}
@@ -204,7 +298,31 @@ function CustomerDetailContent() {
                                             role={item.role}
                                         />
                                     ))}
-                                    <div className="h-4" />
+                                    <div ref={messagesEndRef} className="h-4" />
+                                </div>
+                            )}
+
+                            {/* Agent Message Input - shown when AI is disabled */}
+                            {!aiEnabled && (
+                                <div className="flex-none border-t bg-muted/10 p-3">
+                                    <div className="flex gap-2 items-end">
+                                        <textarea
+                                            value={agentMessage}
+                                            onChange={(e) => setAgentMessage(e.target.value)}
+                                            onKeyDown={handleKeyDown}
+                                            placeholder="Type your reply to the customer..."
+                                            className="flex-1 resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 min-h-[40px] max-h-[120px]"
+                                            rows={1}
+                                        />
+                                        <Button
+                                            onClick={handleSendMessage}
+                                            disabled={isSending || !agentMessage.trim()}
+                                            size="icon"
+                                            className="bg-blue-500 hover:bg-blue-600 text-white shrink-0 h-10 w-10"
+                                        >
+                                            <Send className="w-4 h-4" />
+                                        </Button>
+                                    </div>
                                 </div>
                             )}
                         </CardContent>
@@ -216,18 +334,5 @@ function CustomerDetailContent() {
 }
 
 export default function CustomerDetailPage() {
-    return (
-        <Suspense fallback={
-            <div className="flex flex-col h-[calc(100vh-120px)] p-4 md:p-6 lg:p-8 max-w-7xl mx-auto space-y-4">
-                <Skeleton className="h-10 w-48" />
-                <Skeleton className="h-12 w-64" />
-                <div className="grid gap-4 md:grid-cols-2 flex-1">
-                    <Skeleton className="h-64 rounded-xl" />
-                    <Skeleton className="h-64 rounded-xl" />
-                </div>
-            </div>
-        }>
-            <CustomerDetailContent />
-        </Suspense>
-    );
+    return <CustomerDetailContent />;
 }
