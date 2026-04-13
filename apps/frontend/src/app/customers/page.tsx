@@ -66,7 +66,7 @@ export default function CustomersPage() {
     const router = useRouter();
 
     const handleViewDetails = (customer: Customer) => {
-        router.push(`/customers/${customer.customer_id}?phone=${encodeURIComponent(customer.phone)}`);
+        router.push(`/customers/${customer.uuid}`);
     };
 
     const handleEdit = (customer: Customer) => {
@@ -199,7 +199,7 @@ export default function CustomersPage() {
     return (
         <div className="p-4 md:p-6">
             <DataTable
-                data={customers.map(c => ({ ...c, id: c.customer_id }))}
+                data={customers.map(c => ({ ...c, id: c.uuid }))}
                 columns={columns}
                 onRowClick={handleViewDetails}
                 title="Customers"

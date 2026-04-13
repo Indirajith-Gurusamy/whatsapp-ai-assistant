@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { adminApi, authApi, UserListItem } from "@/lib/api";
 import { toast } from "sonner";
 import {
@@ -39,12 +40,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TableSkeleton } from "@/components/data/TableSkeleton";
-import { Plus, MoreVertical, ShieldCheck, UserCheck, UserX, KeyRound, Trash2, Download, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, MoreVertical, ShieldCheck, UserCheck, UserX, KeyRound, Trash2, Download, ChevronLeft, ChevronRight, User } from "lucide-react";
 import { PasswordStrength } from "@/components/auth/PasswordStrength";
 
 const ITEMS_PER_PAGE = 10;
 
 export default function AdminUsersPage() {
+    const router = useRouter();
     const [users, setUsers] = useState<UserListItem[]>([]);
     const [totalUsers, setTotalUsers] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
@@ -526,6 +528,13 @@ export default function AdminUsersPage() {
                                                 </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end" className="w-48">
+                                                <DropdownMenuItem
+                                                    onClick={() => router.push(`/admin/users/${user.id}`)}
+                                                    className="cursor-pointer"
+                                                >
+                                                    <User className="w-4 h-4 mr-2 text-blue-600" />
+                                                    View Profile
+                                                </DropdownMenuItem>
                                                 {!user.emailVerified && (
                                                     <DropdownMenuItem
                                                         onClick={() => handleVerifyUser(user.id)}

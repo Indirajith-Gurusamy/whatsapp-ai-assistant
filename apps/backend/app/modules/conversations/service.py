@@ -74,3 +74,43 @@ class ConversationService:
     async def get_customer_history(phone: str) -> Dict:
         """Get customer history."""
         return await repository.get_customer_history(phone)
+
+    @staticmethod
+    async def get_customer_by_uuid(uuid: str) -> Optional[Dict]:
+        """Get customer by UUID."""
+        return await repository.get_customer_by_uuid(uuid)
+
+    @staticmethod
+    async def get_customer_history_by_uuid(uuid: str) -> list:
+        """Get customer history by UUID."""
+        return await repository.get_customer_history_by_uuid(uuid)
+
+    @staticmethod
+    async def get_detail_by_uuid(uuid: str) -> Optional[Dict]:
+        """Get conversation detail by UUID."""
+        return await repository.get_conversation_detail_by_uuid(uuid)
+
+    @staticmethod
+    async def update_status_by_uuid(uuid: str, lead_status: str, comments: Optional[str] = None):
+        """Update conversation status by UUID."""
+        return await repository.update_conversation_status_by_uuid(uuid, lead_status, comments)
+
+    @staticmethod
+    async def assign_lead_by_uuid(uuid: str, user_email: str):
+        """Assign lead by UUID."""
+        await repository.update_assignment_by_uuid(uuid, user_email)
+
+    @staticmethod
+    async def is_ai_enabled(conversation_id: int) -> bool:
+        """Check if AI is enabled for a conversation."""
+        return await repository.is_ai_enabled(conversation_id)
+
+    @staticmethod
+    async def toggle_ai_by_uuid(uuid: str, enabled: bool):
+        """Toggle AI on/off for a conversation."""
+        return await repository.toggle_ai_by_uuid(uuid, enabled)
+
+    @staticmethod
+    async def get_conversation_by_uuid(uuid: str):
+        """Get conversation record by UUID."""
+        return await repository.get_conversation_by_uuid(uuid)

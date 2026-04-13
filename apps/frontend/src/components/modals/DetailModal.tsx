@@ -18,7 +18,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { updateConversationStatus } from '@/lib/api';
+import { updateConversationStatusByUuid } from '@/lib/api';
 import type { ConversationDetail, LeadStatus } from '@/types';
 import { toast } from 'sonner';
 import { themeClasses } from '@/lib/theme';
@@ -65,7 +65,7 @@ export function DetailModal({
 
         setIsUpdating(true);
         try {
-            await updateConversationStatus(conversation.message_id, status, comments);
+            await updateConversationStatusByUuid(conversation.uuid, status, comments);
             toast.success('Status updated successfully');
             onOpenChange(false);
             onUpdate?.();

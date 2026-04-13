@@ -55,6 +55,8 @@ Thumbs.db
 # External
 ngrok.exe
 run commands.txt
+Untitled-1.py
+migrate_uuid.py
 # Frontend / Node.js
 node_modules/
 .next/
@@ -89,28 +91,3 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# Deployment and Cloud
-.vercel/
-.railway/
-.render/
-.terraform/
-.aws/
-.docker/
-docker-compose*.yml
-Dockerfile*
-.dockerignore
-vercel.json
-render.yaml
-Procfile
-runtime.txt
-netlify.toml
-fly.toml
-firebase.json
-captain-definition
-ecosystem.config.js
-.heroku/
-heroku.yml
-.caprover/
-.env.example
-AGENTS.md
-DEPLOYMENT.md

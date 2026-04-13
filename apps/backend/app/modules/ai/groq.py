@@ -32,7 +32,7 @@ class GroqService:
             messages.reverse()
             return [
                 {
-                    "role": "user" if msg.role == "USER" else "assistant",
+                    "role": "user" if msg.role == "user" else "assistant",
                     "content": msg.message,
                 }
                 for msg in messages

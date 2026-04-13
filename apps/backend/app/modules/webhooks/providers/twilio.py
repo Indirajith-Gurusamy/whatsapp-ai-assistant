@@ -139,6 +139,13 @@ class TwilioWebhookProvider:
             )
             logger.info(f"[DB] Message saved (ID: {message_id})")
             
+            # Check if AI is enabled for this conversation
+            ai_enabled = await ConversationService.is_ai_enabled(conversation_id)
+            
+            if not ai_enabled:
+                logger.info(f"[AI] AI disabled for conversation {conversation_id} - waiting for human agent")
+                return
+            
             # Generate LLM response with conversation history for this user
             logger.info(f"[AI] Generating response for conversation {conversation_id}...")
             response_text = await GroqService.generate_response_safe(text, conversation_id)

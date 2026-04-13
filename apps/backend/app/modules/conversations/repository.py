@@ -160,6 +160,7 @@ class ConversationRepository(BaseRepository):
         
         return {
             "id": conversation.id, # New key
+            "uuid": conversation.uuid,
             "message_id": conversation.id, # Legacy key for compatibility
             "phone": conversation.customer.phone,
             "name": conversation.customer.name,
@@ -172,6 +173,7 @@ class ConversationRepository(BaseRepository):
             "lead_status": conversation.leadStatus,
             "comments": conversation.comments,
             "assigned_to": conversation.assignedTo,
+            "ai_enabled": conversation.aiEnabled,
             "updated_at": conversation.updatedAt.isoformat(),
             # Include full messages for advanced view if needed, but keeping flat structure primarily
             "messages_list": [
@@ -275,6 +277,7 @@ class ConversationRepository(BaseRepository):
                 
                 result.append({
                     "message_id": conv.id,  # OLD API used message_id
+                    "uuid": conv.uuid,
                     "phone": conv.customer.phone,
                     "name": conv.customer.name,
                     "message": latest_message.message,
@@ -282,6 +285,7 @@ class ConversationRepository(BaseRepository):
                     "lead_status": conv.leadStatus,
                     "comments": conv.comments,
                     "assigned_to": conv.assignedTo,
+                    "ai_enabled": conv.aiEnabled,
                     "response": last_response.message if last_response else None,
                     "response_time": last_response.timestamp.isoformat() if last_response else None,  # OLD API used response_time
                     "response_status": "sent" if last_response else None  # OLD API used response_status
@@ -309,6 +313,7 @@ class ConversationRepository(BaseRepository):
         return [
             {
                 "customer_id": conv.id,  # OLD API used customer_id
+                "uuid": conv.customer.uuid,
                 "phone": conv.customer.phone,
                 "name": conv.customer.name,
                 "message": conv.messages[0].message if conv.messages else "",
@@ -337,12 +342,193 @@ class ConversationRepository(BaseRepository):
         history = []
         for conv in conversations:
             for msg in conv.messages:
+                if msg.role == MESSAGE_ROLE_USER:
+                    role, name = "customer", customer.name
+                elif msg.role == MESSAGE_ROLE_AGENT:
+                    role, name = "agent", "Human Agent"
+                else:
+                    role, name = "agent", "AI Assistant"
                 history.append({
-                    "name": customer.name if msg.role == MESSAGE_ROLE_USER else "System",
+                    "name": name,
                     "content": msg.message,
                     "timestamp": msg.timestamp.isoformat(),
-                    "role": "customer" if msg.role == MESSAGE_ROLE_USER else "system"
+                    "role": role
                 })
         
         # Already sorted by timestamp due to order_by in query
         return history
+
+    async def get_customer_by_uuid(self, uuid: str) -> Optional[Dict]:
+        """Get customer details by UUID."""
+        db = await self.get_db()
+        
+        customer = await db.customer.find_unique(where={"uuid": uuid})
+        if not customer:
+            return None
+        
+        # Get the latest conversation for this customer
+        conversation = await db.conversation.find_first(
+            where={"customerId": customer.id},
+            include={
+                "messages": {
+                    "where": {"role": "user"},
+                    "order_by": {"timestamp": "asc"},
+                    "take": 1
+                }
+            },
+            order={"updatedAt": "desc"}
+        )
+        
+        return {
+            "customer_id": customer.id,
+            "uuid": customer.uuid,
+            "phone": customer.phone,
+            "name": customer.name,
+            "message": conversation.messages[0].message if conversation and conversation.messages else "",
+            "message_time": conversation.createdAt.isoformat() if conversation else None,
+            "lead_status": conversation.leadStatus if conversation else "new lead",
+            "comments": conversation.comments if conversation else None,
+            "conversation_uuid": conversation.uuid if conversation else None,
+            "ai_enabled": conversation.aiEnabled if conversation else True,
+        }
+
+    async def get_customer_history_by_uuid(self, uuid: str) -> list:
+        """Get full conversation history for a customer by UUID."""
+        db = await self.get_db()
+        
+        customer = await db.customer.find_unique(where={"uuid": uuid})
+        if not customer:
+            return []
+        
+        conversations = await db.conversation.find_many(
+            where={"customerId": customer.id},
+            include={"messages": {"order_by": {"timestamp": "asc"}}}
+        )
+        
+        history = []
+        for conv in conversations:
+            for msg in conv.messages:
+                if msg.role == MESSAGE_ROLE_USER:
+                    role, name = "customer", customer.name
+                elif msg.role == MESSAGE_ROLE_AGENT:
+                    role, name = "agent", "Human Agent"
+                else:
+                    role, name = "agent", "AI Assistant"
+                history.append({
+                    "name": name,
+                    "content": msg.message,
+                    "timestamp": msg.timestamp.isoformat(),
+                    "role": role
+                })
+        
+        return history
+
+    async def get_conversation_detail_by_uuid(self, uuid: str) -> Optional[Dict]:
+        """Get conversation with all details by UUID."""
+        db = await self.get_db()
+        
+        conversation = await db.conversation.find_unique(
+            where={"uuid": uuid},
+            include={
+                "customer": True,
+                "messages": {"order_by": {"timestamp": "asc"}}
+            }
+        )
+        
+        if not conversation:
+            return None
+        
+        customer_messages = [m for m in conversation.messages if m.role == "user"]
+        ai_messages = [m for m in conversation.messages if m.role == "assistant"]
+        
+        first_msg = customer_messages[0] if customer_messages else None
+        first_resp = ai_messages[0] if ai_messages else None
+        
+        return {
+            "id": conversation.id,
+            "uuid": conversation.uuid,
+            "message_id": conversation.id,
+            "phone": conversation.customer.phone,
+            "name": conversation.customer.name,
+            "message": first_msg.message if first_msg else "",
+            "message_time": first_msg.timestamp.isoformat() if first_msg else None,
+            "timestamp": first_msg.timestamp.isoformat() if first_msg else None,
+            "response": first_resp.message if first_resp else None,
+            "response_time": first_resp.timestamp.isoformat() if first_resp else None,
+            "response_timestamp": first_resp.timestamp.isoformat() if first_resp else None,
+            "lead_status": conversation.leadStatus,
+            "comments": conversation.comments,
+            "assigned_to": conversation.assignedTo,
+            "ai_enabled": conversation.aiEnabled,
+            "updated_at": conversation.updatedAt.isoformat(),
+            "messages_list": [
+                {
+                    "role": msg.role,
+                    "message": msg.message,
+                    "timestamp": msg.timestamp.isoformat()
+                }
+                for msg in conversation.messages
+            ]
+        }
+
+    async def update_conversation_status_by_uuid(self, uuid: str, lead_status: str, comments: Optional[str] = None):
+        """Update conversation lead status by UUID."""
+        db = await self.get_db()
+        
+        conversation = await db.conversation.find_unique(where={"uuid": uuid})
+        if not conversation:
+            return False
+        
+        await db.conversation.update(
+            where={"uuid": uuid},
+            data={
+                "leadStatus": lead_status,
+                "comments": comments,
+                "updatedAt": datetime.now()
+            }
+        )
+        return True
+
+    async def update_assignment_by_uuid(self, uuid: str, email: str):
+        """Update conversation assignment by UUID."""
+        db = await self.get_db()
+        
+        await db.conversation.update(
+            where={"uuid": uuid},
+            data={
+                "assignedTo": email,
+                "updatedAt": datetime.now()
+            }
+        )
+
+    async def is_ai_enabled(self, conversation_id: int) -> bool:
+        """Check if AI is enabled for a conversation."""
+        db = await self.get_db()
+        conversation = await db.conversation.find_unique(where={"id": conversation_id})
+        if not conversation:
+            return True
+        return conversation.aiEnabled
+
+    async def toggle_ai_by_uuid(self, uuid: str, enabled: bool) -> Optional[bool]:
+        """Toggle AI on/off for a conversation. Returns new state or None if not found."""
+        db = await self.get_db()
+        conversation = await db.conversation.find_unique(where={"uuid": uuid})
+        if not conversation:
+            return None
+        
+        await db.conversation.update(
+            where={"uuid": uuid},
+            data={
+                "aiEnabled": enabled,
+                "updatedAt": datetime.now()
+            }
+        )
+        return enabled
+
+    async def get_conversation_by_uuid(self, uuid: str):
+        """Get conversation record by UUID."""
+        db = await self.get_db()
+        return await db.conversation.find_unique(
+            where={"uuid": uuid},
+            include={"customer": True}
+        )

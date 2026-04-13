@@ -102,6 +102,7 @@ model AuditLog {
 // Customer model - represents WhatsApp customers (formerly User model)
 model Customer {
   id            Int            @id @default(autoincrement())
+  uuid          String         @unique @default(uuid()) @map("uuid") @db.Uuid
   waId          String         @unique @map("wa_id") @db.VarChar(255)
   phone         String         @db.VarChar(50)
   name          String?        @db.VarChar(255)
@@ -109,6 +110,7 @@ model Customer {
   updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz()
   conversations Conversation[]
 
+  @@index([uuid])
   @@index([waId])
   @@index([phone])
   @@map("customers")
@@ -117,9 +119,11 @@ model Customer {
 // Conversation model - represents chat sessions
 model Conversation {
   id         Int       @id @default(autoincrement())
+  uuid       String    @unique @default(uuid()) @map("uuid") @db.Uuid
   customerId Int       @map("customer_id")
   status     String    @default("active") @db.VarChar(50)
   leadStatus String    @default("new lead") @map("lead_status") @db.VarChar(100)
+  aiEnabled  Boolean   @default(true) @map("ai_enabled")
   comments   String?   @db.Text
   assignedTo String?   @map("assigned_to") @db.VarChar(255)
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz()
@@ -128,6 +132,7 @@ model Conversation {
   customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
   messages   Message[]
 
+  @@index([uuid])
   @@index([customerId])
   @@index([status])
   @@index([leadStatus])
