@@ -370,7 +370,7 @@ export default function TasksPage() {
 
             {/* Data Table */}
             <DataTable
-                data={filteredTasks.map(t => ({ ...t, id: t.uuid }))}
+                data={filteredTasks}
                 columns={columns}
                 onRowClick={(item) => handleRowClick(item as Task)}
                 emptyMessage="No tasks found"
