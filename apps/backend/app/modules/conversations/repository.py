@@ -71,6 +71,14 @@ class ConversationRepository(BaseRepository):
         )
         
         return conversation.id, True
+
+    async def update_last_received_on(self, conversation_id: int, to_number: str):
+        """Update which Twilio number last received a message for this conversation."""
+        db = await self.get_db()
+        await db.conversation.update(
+            where={"id": conversation_id},
+            data={"lastReceivedOn": to_number, "updatedAt": datetime.now()}
+        )
     
     async def save_message(
         self,

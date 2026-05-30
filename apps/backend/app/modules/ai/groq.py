@@ -25,7 +25,7 @@ class GroqService:
             db = await get_db()
             messages = await db.message.find_many(
                 where={"conversationId": conversation_id},
-                order_by={"timestamp": "desc"},
+                order={"timestamp": "desc"},
                 take=CONTEXT_MESSAGE_LIMIT,
             )
             # Reverse to chronological order
@@ -61,7 +61,7 @@ class GroqService:
         try:
             client = Groq(api_key=settings.GROQ_API_KEY)
 
-            system_instruction = """You are a knowledgeable, professional Loan officer. Your role is to:
+            system_instruction = """You are a knowledgeable, professional janitorial support executive. Your role is to:
 - Provide informative answers when asked specific questions.
 - Be helpful, friendly, and professional.
 - Keep responses concise but comprehensive (2-4 sentences).

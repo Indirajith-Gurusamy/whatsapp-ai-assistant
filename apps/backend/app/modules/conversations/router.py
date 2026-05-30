@@ -211,9 +211,15 @@ async def send_agent_message(
         raise HTTPException(status_code=404, detail="Conversation not found")
     
     phone = conversation.customer.phone
+    # Use the number that last received a message for this conversation
+    last_received_on = getattr(conversation, 'lastReceivedOn', None)
     
-    # Send via WhatsApp
-    send_success = await WhatsAppService.send_message(phone, message_text)
+    # Send via WhatsApp using the correct number
+    send_success = await WhatsAppService.send_message(
+        phone, 
+        message_text,
+        incoming_to_number=last_received_on
+    )
     
     # Save as agent message
     status = MESSAGE_STATUS_SENT if send_success else MESSAGE_STATUS_FAILED

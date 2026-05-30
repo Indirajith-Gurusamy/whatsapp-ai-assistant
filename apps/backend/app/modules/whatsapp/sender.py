@@ -1,6 +1,7 @@
 """WhatsApp messaging service supporting multiple platforms (Twilio, Meta)."""
 import logging
 import json
+import re
 import httpx
 from twilio.rest import Client
 from app.core.config import settings as app_settings
@@ -14,44 +15,70 @@ class WhatsAppService:
     """Service for sending WhatsApp messages via various providers."""
     
     @staticmethod
-    async def send_message(phone_number: str, message_text: str, is_template: bool = False) -> bool:
+    async def send_message(phone_number: str, message_text: str, is_template: bool = False, incoming_to_number: str = None) -> bool:
         """
-        Send a WhatsApp message using the active account configuration.
+        Send a WhatsApp message using the correct account configuration.
+
+        Args:
+            phone_number: Recipient's phone number
+            message_text: Message content
+            is_template: Whether to send as template (Meta only)
+            incoming_to_number: The Twilio number that received the incoming message (used to route reply from correct number)
         """
-        logger.info(f"Attempting to send WhatsApp message to {phone_number} (template={is_template})")
-        
+        logger.info(f"Attempting to send WhatsApp message to {phone_number} (template={is_template}), incoming_to={incoming_to_number}")
+
         try:
             db = await get_db()
             settings_svc = SettingsService(db)
             settings_data = await settings_svc.get_settings("WHATSAPP")
-            
+
             # 1. Try to find active account from multi-account list
             accounts_json = settings_data.get("whatsapp_accounts", "[]")
             accounts = json.loads(accounts_json)
+
+            # Helper to normalize numbers for comparison
+            def normalize(num):
+                return re.sub(r"\D", "", num) if num else ""
+
+            # If we know which number received the message, find that account
+            if incoming_to_number:
+                incoming_norm = normalize(incoming_to_number)
+                for acc in accounts:
+                    config_num = acc.get("config", {}).get("whatsapp_number", "")
+                    if normalize(config_num) == incoming_norm:
+                        platform = acc.get("platform")
+                        config = acc.get("config", {})
+                        logger.info(f"[SEND] Using account matching number: {config_num}")
+                        if platform == "meta":
+                            return await WhatsAppService._send_meta(phone_number, message_text, config, is_template)
+                        elif platform == "twilio":
+                            return await WhatsAppService._send_twilio(phone_number, message_text, config)
+
+            # Fallback: use "active" account
             active_acc = next((a for a in accounts if a.get("active")), None)
-            
+
             if active_acc:
                 platform = active_acc.get("platform")
                 config = active_acc.get("config", {})
-                
+
                 if platform == "meta":
                     return await WhatsAppService._send_meta(phone_number, message_text, config, is_template)
                 elif platform == "twilio":
                     return await WhatsAppService._send_twilio(phone_number, message_text, config)
-            
+
             # 2. Fallback to legacy env vars (Twilio)
             legacy_config = {
                 "account_sid": settings_data.get("twilio_account_sid") or app_settings.TWILIO_ACCOUNT_SID,
                 "auth_token": settings_data.get("twilio_auth_token") or app_settings.TWILIO_AUTH_TOKEN,
                 "whatsapp_number": settings_data.get("twilio_whatsapp_number") or app_settings.TWILIO_WHATSAPP_NUMBER
             }
-            
+
             if legacy_config["account_sid"] and legacy_config["auth_token"]:
                 return await WhatsAppService._send_twilio(phone_number, message_text, legacy_config)
-            
+
             logger.error("No active WhatsApp account configured")
             return False
-            
+
         except Exception as e:
             logger.error(f"[ERROR] send_message failed: {e}", exc_info=True)
             return False

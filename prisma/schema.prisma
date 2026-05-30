@@ -118,19 +118,20 @@ model Customer {
 
 // Conversation model - represents chat sessions
 model Conversation {
-  id         Int       @id @default(autoincrement())
-  uuid       String    @unique @default(uuid()) @map("uuid") @db.Uuid
-  customerId Int       @map("customer_id")
-  status     String    @default("active") @db.VarChar(50)
-  leadStatus String    @default("new lead") @map("lead_status") @db.VarChar(100)
-  aiEnabled  Boolean   @default(true) @map("ai_enabled")
-  comments   String?   @db.Text
-  assignedTo String?   @map("assigned_to") @db.VarChar(255)
-  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
-  closedAt   DateTime? @map("closed_at") @db.Timestamptz()
-  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  messages   Message[]
+  id              Int       @id @default(autoincrement())
+  uuid            String    @unique @default(uuid()) @map("uuid") @db.Uuid
+  customerId      Int       @map("customer_id")
+  status          String    @default("active") @db.VarChar(50)
+  leadStatus      String    @default("new lead") @map("lead_status") @db.VarChar(100)
+  aiEnabled       Boolean   @default(true) @map("ai_enabled")
+  comments        String?   @db.Text
+  assignedTo      String?   @map("assigned_to") @db.VarChar(255)
+  lastReceivedOn  String?   @map("last_received_on") @db.VarChar(255)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+  closedAt        DateTime? @map("closed_at") @db.Timestamptz()
+  customer        Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  messages        Message[]
 
   @@index([uuid])
   @@index([customerId])

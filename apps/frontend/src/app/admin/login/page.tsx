@@ -57,7 +57,7 @@ export default function AdminLoginPage() {
                                 autoComplete="email"
                                 value={formData.email}
                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition text-gray-900"
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition text-gray-900"
                                 placeholder="admin@example.com"
                             />
                         </div>
@@ -70,7 +70,7 @@ export default function AdminLoginPage() {
                                 <button
                                     type="button"
                                     onClick={() => router.push("/forgot-password")}
-                                    className="text-sm text-purple-600 hover:text-purple-700 font-medium transition"
+                                    className="text-sm text-orange-600 hover:text-orange-700 font-medium transition"
                                 >
                                     Forgot password?
                                 </button>
@@ -82,7 +82,7 @@ export default function AdminLoginPage() {
                                 autoComplete="current-password"
                                 value={formData.password}
                                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition text-gray-900"
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition text-gray-900"
                                 placeholder="••••••••"
                             />
                         </div>
@@ -90,7 +90,7 @@ export default function AdminLoginPage() {
                         <button
                             type="submit"
                             disabled={isLoading}
-                            className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:from-purple-700 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                            className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 px-4 rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                         >
                             {isLoading ? (
                                 <span className="flex items-center justify-center">

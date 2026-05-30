@@ -2,17 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { tokenStorage } from "@/lib/api";
-
-interface User {
-    id: number;
-    email: string;
-    name: string;
-    role: string;
-    isActive: boolean;
-    emailVerified: boolean;
-    mustChangePassword: boolean;
-}
+import { tokenStorage, User } from "@/lib/api";
 
 interface AuthContextType {
     user: User | null;
