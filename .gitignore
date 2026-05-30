@@ -83,6 +83,9 @@ next-env.d.ts
 apps/backend/app/db/prisma/*
 !apps/backend/app/db/prisma/schema.prisma
 
+# Local planning docs
+docs/meta-whatsapp-groups-build-plan.md
+
 # Logs
 *.log
 npm-debug.log*

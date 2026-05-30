@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { authApi, Session } from '@/lib/api';
 import { SessionCard } from '@/components/settings/SessionCard';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -13,7 +12,6 @@ export default function SessionsPage() {
     const [error, setError] = useState<string | null>(null);
     const [loggingOutId, setLoggingOutId] = useState<number | null>(null);
     const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
-    const router = useRouter();
 
     const loadSessions = async () => {
         try {
@@ -39,7 +37,7 @@ export default function SessionsPage() {
         try {
             await authApi.deleteSession(sessionId);
             setSessions(prev => prev.filter(s => s.id !== sessionId));
-        } catch (err) {
+        } catch {
             alert('Failed to logout session');
         } finally {
             setLoggingOutId(null);
@@ -54,7 +52,7 @@ export default function SessionsPage() {
             await authApi.deleteAllSessions();
             // Refresh list to show only current session
             loadSessions();
-        } catch (err) {
+        } catch {
             alert('Failed to logout all sessions');
         } finally {
             setIsLoggingOutAll(false);

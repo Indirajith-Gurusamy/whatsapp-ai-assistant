@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { authApi } from "@/lib/api";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getErrorMessage } from "@/lib/utils";
 
 function VerifyEmailContent() {
     const router = useRouter();
@@ -103,9 +104,10 @@ function VerifyEmailContent() {
             setTimeout(() => {
                 router.push("/login");
             }, 1500);
-        } catch (error: any) {
-            setError(error.message || "Verification failed");
-            toast.error(error.message || "Invalid OTP code");
+        } catch (error: unknown) {
+            const message = getErrorMessage(error, "Verification failed");
+            setError(message);
+            toast.error(message === "Verification failed" ? "Invalid OTP code" : message);
         } finally {
             setIsVerifying(false);
         }
@@ -123,8 +125,8 @@ function VerifyEmailContent() {
             setResendCooldown(30); // 30-second cooldown
             setOtp(["", "", "", "", "", ""]); // Clear OTP inputs
             document.getElementById("otp-0")?.focus();
-        } catch (error: any) {
-            const errorMsg = error.message || "Failed to resend code";
+        } catch (error: unknown) {
+            const errorMsg = getErrorMessage(error, "Failed to resend code");
             setError(errorMsg);
             toast.error(errorMsg);
         } finally {
@@ -159,7 +161,7 @@ function VerifyEmailContent() {
                             Verify Your Email
                         </h1>
                         <p className="text-gray-600">
-                            We've sent a 6-digit code to
+                            We&apos;ve sent a 6-digit code to
                         </p>
                         <p className="text-primary font-semibold">{email}</p>
                     </div>
@@ -211,7 +213,7 @@ function VerifyEmailContent() {
                     {/* Footer */}
                     <div className="mt-6 text-center">
                         <p className="text-gray-600 text-sm">
-                            Didn't receive the code?{" "}
+                            Didn&apos;t receive the code?{" "}
                             <button
                                 onClick={handleResend}
                                 disabled={resendCooldown > 0 || isResending}

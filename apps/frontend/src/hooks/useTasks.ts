@@ -2,7 +2,7 @@
 
 import useSWR, { mutate } from 'swr';
 import { tasksApi, type TaskListResponse } from '@/lib/api';
-import type { Task, CreateTaskPayload, UpdateTaskPayload } from '@/types';
+import type { CreateTaskPayload, UpdateTaskPayload } from '@/types';
 import { useCallback } from 'react';
 
 const TASKS_CACHE_KEY = 'tasks-data';
@@ -10,7 +10,7 @@ const TASKS_CACHE_KEY = 'tasks-data';
 export function useTasks() {
     const { data, error, isLoading, mutate: mutateTasks } = useSWR<TaskListResponse>(
         TASKS_CACHE_KEY,
-        () => tasksApi.getTasks(0, 100),
+        () => tasksApi.getTasks(),
         {
             revalidateOnFocus: false,
             revalidateOnReconnect: true,

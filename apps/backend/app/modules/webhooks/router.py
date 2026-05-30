@@ -1,14 +1,44 @@
 """Webhook API router."""
-from fastapi import APIRouter, Request, Query, BackgroundTasks
-from fastapi.responses import PlainTextResponse, JSONResponse
-from typing import Optional
-from app.modules.webhooks.service import WebhookService
-from app.core.config import settings
+import json
 import logging
+from typing import Optional
+
+from fastapi import APIRouter, BackgroundTasks, Query, Request
+from fastapi.responses import JSONResponse, PlainTextResponse
+
+from app.core.config import settings
+from app.db.client import get_db
+from app.modules.settings.service import SettingsService
+from app.modules.webhooks.service import WebhookService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/webhook", tags=["webhooks"])
+
+
+async def _get_meta_verify_token() -> Optional[str]:
+    """Load Meta webhook verify token from Admin WHATSAPP settings."""
+    try:
+        db = await get_db()
+        settings_svc = SettingsService(db)
+        data = await settings_svc.get_settings("WHATSAPP")
+
+        token = (data.get("webhook_verify_token") or "").strip()
+        if token:
+            return token
+
+        accounts_raw = data.get("whatsapp_accounts") or "[]"
+        accounts = json.loads(accounts_raw) if isinstance(accounts_raw, str) else accounts_raw
+        for acc in accounts:
+            if acc.get("platform") == "meta" and acc.get("active"):
+                cfg_token = (acc.get("config") or {}).get("verify_token") or ""
+                cfg_token = cfg_token.strip()
+                if cfg_token:
+                    return cfg_token
+        return None
+    except Exception as e:
+        logger.warning(f"Failed to load Meta verify token from settings: {e}")
+        return None
 
 
 @router.get("", response_class=PlainTextResponse)
@@ -26,7 +56,8 @@ async def verify_webhook(
     logger.info(f"[HIT] GET WEBHOOK - mode: {hub_mode}, token: {hub_verify_token}, challenge: {hub_challenge}")
 
     # Meta WhatsApp Cloud API verification
-    if hub_mode == "subscribe" and hub_verify_token == settings.VERIFY_TOKEN:
+    expected_token = await _get_meta_verify_token() or settings.VERIFY_TOKEN
+    if hub_mode == "subscribe" and hub_verify_token and hub_verify_token == expected_token:
         logger.info("[OK] META WEBHOOK VERIFIED - Returning challenge")
         logger.debug(f"Challenge value: {hub_challenge} (type: {type(hub_challenge)})")
         return PlainTextResponse(content=hub_challenge, status_code=200)

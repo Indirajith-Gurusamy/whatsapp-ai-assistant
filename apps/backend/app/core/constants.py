@@ -25,6 +25,8 @@ MESSAGE_ROLE_AGENT = "agent"
 # Message statuses
 MESSAGE_STATUS_RECEIVED = "received"
 MESSAGE_STATUS_SENT = "sent"
+MESSAGE_STATUS_DELIVERED = "delivered"
+MESSAGE_STATUS_READ = "read"
 MESSAGE_STATUS_FAILED = "failed"
 
 # Conversation statuses

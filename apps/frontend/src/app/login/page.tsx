@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FloatingInput } from "@/components/ui/floating-input";
 import { Eye, EyeOff } from "lucide-react";
+import { getErrorMessage } from "@/lib/utils";
 
 function LoginContent() {
     const router = useRouter();
@@ -52,7 +53,9 @@ function LoginContent() {
         // Real-time validation - also clear general error when user types
         const error = validateField(name, value);
         setErrors((prev) => {
-            const { general: _, [name]: __, ...rest } = prev;
+            const rest = { ...prev };
+            delete rest.general;
+            delete rest[name];
             if (error) {
                 return { ...rest, [name]: error };
             }
@@ -94,13 +97,14 @@ function LoginContent() {
             // Redirect based on role
             const redirectTo = searchParams.get("redirect") || (response.user.role === "ADMIN" ? "/conversations" : "/dashboard");
             router.push(redirectTo);
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = getErrorMessage(error, "Login failed");
             // Handle specific error cases
-            if (error.message.includes("verify your email")) {
-                setErrors({ general: error.message });
+            if (message.includes("verify your email")) {
+                setErrors({ general: message });
                 toast.error(
                     <div>
-                        <p>{error.message}</p>
+                        <p>{message}</p>
                         <button
                             onClick={() => router.push(`/verify-email?email=${encodeURIComponent(formData.email)}`)}
                             className="mt-2 text-sm underline font-semibold"
@@ -109,15 +113,15 @@ function LoginContent() {
                         </button>
                     </div>
                 );
-            } else if (error.message.includes("deactivated")) {
+            } else if (message.includes("deactivated")) {
                 setErrors({ general: "Your account has been deactivated. Please contact support." });
                 toast.error("Account deactivated");
-            } else if (error.message.includes("Invalid email or password")) {
+            } else if (message.includes("Invalid email or password")) {
                 setErrors({ general: "Invalid email or password" });
                 toast.error("Invalid credentials");
             } else {
-                setErrors({ general: error.message || "Login failed. Please try again." });
-                toast.error(error.message || "Login failed");
+                setErrors({ general: message || "Login failed. Please try again." });
+                toast.error(message || "Login failed");
             }
         } finally {
             setIsLoading(false);

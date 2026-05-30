@@ -19,10 +19,11 @@ class AnalyticsService:
             total_messages = len(messages)
             total_responses = len([r for r in responses if r.get('status') == 'sent'])
             
+            raw_rate = (total_responses / total_messages * 100) if total_messages > 0 else 0
             analytics = {
                 "total_messages": total_messages,
                 "total_responses": total_responses,
-                "success_rate": round((total_responses / total_messages * 100) if total_messages > 0 else 0, 2),
+                "success_rate": round(min(raw_rate, 100), 2),
                 "average_response_time": "~2 seconds",
                 "unique_users": len(set(m['phone'] for m in messages)),
                 "messages_today": len([m for m in messages if m['timestamp'].startswith(datetime.now().strftime("%Y-%m-%d"))]),

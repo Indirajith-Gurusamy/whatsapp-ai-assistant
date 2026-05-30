@@ -168,19 +168,19 @@ export function DatePicker({
     const [isFocused, setIsFocused] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    useEffect(() => {
+    const closePopover = () => {
+        setOpen(false);
+        setTypedText('');
+        setIsFocused(false);
+    };
+
+    const openPopover = () => {
         if (parsed) {
             setViewMonth(parsed.getMonth());
             setViewYear(parsed.getFullYear());
         }
-    }, [parsed]);
-
-    useEffect(() => {
-        if (!open) {
-            setTypedText('');
-            setIsFocused(false);
-        }
-    }, [open]);
+        setOpen(true);
+    };
 
     const totalDays = daysInMonth(viewYear, viewMonth);
     const startDay = startDayOfMonth(viewYear, viewMonth);
@@ -201,7 +201,7 @@ export function DatePicker({
     const selectDay = (day: number) => {
         const d = new Date(viewYear, viewMonth, day);
         onChange?.(toIso(d));
-        setOpen(false);
+        closePopover();
     };
 
     const isSelected = (day: number) =>
@@ -225,21 +225,21 @@ export function DatePicker({
             setViewYear(parsedDate.getFullYear());
             setTimeout(() => {
                 onChange?.(toIso(parsedDate));
-                setOpen(false);
+                closePopover();
             }, 400);
         }
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Escape') {
-            setOpen(false);
+            closePopover();
             inputRef.current?.blur();
         }
         if (e.key === 'Enter') {
             const parsedDate = parseTypedDate(typedText);
             if (parsedDate) {
                 onChange?.(toIso(parsedDate));
-                setOpen(false);
+                closePopover();
             }
         }
     };
@@ -249,7 +249,7 @@ export function DatePicker({
         if (parsed && !typedText) {
             setTypedText(formatDisplay(parsed));
         }
-        setOpen(true);
+        openPopover();
     };
 
     const cells: (number | null)[] = [];
@@ -264,7 +264,7 @@ export function DatePicker({
     const isFloating = isFocused || hasValue;
 
     return (
-        <Popover open={open} onOpenChange={(v) => { if (!v) setOpen(false); }}>
+        <Popover open={open} onOpenChange={(v) => { if (!v) closePopover(); }}>
             <PopoverPrimitive.Anchor asChild>
                 <div className="relative">
                     <input
@@ -275,7 +275,7 @@ export function DatePicker({
                         value={inputValue}
                         onChange={(e) => handleTextInput(e.target.value)}
                         onFocus={handleInputFocus}
-                        onClick={() => setOpen(true)}
+                        onClick={openPopover}
                         onBlur={() => setIsFocused(false)}
                         onKeyDown={handleKeyDown}
                         placeholder={label ? (isFocused && !inputValue ? placeholder : '') : placeholder}

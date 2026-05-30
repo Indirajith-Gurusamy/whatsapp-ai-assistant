@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { profileApi } from '@/lib/api';
-import type { UserProfile } from '@/types';
+import type { UserProfile, UpdateProfilePayload } from '@/types';
+import { getErrorMessage } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { FloatingInput } from '@/components/ui/floating-input';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +19,6 @@ import {
     getStatesForCountry,
     validatePostalCode,
     getCountryByName,
-    getStateByName,
 } from '@/lib/location-data';
 
 import { ProfileSkeleton } from '@/components/skeletons/ProfileSkeleton';
@@ -88,9 +88,10 @@ export default function ProfilePage() {
                 state: data.location?.state || '',
                 postalCode: data.location?.postalCode || '',
             });
-        } catch (err: any) {
-            toast.error(err.message || 'Failed to load profile');
-            if (err.message?.includes('401') || err.message?.includes('Unauthorized')) {
+        } catch (err: unknown) {
+            const message = getErrorMessage(err, 'Failed to load profile');
+            toast.error(message);
+            if (message.includes('401') || message.includes('Unauthorized')) {
                 router.push('/login');
             }
         } finally {
@@ -117,8 +118,8 @@ export default function ProfilePage() {
             const result = await profileApi.uploadAvatar(file);
             setProfile(prev => prev ? { ...prev, avatar: result.avatar_url } : null);
             toast.success('Avatar updated successfully!');
-        } catch (err: any) {
-            toast.error(err.message || 'Failed to upload avatar');
+        } catch (err: unknown) {
+            toast.error(getErrorMessage(err, 'Failed to upload avatar'));
         } finally {
             setIsUploadingAvatar(false);
         }
@@ -147,7 +148,7 @@ export default function ProfilePage() {
 
         setIsSaving(true);
         try {
-            const updateData: any = {};
+            const updateData: UpdateProfilePayload = {};
 
             if (formData.name?.trim()) updateData.name = formData.name.trim();
             if (formData.email?.trim()) updateData.email = formData.email.trim();
@@ -166,8 +167,8 @@ export default function ProfilePage() {
             const updated = await profileApi.updateProfile(updateData);
             setProfile(updated);
             toast.success('Profile updated successfully!');
-        } catch (err: any) {
-            toast.error(err.message || 'Failed to update profile');
+        } catch (err: unknown) {
+            toast.error(getErrorMessage(err, 'Failed to update profile'));
         } finally {
             setIsSaving(false);
         }
@@ -193,8 +194,8 @@ export default function ProfilePage() {
             toast.success('Password updated successfully!');
             setShowPasswordChange(false);
             setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-        } catch (err: any) {
-            toast.error(err.message || 'Failed to update password');
+        } catch (err: unknown) {
+            toast.error(getErrorMessage(err, 'Failed to update password'));
         }
     };
 

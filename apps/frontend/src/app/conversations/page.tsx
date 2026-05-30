@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useConversations } from '@/hooks/useConversations';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchConversationDetailByUuid } from '@/lib/api';
@@ -257,7 +257,7 @@ export default function ConversationsPage() {
     }
 
     return (
-        <div className="p-4 md:p-6 space-y-6">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 space-y-6">
             {/* Page Header */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>

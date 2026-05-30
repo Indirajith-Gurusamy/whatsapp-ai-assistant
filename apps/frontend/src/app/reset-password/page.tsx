@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { PasswordStrength } from "@/components/auth/PasswordStrength";
 import { FloatingInput } from "@/components/ui/floating-input";
 import { Eye, EyeOff } from "lucide-react";
+import { getErrorMessage } from "@/lib/utils";
 
 export default function ResetPasswordPage() {
     const router = useRouter();
@@ -42,8 +43,8 @@ export default function ResetPasswordPage() {
         try {
             await authApi.forgotPassword(email);
             toast.success("New code sent to your email");
-        } catch (error: any) {
-            toast.error(error.message || "Failed to resend code");
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error, "Failed to resend code"));
         } finally {
             setIsResending(false);
         }
@@ -94,8 +95,8 @@ export default function ResetPasswordPage() {
             setTimeout(() => {
                 router.push("/login");
             }, 3000);
-        } catch (error: any) {
-            const errorMessage = error.message || "Failed to reset password";
+        } catch (error: unknown) {
+            const errorMessage = getErrorMessage(error, "Failed to reset password");
             setErrors({ general: errorMessage });
             toast.error(errorMessage);
         } finally {

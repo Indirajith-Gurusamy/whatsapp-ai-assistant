@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { adminApi } from '@/lib/api';
-import type { UserProfile } from '@/types';
+import type { UserProfile, UpdateProfilePayload } from '@/types';
+import { getErrorMessage } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { FloatingInput } from '@/components/ui/floating-input';
 import { Badge } from '@/components/ui/badge';
@@ -80,8 +81,8 @@ export default function AdminUserProfilePage() {
                 state: data.location?.state || '',
                 postalCode: data.location?.postalCode || '',
             });
-        } catch (err: any) {
-            toast.error(err.message || 'Failed to load user profile');
+        } catch (err: unknown) {
+            toast.error(getErrorMessage(err, 'Failed to load user profile'));
             router.push('/admin/users');
         } finally {
             setIsLoading(false);
@@ -107,8 +108,8 @@ export default function AdminUserProfilePage() {
             const result = await adminApi.uploadUserAvatar(userId, file);
             setProfile(prev => prev ? { ...prev, avatar: result.avatar_url } : null);
             toast.success('Avatar updated successfully!');
-        } catch (err: any) {
-            toast.error(err.message || 'Failed to upload avatar');
+        } catch (err: unknown) {
+            toast.error(getErrorMessage(err, 'Failed to upload avatar'));
         } finally {
             setIsUploadingAvatar(false);
         }
@@ -137,7 +138,7 @@ export default function AdminUserProfilePage() {
 
         setIsSaving(true);
         try {
-            const updateData: any = {};
+            const updateData: UpdateProfilePayload = {};
 
             if (formData.name?.trim()) updateData.name = formData.name.trim();
             if (formData.phone?.trim()) updateData.phone = formData.phone.trim();
@@ -155,8 +156,8 @@ export default function AdminUserProfilePage() {
             const updated = await adminApi.updateUserProfile(userId, updateData);
             setProfile(updated);
             toast.success('Profile updated successfully!');
-        } catch (err: any) {
-            toast.error(err.message || 'Failed to update profile');
+        } catch (err: unknown) {
+            toast.error(getErrorMessage(err, 'Failed to update profile'));
         } finally {
             setIsSaving(false);
         }
@@ -168,8 +169,8 @@ export default function AdminUserProfilePage() {
             await adminApi.resetUserPassword(userId);
             toast.success('Password reset successfully!');
             setShowPasswordReset(false);
-        } catch (err: any) {
-            toast.error(err.message || 'Failed to reset password');
+        } catch (err: unknown) {
+            toast.error(getErrorMessage(err, 'Failed to reset password'));
         } finally {
             setIsResettingPassword(false);
         }
@@ -187,7 +188,7 @@ export default function AdminUserProfilePage() {
             ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${profile.avatar}`
             : null;
 
-    const isActive = (profile as any).isActive ?? true;
+    const isActive = profile.isActive ?? true;
 
     return (
         <div className="p-4 md:p-6 lg:p-8">

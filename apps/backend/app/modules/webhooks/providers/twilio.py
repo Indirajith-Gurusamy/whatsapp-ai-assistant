@@ -159,7 +159,7 @@ class TwilioWebhookProvider:
             
             # Always reply to the sender, using the same number that received the message
             logger.info(f"[SEND] Sending reply to {phone} from {to_number}")
-            send_success = await WhatsAppService.send_message(
+            send_success, provider_id = await WhatsAppService.send_message(
                 phone, 
                 response_text, 
                 incoming_to_number=to_number
@@ -171,7 +171,7 @@ class TwilioWebhookProvider:
                 phone=phone,
                 message=response_text,
                 name=sender_name,
-                whatsapp_id=None,  # Outbound messages don't have whatsapp_id yet
+                whatsapp_id=provider_id,
                 conversation_id=conversation_id,
                 role=MESSAGE_ROLE_ASSISTANT,
                 status=status

@@ -13,13 +13,11 @@ import {
     Smartphone,
     Server,
     ShieldCheck,
-    AlertCircle,
     Send,
     MessageSquare,
     Loader2
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { FloatingInput } from "@/components/ui/floating-input";
 import { WhatsAppAccountModal, WhatsAppAccount } from "./WhatsAppAccountModal";
 
 export function WhatsAppTab({ onDirtyChange }: { onDirtyChange?: (dirty: boolean) => void }) {

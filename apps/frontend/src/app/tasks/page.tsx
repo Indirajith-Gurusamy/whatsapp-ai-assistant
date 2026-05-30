@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { useTasks, useCreateTask, useUpdateTask, useDeleteTask } from '@/hooks/useTasks';
 import { DataTable } from '@/components/data/DataTable';
 import { TableSkeleton } from '@/components/data/TableSkeleton';
@@ -9,7 +9,7 @@ import { TaskDetailModal } from '@/components/modals/TaskDetailModal';
 import { CreateTaskModal } from '@/components/modals/CreateTaskModal';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Download, Loader2, MoreHorizontal, Plus, Calendar, User, Flag } from 'lucide-react';
+import { Download, Loader2, MoreHorizontal, Plus, Calendar, User } from 'lucide-react';
 import type { Task, TaskDetail, TaskStatus, CreateTaskPayload, UpdateTaskPayload } from '@/types';
 import { toast } from 'sonner';
 import { themeClasses } from '@/lib/theme';
@@ -17,7 +17,6 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
-    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 

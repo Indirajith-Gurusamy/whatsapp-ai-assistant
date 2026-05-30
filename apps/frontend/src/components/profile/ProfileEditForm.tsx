@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { UserProfile, UpdateProfileData, Location, SocialLink } from '@/types/profile';
+import React, { useState } from 'react';
+import { UserProfile, UpdateProfilePayload } from '@/types';
 import { profileApi } from '@/lib/api';
 import { themeClasses } from '@/lib/theme';
+import { getErrorMessage } from '@/lib/utils';
 import AvatarUpload from './AvatarUpload';
 
 interface ProfileEditFormProps {
@@ -13,7 +14,7 @@ interface ProfileEditFormProps {
 }
 
 export default function ProfileEditForm({ initialProfile, onSave, onCancel }: ProfileEditFormProps) {
-    const [formData, setFormData] = useState<UpdateProfileData>({
+    const [formData, setFormData] = useState<UpdateProfilePayload>({
         name: initialProfile.name,
         bio: initialProfile.bio || '',
         phone: initialProfile.phone || '',
@@ -87,8 +88,8 @@ export default function ProfileEditForm({ initialProfile, onSave, onCancel }: Pr
             setTimeout(() => {
                 onSave(updatedProfile);
             }, 1000);
-        } catch (err: any) {
-            setError(err.message || 'Failed to update profile');
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, 'Failed to update profile'));
         } finally {
             setIsSubmitting(false);
         }
@@ -100,8 +101,8 @@ export default function ProfileEditForm({ initialProfile, onSave, onCancel }: Pr
         try {
             await profileApi.uploadAvatar(file);
             setSuccess('Avatar updated successfully!');
-        } catch (err: any) {
-            setError(err.message || 'Failed to upload avatar');
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, 'Failed to upload avatar'));
         } finally {
             setIsUploadingAvatar(false);
         }
@@ -134,7 +135,7 @@ export default function ProfileEditForm({ initialProfile, onSave, onCancel }: Pr
                 {/* Avatar Upload */}
                 <div className="mb-8 flex justify-center">
                     <AvatarUpload
-                        currentAvatar={initialProfile.avatar}
+                        currentAvatar={initialProfile.avatar ?? undefined}
                         onUpload={handleAvatarUpload}
                         isUploading={isUploadingAvatar}
                     />
@@ -237,7 +238,7 @@ export default function ProfileEditForm({ initialProfile, onSave, onCancel }: Pr
                         </label>
                         <input
                             type="date"
-                            value={formData.dateOfBirth}
+                            value={formData.dateOfBirth ?? ''}
                             onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
                             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />

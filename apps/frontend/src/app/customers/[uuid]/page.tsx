@@ -1,16 +1,15 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { fetchCustomerByUuid, fetchCustomerHistoryByUuid, toggleConversationAI, sendAgentMessage } from '@/lib/api';
-import { MessageBubble } from '@/components/chat/MessageBubble';
+import { WhatsAppChat } from '@/components/chat/WhatsAppChat';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, User, Phone, Calendar, Tag, Bot, UserRound, Send } from 'lucide-react';
-import type { Customer, ConversationHistory } from '@/types';
+import { ArrowLeft, User, Tag, MessageCircle, Info } from 'lucide-react';
+import type { Customer, ConversationHistory, MessageDeliveryStatus } from '@/types';
 import { Badge } from '@/components/ui/badge';
-import { themeClasses } from '@/lib/theme';
 import { toast } from 'sonner';
 
 const categoryKeywords: Record<string, string[]> = {
@@ -33,6 +32,20 @@ function categorizeMessage(message: string | null): string {
     return 'General';
 }
 
+function formatEnquiryDate(dateString: string | null | undefined): string {
+    if (!dateString) return '-';
+    try {
+        const d = new Date(dateString);
+        if (Number.isNaN(d.getTime())) return dateString;
+        return d.toLocaleString(undefined, {
+            dateStyle: 'medium',
+            timeStyle: 'short',
+        });
+    } catch {
+        return dateString;
+    }
+}
+
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function CustomerDetailContent() {
@@ -50,7 +63,7 @@ function CustomerDetailContent() {
     const [agentMessage, setAgentMessage] = useState('');
     const [isSending, setIsSending] = useState(false);
     const [conversationUuid, setConversationUuid] = useState<string | null>(null);
-    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const [pendingMessages, setPendingMessages] = useState<ConversationHistory[]>([]);
 
     useEffect(() => {
         if (!isValidUuid) {
@@ -77,17 +90,61 @@ function CustomerDetailContent() {
         loadData();
     }, [customerUuid, isValidUuid, router]);
 
+    // Poll for delivery/read ticks and new AI replies
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [history]);
+        if (!isValidUuid || isLoading) return;
+
+        const refreshHistory = async () => {
+            try {
+                const historyData = await fetchCustomerHistoryByUuid(customerUuid);
+                const next = Array.isArray(historyData) ? historyData : [];
+                setHistory(next);
+                setPendingMessages((prev) =>
+                    prev.filter(
+                        (p) =>
+                            !next.some(
+                                (m) =>
+                                    m.content === p.content &&
+                                    m.role === p.role &&
+                                    Math.abs(
+                                        new Date(m.timestamp).getTime() -
+                                            new Date(p.timestamp).getTime()
+                                    ) < 60000
+                            )
+                    )
+                );
+            } catch {
+                /* ignore poll errors */
+            }
+        };
+
+        const interval = setInterval(refreshHistory, 3000);
+        return () => clearInterval(interval);
+    }, [customerUuid, isValidUuid, isLoading]);
+
+    const customerEnquiries = useMemo(
+        () => history.filter((m) => m.role === 'customer'),
+        [history]
+    );
+
+    const latestEnquiry = useMemo(() => {
+        const last = customerEnquiries[customerEnquiries.length - 1];
+        if (last?.content) return last.content;
+        return customer?.message || null;
+    }, [customerEnquiries, customer?.message]);
+
+    const firstEnquiryTime = useMemo(() => {
+        const first = customerEnquiries[0];
+        if (first?.timestamp) return first.timestamp;
+        return customer?.message_time;
+    }, [customerEnquiries, customer?.message_time]);
 
     const handleToggleAI = async () => {
         if (!conversationUuid) return;
-        const uuid = conversationUuid;
         setIsTogglingAI(true);
         try {
             const newEnabled = !aiEnabled;
-            await toggleConversationAI(uuid, newEnabled);
+            await toggleConversationAI(conversationUuid, newEnabled);
             setAiEnabled(newEnabled);
             toast.success(newEnabled ? 'AI Assistant enabled' : 'AI disabled — you are now in control');
         } catch {
@@ -99,20 +156,44 @@ function CustomerDetailContent() {
 
     const handleSendMessage = async () => {
         if (!conversationUuid) return;
-        const uuid = conversationUuid;
         const text = agentMessage.trim();
         if (!text) return;
 
-        setIsSending(true);
-        try {
-            await sendAgentMessage(uuid, text);
-            setAgentMessage('');
-            toast.success('Message sent');
+        const optimistic: ConversationHistory = {
+            id: undefined,
+            role: 'human_agent',
+            name: 'Human Agent',
+            content: text,
+            timestamp: new Date().toISOString(),
+            status: 'sending' as MessageDeliveryStatus,
+        };
 
-            // Refresh history
+        setAgentMessage('');
+        setPendingMessages((prev) => [...prev, optimistic]);
+        setIsSending(true);
+
+        try {
+            await sendAgentMessage(conversationUuid, text);
+
+            setPendingMessages((prev) =>
+                prev.map((m) =>
+                    m.timestamp === optimistic.timestamp
+                        ? { ...m, status: 'sent' as MessageDeliveryStatus }
+                        : m
+                )
+            );
+
             const historyData = await fetchCustomerHistoryByUuid(customerUuid);
             setHistory(Array.isArray(historyData) ? historyData : []);
+            setPendingMessages([]);
         } catch {
+            setPendingMessages((prev) =>
+                prev.map((m) =>
+                    m.timestamp === optimistic.timestamp
+                        ? { ...m, status: 'failed' as MessageDeliveryStatus }
+                        : m
+                )
+            );
             toast.error('Failed to send message');
         } finally {
             setIsSending(false);
@@ -142,189 +223,117 @@ function CustomerDetailContent() {
         );
     }
 
-    const category = categorizeMessage(customer?.message || null);
+    const category = categorizeMessage(latestEnquiry);
 
     return (
-        <div className="flex flex-col h-[calc(100vh-120px)] p-4 md:p-6 lg:p-8 max-w-7xl mx-auto space-y-4 overflow-hidden">
-            {/* Header */}
-            <div className="flex-none flex items-center gap-4">
-                <Button variant="ghost" size="icon" onClick={() => router.back()} className="hover:bg-muted shrink-0">
-                    <ArrowLeft className="w-5 h-5" />
-                </Button>
-                <div>
-                    <h1 className="text-xl md:text-2xl font-bold tracking-tight">Customer Information</h1>
-                    <p className="text-muted-foreground text-xs">Details and interaction history.</p>
+        <div className="flex flex-col flex-1 min-h-0 h-full w-full max-w-none overflow-hidden">
+            <Tabs defaultValue="chat" className="flex flex-col flex-1 min-h-0 h-full w-full max-w-none gap-0 [&>[data-slot=tabs-content]]:flex-1">
+                {/* Top bar: back + tab switcher */}
+                <div className="flex-none flex items-center gap-3 px-3 py-2 border-b border-[#d1d7db] bg-white shrink-0 w-full">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => router.back()}
+                        className="shrink-0 h-9 w-9"
+                    >
+                        <ArrowLeft className="w-5 h-5" />
+                    </Button>
+                    <TabsList className="h-9 bg-[#f0f2f5] p-0.5 flex-1 max-w-xs">
+                        <TabsTrigger
+                            value="chat"
+                            className="flex-1 gap-1.5 text-xs sm:text-sm data-[state=active]:bg-white data-[state=active]:text-[#008069] data-[state=active]:shadow-sm"
+                        >
+                            <MessageCircle className="w-3.5 h-3.5" />
+                            Chat
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="details"
+                            className="flex-1 gap-1.5 text-xs sm:text-sm data-[state=active]:bg-white data-[state=active]:text-[#008069] data-[state=active]:shadow-sm"
+                        >
+                            <Info className="w-3.5 h-3.5" />
+                            Info
+                        </TabsTrigger>
+                    </TabsList>
                 </div>
-            </div>
 
-            <Tabs defaultValue="details" className="flex-1 flex flex-col min-h-0 space-y-4">
-                <TabsList className="flex-none bg-muted/50 p-1 self-start">
-                    <TabsTrigger value="details" className="px-6 py-1.5 text-sm">Main Details</TabsTrigger>
-                    <TabsTrigger value="history" className="px-6 py-1.5 text-sm">History</TabsTrigger>
-                </TabsList>
+                <TabsContent
+                    value="chat"
+                    className="flex-1 flex flex-col min-h-0 h-0 m-0 p-0 w-full max-w-none outline-none data-[state=inactive]:hidden overflow-hidden bg-[#efeae2]"
+                >
+                    <WhatsAppChat
+                        customerName={customer?.name || 'User'}
+                        customerPhone={customer?.phone || ''}
+                        history={history}
+                        isLoading={isLoading}
+                        aiEnabled={aiEnabled}
+                        isTogglingAI={isTogglingAI}
+                        conversationUuid={conversationUuid}
+                        onToggleAI={handleToggleAI}
+                        agentMessage={agentMessage}
+                        onAgentMessageChange={setAgentMessage}
+                        onSendMessage={handleSendMessage}
+                        isSending={isSending}
+                        pendingMessages={pendingMessages}
+                        onKeyDown={handleKeyDown}
+                        onBack={() => router.back()}
+                    />
+                </TabsContent>
 
-                <TabsContent value="details" className="flex-1 min-h-0 overflow-y-auto custom-scrollbar-hidden space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <TabsContent
+                    value="details"
+                    className="flex-1 min-h-0 h-0 m-0 w-full max-w-none overflow-y-auto overscroll-contain p-3 md:p-4 space-y-4 outline-none data-[state=inactive]:hidden bg-background"
+                >
                     <div className="grid gap-4 md:grid-cols-2">
-                        {/* Customer Summary */}
-                        <Card className="border-none shadow-sm bg-card/50 backdrop-blur-sm">
-                            <CardHeader className="py-4">
-                                <CardTitle className="text-base flex items-center gap-2">
-                                    <User className={`w-4 h-4 ${themeClasses.iconPrimary}`} />
-                                    Customer Summary
+                        <Card className="border-[#e9edef] shadow-sm">
+                            <CardHeader className="py-3 pb-2">
+                                <CardTitle className="text-sm flex items-center gap-2 text-[#008069]">
+                                    <User className="w-4 h-4" />
+                                    Customer
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="space-y-2 pb-4">
-                                <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/30">
-                                    <User className="w-4 h-4 text-muted-foreground" />
-                                    <div>
-                                        <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Name</p>
-                                        <p className="font-semibold text-sm">{customer?.name || 'User'}</p>
-                                    </div>
+                            <CardContent className="space-y-3 pb-4 text-sm">
+                                <div>
+                                    <p className="text-[10px] uppercase tracking-wider text-[#667781] font-medium">Name</p>
+                                    <p className="font-semibold text-[#111b21]">{customer?.name || 'User'}</p>
                                 </div>
-                                <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/30">
-                                    <Phone className="w-4 h-4 text-muted-foreground" />
-                                    <div>
-                                        <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Phone</p>
-                                        <p className={`font-semibold text-sm ${themeClasses.textPrimary}`}>+{customer?.phone}</p>
-                                    </div>
+                                <div>
+                                    <p className="text-[10px] uppercase tracking-wider text-[#667781] font-medium">Phone</p>
+                                    <p className="font-semibold text-[#008069]">+{customer?.phone}</p>
                                 </div>
-                                <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/30">
-                                    <Calendar className="w-4 h-4 text-muted-foreground" />
-                                    <div>
-                                        <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Enquiry Date</p>
-                                        <p className="font-semibold text-sm">{customer?.message_time || '-'}</p>
-                                    </div>
+                                <div>
+                                    <p className="text-[10px] uppercase tracking-wider text-[#667781] font-medium">First enquiry</p>
+                                    <p className="font-medium text-[#111b21]">
+                                        {formatEnquiryDate(firstEnquiryTime)}
+                                    </p>
                                 </div>
                             </CardContent>
                         </Card>
 
-                        {/* Category Details */}
-                        <Card className="border-none shadow-sm bg-card/50 backdrop-blur-sm">
-                            <CardHeader className="py-4">
-                                <CardTitle className="text-base flex items-center gap-2">
-                                    <Tag className={`w-4 h-4 ${themeClasses.iconPrimary}`} />
-                                    Category Details
+                        <Card className="border-[#e9edef] shadow-sm">
+                            <CardHeader className="py-3 pb-2">
+                                <CardTitle className="text-sm flex items-center gap-2 text-[#008069]">
+                                    <Tag className="w-4 h-4" />
+                                    Category
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="pb-4">
-                                <div className={`flex items-center gap-3 p-3 rounded-xl ${themeClasses.cardPrimary}`}>
-                                                                                    <Tag className={`w-5 h-5 ${themeClasses.iconPrimaryDark}`} />
-                                                                                    <div>
-                                                                                        <p className={`text-xs font-medium ${themeClasses.textPrimaryDark} dark:${themeClasses.textPrimaryLight}`}>Detected Category</p>
-                                                                                        <Badge className={`mt-1 ${themeClasses.bgPrimary} ${themeClasses.bgPrimaryHover} border-none px-2 py-0.5 text-[10px]`}>
-                                            {category}
-                                        </Badge>
-                                    </div>
-                                </div>
+                                <Badge className="bg-[#d9fdd3] text-[#008069] hover:bg-[#d9fdd3] border-none">
+                                    {category}
+                                </Badge>
                             </CardContent>
                         </Card>
                     </div>
 
-                    {/* Latest Enquiry */}
-                    <Card className="border-none shadow-sm bg-card/50 backdrop-blur-sm">
-                        <CardHeader className="py-4">
-                            <CardTitle className="text-base">Latest Enquiry</CardTitle>
+                    <Card className="border-[#e9edef] shadow-sm">
+                        <CardHeader className="py-3 pb-2">
+                            <CardTitle className="text-sm text-[#111b21]">Latest enquiry</CardTitle>
                         </CardHeader>
                         <CardContent className="pb-4">
-                            <div className="bg-muted/50 p-4 rounded-xl border border-border/50 relative overflow-hidden">
-                                <div className={`absolute top-0 left-0 w-1 h-full ${themeClasses.bgPrimary}`} />
-                                <p className="text-sm leading-relaxed whitespace-pre-wrap">{customer?.message}</p>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-
-                <TabsContent value="history" className="flex-1 flex flex-col min-h-0 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    <Card className="flex-1 flex flex-col min-h-0 border-none shadow-xl bg-card/50 backdrop-blur-sm overflow-hidden">
-                        <CardHeader className="flex-none border-b bg-muted/10 py-3 px-4">
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="text-base flex items-center gap-2">
-                                    <Calendar className={`w-4 h-4 ${themeClasses.iconPrimary}`} />
-                                    Conversation History
-                                </CardTitle>
-                                <Button
-                                    variant={aiEnabled ? "outline" : "default"}
-                                    size="sm"
-                                    onClick={handleToggleAI}
-                                    disabled={isTogglingAI || !conversationUuid}
-                                    className={aiEnabled
-                                        ? "border-green-500 text-green-600 hover:bg-green-50 hover:text-green-700"
-                                        : "bg-blue-500 hover:bg-blue-600 text-white"
-                                    }
-                                >
-                                    {aiEnabled ? (
-                                        <>
-                                            <Bot className="w-4 h-4 mr-1.5" />
-                                            AI Active
-                                        </>
-                                    ) : (
-                                        <>
-                                            <UserRound className="w-4 h-4 mr-1.5" />
-                                            Human Control
-                                        </>
-                                    )}
-                                </Button>
-                            </div>
-                            {!aiEnabled && (
-                                <p className="text-xs text-blue-500 mt-1">
-                                    AI is paused. You can reply directly to the customer below.
+                            <div className="bg-[#efeae2] p-4 rounded-lg border border-[#e9edef]">
+                                <p className="text-sm leading-relaxed text-[#111b21] whitespace-pre-wrap">
+                                    {latestEnquiry || '—'}
                                 </p>
-                            )}
-                        </CardHeader>
-                        <CardContent className="flex-1 min-h-0 p-0 overflow-hidden flex flex-col">
-                            {isLoading ? (
-                                <div className="flex flex-col items-center justify-center h-full gap-4">
-                                    <div className="animate-spin rounded-full h-10 w-10 border-4 border-emerald-500/20 border-t-emerald-500" />
-                                    <p className="text-muted-foreground animate-pulse text-xs">Loading interaction history...</p>
-                                </div>
-                            ) : history.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center h-full text-center px-6">
-                                    <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
-                                        <Tag className="w-6 h-6 text-muted-foreground" />
-                                    </div>
-                                    <p className="text-lg font-semibold mb-1">No history found</p>
-                                    <p className="text-muted-foreground text-xs max-w-[250px]">
-                                        There are no recorded interactions for this customer yet.
-                                    </p>
-                                </div>
-                            ) : (
-                                <div className="flex-1 p-4 md:p-6 space-y-4 overflow-y-auto scroll-smooth custom-scrollbar-hidden">
-                                    {history.map((item, index) => (
-                                        <MessageBubble
-                                            key={index}
-                                            content={item.content}
-                                            name={item.name}
-                                            timestamp={item.timestamp}
-                                            role={item.role}
-                                        />
-                                    ))}
-                                    <div ref={messagesEndRef} className="h-4" />
-                                </div>
-                            )}
-
-                            {/* Agent Message Input - shown when AI is disabled */}
-                            {!aiEnabled && (
-                                <div className="flex-none border-t bg-muted/10 p-3">
-                                    <div className="flex gap-2 items-end">
-                                        <textarea
-                                            value={agentMessage}
-                                            onChange={(e) => setAgentMessage(e.target.value)}
-                                            onKeyDown={handleKeyDown}
-                                            placeholder="Type your reply to the customer..."
-                                            className="flex-1 resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 min-h-[40px] max-h-[120px]"
-                                            rows={1}
-                                        />
-                                        <Button
-                                            onClick={handleSendMessage}
-                                            disabled={isSending || !agentMessage.trim()}
-                                            size="icon"
-                                            className="bg-blue-500 hover:bg-blue-600 text-white shrink-0 h-10 w-10"
-                                        >
-                                            <Send className="w-4 h-4" />
-                                        </Button>
-                                    </div>
-                                </div>
-                            )}
+                            </div>
                         </CardContent>
                     </Card>
                 </TabsContent>

@@ -190,14 +190,14 @@ export default function CustomersPage() {
 
     if (isLoading) {
         return (
-            <div className="p-4 md:p-6">
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6">
                 <TableSkeleton columns={5} rows={10} title="Customers" />
             </div>
         );
     }
 
     return (
-        <div className="p-4 md:p-6">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6">
             <DataTable
                 data={customers.map(c => ({ ...c, id: c.uuid }))}
                 columns={columns}

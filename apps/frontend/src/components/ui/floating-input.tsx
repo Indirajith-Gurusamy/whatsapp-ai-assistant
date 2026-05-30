@@ -23,10 +23,11 @@ function renderLabel(label: string) {
 const FloatingInput = React.forwardRef<HTMLInputElement, FloatingInputProps>(
     ({ className, label, error, type = 'text', id, value, ...props }, ref) => {
         const [focused, setFocused] = React.useState(false);
+        const generatedId = React.useId();
         const hasValue = value !== undefined && value !== null && value !== '';
         const isFloating = focused || hasValue;
 
-        const inputId = id || `floating-input-${React.useId()}`;
+        const inputId = id || `floating-input-${generatedId}`;
 
         return (
             <div className="relative w-full">

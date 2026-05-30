@@ -5,6 +5,7 @@ import { useSettings } from "@/hooks/useSettings";
 import { FloatingInput } from "@/components/ui/floating-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Brain, Eye, EyeOff, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import type { TestResult } from "@/lib/api";
 
 const MODEL_OPTIONS = [
     "llama-3.3-70b-versatile",
@@ -31,15 +32,11 @@ export function AITab({ onDirtyChange }: { onDirtyChange?: (dirty: boolean) => v
     }, [hasChanges, onDirtyChange]);
 
     const [showKey, setShowKey] = useState(false);
-    const [testResult, setTestResult] = useState<{
-        success: boolean;
-        message: string;
-        details?: Record<string, any>;
-    } | null>(null);
+    const [testResult, setTestResult] = useState<TestResult | null>(null);
 
     const handleTest = async () => {
         const res = await testConnection("ai");
-        if (res) setTestResult(res);
+        if (res) setTestResult(res as TestResult);
     };
 
     if (isLoading) {
@@ -161,7 +158,7 @@ export function AITab({ onDirtyChange }: { onDirtyChange?: (dirty: boolean) => v
                         )}
                         <span className="font-medium">{testResult.message}</span>
                     </div>
-                    {testResult.details?.response && (
+                    {typeof testResult.details?.response === 'string' && (
                         <p className="text-xs mt-1 ml-6 opacity-80 italic">
                             &quot;{testResult.details.response}&quot;
                         </p>

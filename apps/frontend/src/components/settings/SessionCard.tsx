@@ -11,7 +11,6 @@ import {
     Globe,
     Clock,
     Trash2,
-    AlertCircle
 } from 'lucide-react';
 
 interface SessionCardProps {
@@ -43,7 +42,7 @@ export const SessionCard: React.FC<SessionCardProps> = ({
             <div className="flex items-start justify-between">
                 <div className="flex items-start space-x-4">
                     <div className="p-2 bg-gray-50 rounded-full">
-                        {getDeviceIcon(session.deviceType)}
+                        {getDeviceIcon(session.deviceType ?? null)}
                     </div>
 
                     <div>
