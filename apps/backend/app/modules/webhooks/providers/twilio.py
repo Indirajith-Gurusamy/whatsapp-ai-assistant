@@ -95,7 +95,11 @@ class TwilioWebhookProvider:
             
             # Extract data from Twilio's flat structure
             phone = body.get("From", "").replace("whatsapp:", "").replace("+", "")
+            to_number = body.get("To", "")  # Which Twilio number received this message
             text = body.get("Body", "")
+            
+            # Log which number received the message
+            logger.info(f"[MESSAGE] Received on Twilio number: {to_number}")
             
             # Extract ProfileName and WaId from ChannelMetadata
             sender_name = "User"
@@ -126,6 +130,9 @@ class TwilioWebhookProvider:
             customer_id = await ConversationService.get_or_create_customer(wa_id, phone, sender_name)
             conversation_id = await ConversationService.get_or_create_conversation(customer_id)
             logger.info(f"[DB] Customer ID: {customer_id}, Conversation ID: {conversation_id}")
+
+            # Update which Twilio number received this message (for reply routing)
+            await ConversationService.update_last_received_on(conversation_id, to_number)
             
             # Save incoming message
             message_id = await ConversationService.save_message(
@@ -150,9 +157,13 @@ class TwilioWebhookProvider:
             logger.info(f"[AI] Generating response for conversation {conversation_id}...")
             response_text = await GroqService.generate_response_safe(text, conversation_id)
             
-            # Always reply to the sender
-            logger.info(f"[SEND] Sending reply to {phone}")
-            send_success = await WhatsAppService.send_message(phone, response_text)
+            # Always reply to the sender, using the same number that received the message
+            logger.info(f"[SEND] Sending reply to {phone} from {to_number}")
+            send_success = await WhatsAppService.send_message(
+                phone, 
+                response_text, 
+                incoming_to_number=to_number
+            )
             
             # Save response as assistant message
             status = MESSAGE_STATUS_SENT if send_success else MESSAGE_STATUS_FAILED

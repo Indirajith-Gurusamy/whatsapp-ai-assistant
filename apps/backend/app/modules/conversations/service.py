@@ -19,6 +19,11 @@ class ConversationService:
         conversation_id, created = await repository.get_or_create_conversation_with_status_check(customer_id)
         
         return conversation_id
+
+    @staticmethod
+    async def update_last_received_on(conversation_id: int, to_number: str):
+        """Update which Twilio number last received a message for this conversation."""
+        await repository.update_last_received_on(conversation_id, to_number)
     
     @staticmethod
     async def save_message(
