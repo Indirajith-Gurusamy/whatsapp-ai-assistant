@@ -1,6 +1,20 @@
 // Frontend API client for WhatsApp CRM
 // Handles all HTTP requests to the backend API
 
+import type {
+  Analytics,
+  Conversation as ConversationListItem,
+  ConversationDetail,
+  ConversationHistory,
+  CreateTaskPayload,
+  Customer as CrmCustomer,
+  Message as MessageListItem,
+  Task,
+  UpdateProfilePayload,
+  UpdateTaskPayload,
+  UserProfile,
+} from '@/types';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 // Types
@@ -62,30 +76,8 @@ export interface Message {
 }
 
 export interface TaskListResponse {
-  tasks: any[];
+  tasks: Task[];
   total: number;
-}
-
-export interface DashboardStats {
-  totalConversations: number;
-  activeConversations: number;
-  totalMessages: number;
-  aiResponses: number;
-  humanResponses: number;
-  conversionRate: number;
-}
-
-export interface DashboardActivity {
-  id: string;
-  type: string;
-  description: string;
-  timestamp: string;
-  customerName?: string;
-}
-
-export interface DashboardSummary {
-  greeting: string;
-  summary: string;
 }
 
 export interface UserListItem {
@@ -129,19 +121,23 @@ export interface SessionListResponse {
 
 export interface AuditLogEntry {
   id: string;
-  adminUserId: number;
+  admin_name: string;
+  admin_email: string;
   action: string;
   category: string;
-  oldValue?: any;
-  newValue?: any;
-  createdAt: string;
-  adminUser: User;
+  old_value?: unknown;
+  new_value?: unknown;
+  created_at: string;
+}
+
+export interface SettingsResponse {
+  settings: Record<string, string>;
 }
 
 export interface TestResult {
   success: boolean;
   message: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 export interface AdminStatsResponse {
@@ -151,20 +147,7 @@ export interface AdminStatsResponse {
   total_verified_users: number;
 }
 
-export interface ProfileResponse {
-  id: number;
-  email: string;
-  name: string;
-  role: string;
-  avatar: string | null;
-  bio: string | null;
-  phone: string | null;
-  location: { city: string | null; country: string | null; state: string | null; postalCode: string | null } | null;
-  dateOfBirth: string | null;
-  socialLinks: any[] | null;
-  emailVerified: boolean;
-  createdAt: string;
-}
+export type ProfileResponse = UserProfile;
 
 export interface UpdateAvatarResponse {
   message: string;
@@ -188,13 +171,6 @@ export interface RoleChangeResponse {
 
 export interface MessageResponse {
   message: string;
-}
-
-// API Response wrapper
-interface ApiResponse<T> {
-  data?: T;
-  error?: string;
-  message?: string;
 }
 
 const capitalize = (value: string) =>
@@ -334,21 +310,21 @@ class ApiClient {
     return this.request<T>(endpoint, { method: 'GET' });
   }
 
-  async post<T>(endpoint: string, data?: any): Promise<T> {
+  async post<T>(endpoint: string, data?: unknown): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'POST',
       body: data ? JSON.stringify(data) : undefined,
     });
   }
 
-  async put<T>(endpoint: string, data?: any): Promise<T> {
+  async put<T>(endpoint: string, data?: unknown): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'PUT',
       body: data ? JSON.stringify(data) : undefined,
     });
   }
 
-  async patch<T>(endpoint: string, data?: any): Promise<T> {
+  async patch<T>(endpoint: string, data?: unknown): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'PATCH',
       body: data instanceof FormData ? data : data ? JSON.stringify(data) : undefined,
@@ -400,7 +376,7 @@ export const tokenStorage = {
     return this.getToken();
   },
 
-  setTokens(accessToken: string, refreshToken: string, rememberMe: boolean = false): void {
+  setTokens(accessToken: string, refreshToken: string, _rememberMe: boolean = false): void {
     if (typeof window === 'undefined') return;
     this.setToken(accessToken);
     this.setRefreshToken(refreshToken);
@@ -497,7 +473,7 @@ export const profileApi = {
     return apiClient.get('/api/v1/auth/users/me');
   },
 
-  async updateProfile(data: any): Promise<ProfileResponse> {
+  async updateProfile(data: UpdateProfilePayload): Promise<ProfileResponse> {
     return apiClient.put('/api/v1/auth/users/me', data);
   },
 
@@ -509,11 +485,11 @@ export const profileApi = {
 };
 
 // Conversations API
-export const fetchConversations = async (limit = 50) => {
+export const fetchConversations = async (limit = 50): Promise<ConversationListItem[]> => {
   return apiClient.get(`/api/conversations?limit=${limit}`);
 };
 
-export const fetchConversationDetailByUuid = async (uuid: string): Promise<any> => {
+export const fetchConversationDetailByUuid = async (uuid: string): Promise<ConversationDetail> => {
   return apiClient.get(`/api/conversation/by-uuid/${uuid}`);
 };
 
@@ -522,20 +498,20 @@ export const updateConversationStatusByUuid = async (uuid: string, status: strin
 };
 
 // Messages API
-export const fetchMessages = async (limit = 50) => {
+export const fetchMessages = async (limit = 50): Promise<MessageListItem[]> => {
   return apiClient.get(`/api/messages?limit=${limit}`);
 };
 
 // Customers API
-export const fetchCustomers = async (limit = 50): Promise<any[]> => {
+export const fetchCustomers = async (limit = 50): Promise<CrmCustomer[]> => {
   return apiClient.get(`/api/customers?limit=${limit}`);
 };
 
-export const fetchCustomerByUuid = async (uuid: string): Promise<any> => {
+export const fetchCustomerByUuid = async (uuid: string): Promise<CrmCustomer> => {
   return apiClient.get(`/api/customers/by-uuid/${uuid}`);
 };
 
-export const fetchCustomerHistoryByUuid = async (uuid: string): Promise<any> => {
+export const fetchCustomerHistoryByUuid = async (uuid: string): Promise<ConversationHistory[]> => {
   return apiClient.get(`/api/customers/by-uuid/${uuid}/history`);
 };
 
@@ -548,23 +524,8 @@ export const sendAgentMessage = async (uuid: string, message: string) => {
 };
 
 // Analytics API
-export const fetchAnalytics = async () => {
+export const fetchAnalytics = async (): Promise<Analytics> => {
   return apiClient.get('/api/analytics');
-};
-
-// Dashboard API
-export const dashboardApi = {
-  async getStats(): Promise<DashboardStats> {
-    return apiClient.get('/api/v1/dashboard/stats');
-  },
-
-  async getActivity(limit = 10): Promise<DashboardActivity[]> {
-    return apiClient.get(`/api/v1/dashboard/activity?limit=${limit}`);
-  },
-
-  async getSummary(): Promise<DashboardSummary> {
-    return apiClient.get('/api/v1/dashboard/summary');
-  },
 };
 
 // Tasks API (no backend module exists - stubs for now)
@@ -573,43 +534,43 @@ export const tasksApi = {
     return { tasks: [], total: 0 };
   },
 
-  async createTask(data: any) {
+  async createTask(_data: CreateTaskPayload): Promise<never> {
     throw new Error('Task creation not yet implemented on backend');
   },
 
-  async updateTask(uuid: string, data: any) {
+  async updateTask(_uuid: string, _data: UpdateTaskPayload): Promise<never> {
     throw new Error('Task update not yet implemented on backend');
   },
 
-  async deleteTask(uuid: string) {
+  async deleteTask(_uuid: string): Promise<never> {
     throw new Error('Task deletion not yet implemented on backend');
   },
 };
 
 // Settings API
 export const settingsApi = {
-  async getSettings(category: string) {
+  async getSettings(category: string): Promise<SettingsResponse> {
     return apiClient.get(`/api/v1/settings/${category}`);
   },
 
-  async updateSettings(category: string, data: any) {
+  async updateSettings(category: string, data: Record<string, unknown>): Promise<SettingsResponse> {
     return apiClient.put(`/api/v1/settings/${category}`, { settings: data });
   },
 
-  async resetSettings(category: string) {
+  async resetSettings(category: string): Promise<SettingsResponse> {
     return apiClient.post(`/api/v1/settings/${category}/reset`);
   },
 
-  async testWhatsApp(accountId?: string) {
+  async testWhatsApp(accountId?: string): Promise<TestResult> {
     const query = accountId ? `?account_id=${encodeURIComponent(accountId)}` : '';
     return apiClient.post(`/api/v1/settings/test/whatsapp${query}`);
   },
 
-  async testAI() {
+  async testAI(): Promise<TestResult> {
     return apiClient.post('/api/v1/settings/test/ai');
   },
 
-  async sendTestWhatsApp(data: { account_id?: string; phone_number: string; message: string; is_template?: boolean }) {
+  async sendTestWhatsApp(data: { account_id?: string; phone_number: string; message: string; is_template?: boolean }): Promise<TestResult> {
     return apiClient.post('/api/v1/settings/test/whatsapp/send', data);
   },
 
@@ -629,7 +590,7 @@ export const adminApi = {
     return apiClient.get<UserListResponse>(`/api/v1/admin/users?skip=${skip}&limit=${limit}`);
   },
 
-  async getAdminStats(): Promise<any> {
+  async getAdminStats(): Promise<AdminStatsResponse> {
     return apiClient.get('/api/v1/admin/stats');
   },
 
@@ -657,11 +618,11 @@ export const adminApi = {
     return apiClient.post(`/api/v1/admin/users/${userId}/reset-password`);
   },
 
-  async getUserProfile(userId: number): Promise<any> {
+  async getUserProfile(userId: number): Promise<UserProfile> {
     return apiClient.get(`/api/v1/admin/users/${userId}/profile`);
   },
 
-  async updateUserProfile(userId: number, data: any): Promise<any> {
+  async updateUserProfile(userId: number, data: UpdateProfilePayload): Promise<UserProfile> {
     return apiClient.put(`/api/v1/admin/users/${userId}/profile`, data);
   },
 

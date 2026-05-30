@@ -18,7 +18,7 @@ import { themeClasses } from '@/lib/theme';
 
 export function TopBar() {
     const { logout, isAdmin } = useAuth();
-    const { user, isLoading } = useCurrentUser();
+    const { user } = useCurrentUser();
 
     return (
         <header className="sticky top-0 z-40 flex items-center gap-4 px-4 md:px-6 py-3 bg-card/80 backdrop-blur-md border-b border-border/50">

@@ -215,7 +215,7 @@ async def send_agent_message(
     last_received_on = getattr(conversation, 'lastReceivedOn', None)
     
     # Send via WhatsApp using the correct number
-    send_success = await WhatsAppService.send_message(
+    send_success, provider_id = await WhatsAppService.send_message(
         phone, 
         message_text,
         incoming_to_number=last_received_on
@@ -227,7 +227,7 @@ async def send_agent_message(
         phone=phone,
         message=message_text,
         name=current_user.name,
-        whatsapp_id=None,
+        whatsapp_id=provider_id,
         conversation_id=conversation.id,
         role=MESSAGE_ROLE_AGENT,
         status=status

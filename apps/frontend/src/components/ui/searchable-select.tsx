@@ -50,6 +50,7 @@ export function SearchableSelect({
     className,
     showFlags = false,
 }: SearchableSelectProps) {
+    const listboxId = React.useId();
     const [open, setOpen] = React.useState(false);
     const [visible, setVisible] = React.useState(false);
     const [animating, setAnimating] = React.useState(false);
@@ -122,6 +123,7 @@ export function SearchableSelect({
                 type="button"
                 role="combobox"
                 aria-expanded={open}
+                aria-controls={listboxId}
                 disabled={disabled}
                 onClick={() => !disabled && setOpen(prev => !prev)}
                 className={cn(
@@ -169,6 +171,8 @@ export function SearchableSelect({
             {visible && (
                 <div
                     ref={dropdownRef}
+                    id={listboxId}
+                    role="listbox"
                     className={cn(
                         'absolute left-0 z-50 w-full rounded-md border bg-popover text-popover-foreground shadow-md',
                         'transition-all duration-150 ease-out',

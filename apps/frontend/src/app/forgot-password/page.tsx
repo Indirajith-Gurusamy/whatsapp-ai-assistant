@@ -7,6 +7,7 @@ import { themeClasses } from "@/lib/theme";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FloatingInput } from "@/components/ui/floating-input";
+import { getErrorMessage } from "@/lib/utils";
 
 function ForgotPasswordContent() {
     const router = useRouter();
@@ -51,9 +52,10 @@ function ForgotPasswordContent() {
             setTimeout(() => {
                 router.push(`/reset-password`);
             }, 2000);
-        } catch (error: any) {
-            setError(error.message || "Failed to send reset code. Please try again.");
-            toast.error(error.message || "Failed to send reset code");
+        } catch (error: unknown) {
+            const message = getErrorMessage(error, "Failed to send reset code. Please try again.");
+            setError(message);
+            toast.error(message);
         } finally {
             setIsLoading(false);
         }
@@ -74,7 +76,7 @@ function ForgotPasswordContent() {
                             Forgot Password?
                         </h1>
                         <p className="text-gray-600">
-                            No worries! Enter your email and we'll send you a reset code.
+                            No worries! Enter your email and we&apos;ll send you a reset code.
                         </p>
                     </div>
 

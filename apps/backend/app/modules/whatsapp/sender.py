@@ -2,11 +2,16 @@
 import logging
 import json
 import re
+from typing import Optional, Tuple
 import httpx
 from twilio.rest import Client
 from app.core.config import settings as app_settings
 from app.db.client import get_db
 from app.modules.settings.service import SettingsService
+from app.modules.whatsapp.meta_api import (
+    DEFAULT_META_API_VERSION,
+    resolve_meta_config,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -15,9 +20,17 @@ class WhatsAppService:
     """Service for sending WhatsApp messages via various providers."""
     
     @staticmethod
-    async def send_message(phone_number: str, message_text: str, is_template: bool = False, incoming_to_number: str = None) -> bool:
+    async def send_message(
+        phone_number: str,
+        message_text: str,
+        is_template: bool = False,
+        incoming_to_number: str = None,
+    ) -> Tuple[bool, Optional[str]]:
         """
         Send a WhatsApp message using the correct account configuration.
+
+        Returns:
+            (success, provider_message_id) — Meta wamid or Twilio SID when available.
 
         Args:
             phone_number: Recipient's phone number
@@ -77,14 +90,14 @@ class WhatsAppService:
                 return await WhatsAppService._send_twilio(phone_number, message_text, legacy_config)
 
             logger.error("No active WhatsApp account configured")
-            return False
+            return False, None
 
         except Exception as e:
             logger.error(f"[ERROR] send_message failed: {e}", exc_info=True)
-            return False
+            return False, None
 
     @staticmethod
-    async def _send_twilio(phone_number: str, message_text: str, config: dict) -> bool:
+    async def _send_twilio(phone_number: str, message_text: str, config: dict) -> Tuple[bool, Optional[str]]:
         """Internal helper for Twilio sending."""
         try:
             sid = config.get("account_sid")
@@ -93,8 +106,8 @@ class WhatsAppService:
             
             if not sid or not token or not from_number:
                 logger.error("Incomplete Twilio configuration")
-                return False
-                
+                return False, None
+
             client = Client(sid, token)
             
             # Clean number: remove non-digits, then add whatsapp: prefix
@@ -111,26 +124,37 @@ class WhatsAppService:
                 to=to_number
             )
             logger.info(f"[OK] Twilio sent - SID: {message.sid}")
-            return True
+            return True, message.sid
         except Exception as e:
             logger.error(f"Twilio send failed: {e}")
-            return False
+            return False, None
 
     @staticmethod
-    async def _send_meta(phone_number: str, message_text: str, config: dict, is_template: bool = False) -> bool:
+    async def _send_meta(
+        phone_number: str, message_text: str, config: dict, is_template: bool = False
+    ) -> Tuple[bool, Optional[str]]:
         """Internal helper for Meta (WhatsApp Cloud API) sending."""
         try:
-            phone_id = config.get("phone_number_id")
             token = config.get("access_token")
-            
-            if not phone_id or not token:
-                logger.error("Incomplete Meta configuration")
-                return False
-            
+            if not token:
+                logger.error("Incomplete Meta configuration: missing access_token")
+                return False, None
+
+            phone_id, resolve_err, resolve_info = await resolve_meta_config(config)
+            if resolve_err or not phone_id:
+                logger.error(f"Meta config error: {resolve_err}")
+                return False, None
+            if resolve_info and resolve_info.get("corrected_from"):
+                logger.info(
+                    f"[META] Resolved phone_number_id {phone_id} "
+                    f"(was invalid: {resolve_info.get('corrected_from')})"
+                )
+
             import re
             clean_number = re.sub(r"\D", "", phone_number)
-            
-            url = f"https://graph.facebook.com/v17.0/{phone_id}/messages"
+
+            api_version = config.get("api_version") or DEFAULT_META_API_VERSION
+            url = f"https://graph.facebook.com/{api_version}/{phone_id}/messages"
             headers = {
                 "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json"
@@ -165,11 +189,13 @@ class WhatsAppService:
                 response = await client.post(url, headers=headers, json=payload)
                 
             if response.status_code in [200, 201]:
-                logger.info(f"[OK] Meta sent - ID: {response.json().get('messages', [{}])[0].get('id')}")
-                return True
+                data = response.json()
+                wamid = data.get("messages", [{}])[0].get("id")
+                logger.info(f"[OK] Meta sent - ID: {wamid}")
+                return True, wamid
             else:
                 logger.error(f"Meta send failed: {response.status_code} - {response.text}")
-                return False
+                return False, None
         except Exception as e:
             logger.error(f"Meta send failed exception: {e}")
-            return False
+            return False, None

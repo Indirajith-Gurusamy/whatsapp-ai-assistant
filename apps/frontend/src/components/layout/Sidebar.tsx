@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -8,12 +8,12 @@ import { themeClasses } from '@/lib/theme';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 import { useAuth } from '@/contexts/AuthContext';
+import { useIsClient } from '@/hooks/useIsClient';
 import {
     LayoutDashboard,
     MessageSquare,
     Mail,
     Users,
-    BarChart3,
     AlignLeft,
     Menu,
     Shield,
@@ -27,7 +27,6 @@ const commonNavItems = [
 const adminNavItems = [
     { href: '/messages', label: 'Messages', icon: Mail },
     { href: '/customers', label: 'Customers', icon: Users },
-    { href: '/analytics', label: 'Analytics', icon: BarChart3 },
     { href: '/admin/panel', label: 'Admin Panel', icon: Shield },
     { href: '/admin/users', label: 'User Management', icon: Users },
 ];
@@ -40,11 +39,7 @@ interface SidebarProps {
 function SidebarContent({ collapsed, onToggle }: { collapsed?: boolean; onToggle?: () => void }) {
     const pathname = usePathname();
     const { isAdmin, isLoading } = useAuth();
-    const [mounted, setMounted] = useState(false);
-
-    useEffect(() => {
-        setMounted(true);
-    }, []);
+    const mounted = useIsClient();
 
     // Only show common items until mounted and auth is loaded to prevent hydration mismatch
     const navItems = mounted && !isLoading

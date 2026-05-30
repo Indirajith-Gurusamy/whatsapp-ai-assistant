@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { adminApi } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/utils";
 
 export default function AdminLoginPage() {
     const router = useRouter();
@@ -24,13 +25,13 @@ export default function AdminLoginPage() {
             login(response.user, response.tokens.access_token, response.tokens.refresh_token, false);
             toast.success("Welcome back, Administrator!");
             router.push("/admin/panel");
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Login failed", err);
-            // Specific message for authorization errors if possible, otherwise generic
-            if (err.response?.status === 403 || err.message?.includes("authorized")) {
+            const message = getErrorMessage(err, "Admin login failed");
+            if (message.includes("authorized") || message.includes("403")) {
                 toast.error("You are not authorized to view this.");
             } else {
-                toast.error(err.message || "Admin login failed");
+                toast.error(message);
             }
         } finally {
             setIsLoading(false);

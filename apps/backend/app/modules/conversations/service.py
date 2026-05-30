@@ -91,6 +91,11 @@ class ConversationService:
         return await repository.get_customer_history_by_uuid(uuid)
 
     @staticmethod
+    async def update_message_status_by_whatsapp_id(whatsapp_id: str, status: str) -> bool:
+        """Update message delivery status from provider webhooks."""
+        return await repository.update_message_status_by_whatsapp_id(whatsapp_id, status)
+
+    @staticmethod
     async def get_detail_by_uuid(uuid: str) -> Optional[Dict]:
         """Get conversation detail by UUID."""
         return await repository.get_conversation_detail_by_uuid(uuid)

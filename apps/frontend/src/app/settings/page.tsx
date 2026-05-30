@@ -3,15 +3,13 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { Loader2, MessageSquare, Brain, Zap, Users, ClipboardList, ShieldAlert } from "lucide-react";
+import { MessageSquare, Brain, Zap, Users, ClipboardList, ShieldAlert } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { WhatsAppTab } from "@/components/settings/WhatsAppTab";
 import { AITab } from "@/components/settings/AITab";
 import { AutomationTab } from "@/components/settings/AutomationTab";
 import { CRMTab } from "@/components/settings/CRMTab";
 import { AuditLogPanel } from "@/components/settings/AuditLogPanel";
-import { settingsApi } from "@/lib/api";
-import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { UnsavedChangesModal } from "@/components/ui/unsaved-changes-modal";

@@ -1,9 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
+import { pageScrollClass } from './PageScroll';
+import { useIsClient } from '@/hooks/useIsClient';
 
 interface DashboardLayoutProps {
     children: React.ReactNode;
@@ -11,12 +14,7 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-    const [mounted, setMounted] = useState(false);
-
-    // Prevent hydration mismatch by only rendering interactive components after mount
-    useEffect(() => {
-        setMounted(true);
-    }, []);
+    const mounted = useIsClient();
 
     // Show a minimal layout shell during SSR/hydration
     if (!mounted) {
@@ -37,7 +35,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                     </nav>
                 </aside>
                 {/* Main content area */}
-                <div className="flex flex-col flex-1 overflow-hidden">
+                <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
                     {/* TopBar skeleton */}
                     <header className="sticky top-0 z-40 flex items-center gap-4 px-4 md:px-6 py-3 bg-card/80 border-b border-border/50">
                         <Skeleton className="h-8 w-8 lg:hidden" />
@@ -48,7 +46,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                             <Skeleton className="h-8 w-8 rounded-full" />
                         </div>
                     </header>
-                    <main className="flex-1 overflow-y-auto">
+                    <main className={cn('relative flex flex-col', pageScrollClass)}>
                         {children}
                     </main>
                 </div>
@@ -62,9 +60,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 collapsed={sidebarCollapsed}
                 onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
             />
-            <div className="flex flex-col flex-1 overflow-hidden">
+            <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
                 <TopBar />
-                <main className="flex-1 overflow-y-auto">
+                <main className={cn('relative flex flex-col', pageScrollClass)}>
                     {children}
                 </main>
             </div>

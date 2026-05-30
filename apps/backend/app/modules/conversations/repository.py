@@ -113,6 +113,32 @@ class ConversationRepository(BaseRepository):
         )
         
         return msg.id
+
+    _STATUS_RANK = {
+        "failed": 0,
+        "received": 1,
+        "sent": 2,
+        "delivered": 3,
+        "read": 4,
+    }
+
+    async def update_message_status_by_whatsapp_id(self, whatsapp_id: str, new_status: str) -> bool:
+        """Update delivery status from Meta/Twilio webhooks (never downgrade)."""
+        db = await self.get_db()
+        msg = await db.message.find_unique(where={"whatsappId": whatsapp_id})
+        if not msg:
+            return False
+
+        current_rank = self._STATUS_RANK.get(msg.status, 0)
+        new_rank = self._STATUS_RANK.get(new_status, 0)
+        if new_rank <= current_rank:
+            return False
+
+        await db.message.update(
+            where={"id": msg.id},
+            data={"status": new_status},
+        )
+        return True
     
     async def update_conversation_status(
         self,
@@ -350,21 +376,26 @@ class ConversationRepository(BaseRepository):
         history = []
         for conv in conversations:
             for msg in conv.messages:
-                if msg.role == MESSAGE_ROLE_USER:
-                    role, name = "customer", customer.name
-                elif msg.role == MESSAGE_ROLE_AGENT:
-                    role, name = "agent", "Human Agent"
-                else:
-                    role, name = "agent", "AI Assistant"
-                history.append({
-                    "name": name,
-                    "content": msg.message,
-                    "timestamp": msg.timestamp.isoformat(),
-                    "role": role
-                })
+                history.append(self._format_history_item(msg, customer.name))
         
         # Already sorted by timestamp due to order_by in query
         return history
+
+    def _format_history_item(self, msg, customer_name: str) -> Dict[str, Any]:
+        if msg.role == MESSAGE_ROLE_USER:
+            role, name = "customer", customer_name
+        elif msg.role == MESSAGE_ROLE_AGENT:
+            role, name = "human_agent", "Human Agent"
+        else:
+            role, name = "agent", "AI Assistant"
+        return {
+            "id": msg.id,
+            "name": name,
+            "content": msg.message,
+            "timestamp": msg.timestamp.isoformat(),
+            "role": role,
+            "status": msg.status,
+        }
 
     async def get_customer_by_uuid(self, uuid: str) -> Optional[Dict]:
         """Get customer details by UUID."""
@@ -379,21 +410,25 @@ class ConversationRepository(BaseRepository):
             where={"customerId": customer.id},
             include={
                 "messages": {
-                    "where": {"role": "user"},
+                    "where": {"role": MESSAGE_ROLE_USER},
                     "order_by": {"timestamp": "asc"},
-                    "take": 1
                 }
             },
             order={"updatedAt": "desc"}
         )
-        
+
+        customer_messages = conversation.messages if conversation else []
+        latest_msg = customer_messages[-1] if customer_messages else None
+
         return {
             "customer_id": customer.id,
             "uuid": customer.uuid,
             "phone": customer.phone,
             "name": customer.name,
-            "message": conversation.messages[0].message if conversation and conversation.messages else "",
-            "message_time": conversation.createdAt.isoformat() if conversation else None,
+            "message": latest_msg.message if latest_msg else "",
+            "message_time": latest_msg.timestamp.isoformat() if latest_msg else (
+                conversation.createdAt.isoformat() if conversation else None
+            ),
             "lead_status": conversation.leadStatus if conversation else "new lead",
             "comments": conversation.comments if conversation else None,
             "conversation_uuid": conversation.uuid if conversation else None,
@@ -416,18 +451,7 @@ class ConversationRepository(BaseRepository):
         history = []
         for conv in conversations:
             for msg in conv.messages:
-                if msg.role == MESSAGE_ROLE_USER:
-                    role, name = "customer", customer.name
-                elif msg.role == MESSAGE_ROLE_AGENT:
-                    role, name = "agent", "Human Agent"
-                else:
-                    role, name = "agent", "AI Assistant"
-                history.append({
-                    "name": name,
-                    "content": msg.message,
-                    "timestamp": msg.timestamp.isoformat(),
-                    "role": role
-                })
+                history.append(self._format_history_item(msg, customer.name))
         
         return history
 

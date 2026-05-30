@@ -215,10 +215,13 @@ class SettingsService:
                     if sid and token:
                         return await self._test_twilio(sid, token)
                 elif platform == "meta":
-                    phone_id = config.get("phone_number_id")
                     token = config.get("access_token")
-                    if phone_id and token:
-                        return await self._test_meta(phone_id, token)
+                    if token:
+                        return await self._test_meta_account(
+                            target_acc.get("id"),
+                            config,
+                            accounts,
+                        )
         except Exception as e:
             logger.error(f"Error parsing whatsapp_accounts for test: {e}")
 
@@ -269,9 +272,9 @@ class SettingsService:
             
             success = False
             if platform == "meta":
-                success = await WhatsAppService._send_meta(phone_number, message_text, config, is_template)
+                success, _ = await WhatsAppService._send_meta(phone_number, message_text, config, is_template)
             elif platform == "twilio":
-                success = await WhatsAppService._send_twilio(phone_number, message_text, config)
+                success, _ = await WhatsAppService._send_twilio(phone_number, message_text, config)
             
             return {
                 "success": success,
@@ -300,28 +303,76 @@ class SettingsService:
             logger.error(f"Twilio test failed: {e}")
             return {"success": False, "message": f"Twilio connection failed: {str(e)}"}
 
-    async def _test_meta(self, phone_id: str, token: str) -> Dict[str, Any]:
-        """Helper to test Meta WhatsApp Cloud API credentials."""
-        try:
-            import httpx
-            url = f"https://graph.facebook.com/v17.0/{phone_id}"
-            headers = {"Authorization": f"Bearer {token}"}
-            async with httpx.AsyncClient() as client:
-                response = await client.get(url, headers=headers)
-            
-            if response.status_code == 200:
-                data = response.json()
-                display_name = data.get("verified_name") or data.get("display_phone_number") or "Meta Account"
-                return {
-                    "success": True,
-                    "message": f"Connected to Meta: {display_name}",
-                    "details": data
-                }
-            else:
-                return {"success": False, "message": f"Meta API error: {response.status_code} - {response.text}"}
-        except Exception as e:
-            logger.error(f"Meta test failed: {e}")
-            return {"success": False, "message": f"Meta connection failed: {str(e)}"}
+    async def _test_meta_account(
+        self,
+        account_id: Optional[str],
+        config: Dict[str, Any],
+        accounts: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Validate Meta credentials and resolve correct Phone Number ID."""
+        from app.modules.whatsapp.meta_api import resolve_meta_config
+
+        phone_id, err, info = await resolve_meta_config(config)
+        if err or not phone_id:
+            return {"success": False, "message": err or "Could not resolve Meta phone number ID"}
+
+        display = (info or {}).get("display_phone_number") or (info or {}).get("verified_name") or phone_id
+        corrected_from = (info or {}).get("corrected_from")
+
+        if corrected_from and account_id:
+            await self._update_meta_phone_number_id_in_accounts(
+                accounts, account_id, phone_id
+            )
+            message = (
+                f"Connected to Meta: {display}. "
+                f"Fixed Phone Number ID (was {corrected_from} → now {phone_id}). Settings saved."
+            )
+        else:
+            message = f"Connected to Meta: {display} (phone_number_id: {phone_id})"
+
+        return {
+            "success": True,
+            "message": message,
+            "details": {
+                "phone_number_id": phone_id,
+                "display_phone_number": (info or {}).get("display_phone_number"),
+                **(info or {}),
+            },
+        }
+
+    async def _update_meta_phone_number_id_in_accounts(
+        self,
+        accounts: List[Dict[str, Any]],
+        account_id: str,
+        phone_number_id: str,
+    ) -> None:
+        """Persist corrected Meta phone_number_id back to whatsapp_accounts."""
+        updated = False
+        for acc in accounts:
+            if acc.get("id") == account_id and acc.get("platform") == "meta":
+                acc.setdefault("config", {})["phone_number_id"] = phone_number_id
+                updated = True
+                break
+        if not updated:
+            return
+
+        import json
+        from app.core.encryption import encrypt_value
+
+        stored = encrypt_value(json.dumps(accounts))
+        await self.db.systemsetting.upsert(
+            where={"category_key": {"category": "WHATSAPP", "key": "whatsapp_accounts"}},
+            data={
+                "create": {
+                    "category": "WHATSAPP",
+                    "key": "whatsapp_accounts",
+                    "value": stored,
+                    "isEncrypted": True,
+                },
+                "update": {"value": stored, "isEncrypted": True},
+            },
+        )
+        logger.info(f"Updated Meta phone_number_id to {phone_number_id} for account {account_id}")
 
     # ── TEST AI ──────────────────────────────────────
 

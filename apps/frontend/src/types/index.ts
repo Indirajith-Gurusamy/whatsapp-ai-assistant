@@ -55,11 +55,22 @@ export interface Analytics {
   messages_today: number;
 }
 
+export type MessageDeliveryStatus =
+  | 'received'
+  | 'sent'
+  | 'delivered'
+  | 'read'
+  | 'failed'
+  | 'sending'
+  | 'pending';
+
 export interface ConversationHistory {
+  id?: number;
   role: 'customer' | 'agent' | 'human_agent';
   name: string;
   content: string;
   timestamp: string;
+  status?: MessageDeliveryStatus;
 }
 
 export interface ConversationDetail {
@@ -87,13 +98,11 @@ export interface UserProfile {
   email: string;
   name: string;
   role: string;
-  isActive: boolean;
+  isActive?: boolean;
   emailVerified: boolean;
   avatar: string | null;
   bio: string | null;
   phone: string | null;
-  city: string | null;
-  country: string | null;
   location: {
     city: string | null;
     country: string | null;
@@ -103,7 +112,22 @@ export interface UserProfile {
   dateOfBirth: string | null;
   socialLinks: SocialLink[];
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
+}
+
+export interface UpdateProfilePayload {
+  name?: string;
+  bio?: string;
+  phone?: string;
+  email?: string;
+  location?: {
+    city?: string | null;
+    country?: string | null;
+    state?: string | null;
+    postalCode?: string | null;
+  };
+  dateOfBirth?: string | null;
+  socialLinks?: SocialLink[];
 }
 
 // Task Management Types

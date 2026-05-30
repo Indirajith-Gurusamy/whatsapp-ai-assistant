@@ -1,8 +1,12 @@
 """Groq AI service for generating responses."""
 import logging
-from typing import Optional, List, Dict
+from typing import Any, Dict, List, Optional
+
 from groq import Groq
-from app.core.config import settings
+
+from app.core.config import settings as app_settings
+from app.db.client import get_db
+from app.modules.settings.service import DEFAULT_SETTINGS, SettingsService
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +18,40 @@ class GroqService:
     """Service for interacting with Groq API."""
 
     @staticmethod
+    async def _get_ai_settings() -> Dict[str, Any]:
+        """Load AI settings from DB (Admin UI), with env var fallbacks."""
+        defaults = DEFAULT_SETTINGS.get("AI", {})
+        db = await get_db()
+        settings_svc = SettingsService(db)
+        data = await settings_svc.get_settings("AI")
+
+        api_key = data.get("groq_api_key") or app_settings.GROQ_API_KEY
+        model = data.get("groq_model") or app_settings.GROQ_MODEL or "llama-3.3-70b-versatile"
+        system_prompt = (data.get("system_prompt") or defaults.get("system_prompt", "")).strip()
+        fallback_message = (
+            data.get("fallback_message") or defaults.get("fallback_message", "")
+        ).strip()
+
+        try:
+            temperature = float(data.get("temperature") or defaults.get("temperature", "0.7"))
+        except (TypeError, ValueError):
+            temperature = 0.7
+
+        try:
+            max_tokens = int(data.get("max_tokens") or defaults.get("max_tokens", "300"))
+        except (TypeError, ValueError):
+            max_tokens = 300
+
+        return {
+            "api_key": api_key,
+            "model": model,
+            "system_prompt": system_prompt,
+            "fallback_message": fallback_message,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+
+    @staticmethod
     async def _get_conversation_history(conversation_id: int) -> List[Dict[str, str]]:
         """Load recent messages for a specific conversation from DB.
         
@@ -21,7 +59,6 @@ class GroqService:
         scoped to this conversation only — no cross-user leakage.
         """
         try:
-            from app.db.client import get_db
             db = await get_db()
             messages = await db.message.find_many(
                 where={"conversationId": conversation_id},
@@ -53,22 +90,18 @@ class GroqService:
         Returns:
             AI-generated response
         """
-        if not settings.GROQ_API_KEY:
-            raise Exception("GROQ_API_KEY not configured")
+        ai_settings = await GroqService._get_ai_settings()
+        api_key = ai_settings["api_key"]
+        if not api_key:
+            raise Exception("Groq API key not configured")
 
         logger.info(f"Generating AI response for conversation {conversation_id}...")
 
         try:
-            client = Groq(api_key=settings.GROQ_API_KEY)
-
-            system_instruction = """You are a knowledgeable, professional janitorial support executive. Your role is to:
-- Provide informative answers when asked specific questions.
-- Be helpful, friendly, and professional.
-- Keep responses concise but comprehensive (2-4 sentences).
-- If a question is complex, provide clear bullet points."""
+            client = Groq(api_key=api_key)
 
             # Build messages: system + conversation history + current message
-            chat_messages = [{"role": "system", "content": system_instruction}]
+            chat_messages = [{"role": "system", "content": ai_settings["system_prompt"]}]
 
             # Load per-conversation history (scoped to this user's conversation)
             if conversation_id:
@@ -81,9 +114,9 @@ class GroqService:
 
             chat_completion = client.chat.completions.create(
                 messages=chat_messages,
-                model=settings.GROQ_MODEL,
-                temperature=0.7,
-                max_tokens=300,
+                model=ai_settings["model"],
+                temperature=ai_settings["temperature"],
+                max_tokens=ai_settings["max_tokens"],
             )
 
             response_text = chat_completion.choices[0].message.content.strip()
@@ -114,4 +147,7 @@ class GroqService:
             return await GroqService.generate_response(message, conversation_id)
         except Exception as e:
             logger.warning(f"[AI] Using fallback response: {e}")
-            return "Thank you for your message. We'll get back to you soon!"
+            ai_settings = await GroqService._get_ai_settings()
+            return ai_settings["fallback_message"] or (
+                "Thank you for your message. I'll get back to you shortly!"
+            )

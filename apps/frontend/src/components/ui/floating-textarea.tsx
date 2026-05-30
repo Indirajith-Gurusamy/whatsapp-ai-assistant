@@ -11,11 +11,11 @@ export interface FloatingTextareaProps extends Omit<React.TextareaHTMLAttributes
 const FloatingTextarea = React.forwardRef<HTMLTextAreaElement, FloatingTextareaProps>(
     ({ className, label, error, id, value, ...props }, ref) => {
         const [isFocused, setIsFocused] = React.useState(false);
+        const generatedId = React.useId();
         const hasValue = value !== undefined && value !== null && value !== '';
         const isFloating = isFocused || hasValue;
 
-        // Generate a unique ID if not provided
-        const inputId = id || `floating-textarea-${React.useId()}`;
+        const inputId = id || `floating-textarea-${generatedId}`;
 
         return (
             <div className="relative w-full">

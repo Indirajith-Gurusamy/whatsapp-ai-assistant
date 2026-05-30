@@ -70,15 +70,17 @@ export function AuditLogPanel() {
         });
     };
 
-    const renderDiff = (oldVal: any, newVal: any) => {
-        if (!oldVal && !newVal) return <p className="text-xs text-gray-400 italic">No data available</p>;
+    const renderDiff = (oldVal: unknown, newVal: unknown) => {
+        const oldObj = oldVal && typeof oldVal === 'object' ? (oldVal as Record<string, unknown>) : null;
+        const newObj = newVal && typeof newVal === 'object' ? (newVal as Record<string, unknown>) : null;
+        if (!oldObj && !newObj) return <p className="text-xs text-gray-400 italic">No data available</p>;
 
-        const keys = new Set([...Object.keys(oldVal || {}), ...Object.keys(newVal || {})]);
-        const diffs: { key: string; from: any; to: any }[] = [];
+        const keys = new Set([...Object.keys(oldObj || {}), ...Object.keys(newObj || {})]);
+        const diffs: { key: string; from: unknown; to: unknown }[] = [];
 
         keys.forEach(k => {
-            const v1 = oldVal?.[k];
-            const v2 = newVal?.[k];
+            const v1 = oldObj?.[k];
+            const v2 = newObj?.[k];
             // Simple check for primitive equality
             if (String(v1) !== String(v2)) {
                 diffs.push({ key: k, from: v1, to: v2 });

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { UserProfile } from '@/types/profile';
+import { UserProfile } from '@/types';
 import { themeClasses } from '@/lib/theme';
 
 interface ProfileViewProps {
