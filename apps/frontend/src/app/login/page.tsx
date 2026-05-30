@@ -79,10 +79,7 @@ function LoginContent() {
         setErrors({});
 
         try {
-            const response = await authApi.login({
-                email: formData.email,
-                password: formData.password,
-            });
+            const response = await authApi.login(formData.email, formData.password);
 
             // Use auth context to handle login
             login(

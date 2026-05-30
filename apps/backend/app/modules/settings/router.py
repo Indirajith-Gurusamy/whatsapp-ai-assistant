@@ -106,6 +106,24 @@ async def test_ai(
 
 
 
+# ── Reset settings ──────────────────────────────────
+
+@router.post(
+    "/{category}/reset",
+    response_model=CategorySettingsResponse,
+)
+async def reset_settings(
+    category: str,
+    current_user=Depends(require_role(["ADMIN"])),
+    db: Prisma = Depends(get_db),
+):
+    """Reset a category's settings back to defaults (admin only)."""
+    cat = _validate_category(category)
+    svc = SettingsService(db)
+    data = await svc.reset_settings(cat, current_user.id)
+    return CategorySettingsResponse(category=cat, settings=data)
+
+
 # ── Dynamic /{category} routes LAST ─────────────────
 
 # ── GET settings ─────────────────────────────────────

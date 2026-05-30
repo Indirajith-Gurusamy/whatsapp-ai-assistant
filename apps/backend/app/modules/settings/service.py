@@ -128,6 +128,25 @@ class SettingsService:
 
     # ── UPDATE ───────────────────────────────────────
 
+    async def reset_settings(
+        self,
+        category: str,
+        admin_user_id: int,
+    ) -> Dict[str, str]:
+        """Reset a category's settings back to defaults."""
+        cat = category.upper()
+        old_values = await self.get_settings(cat)
+
+        # Delete existing settings for this category
+        await self.db.systemsetting.delete_many(where={"category": cat})
+
+        # Re-seed from defaults
+        await self._seed_category(cat)
+
+        # Return the reset values
+        new_values = await self.get_settings(cat)
+        return new_values
+
     async def update_settings(
         self,
         category: str,
