@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: whatsapp-crm-api
+    runtime: python
+    plan: free
+    buildCommand: bash scripts/render-build.sh
+    startCommand: bash scripts/render-start.sh
+    healthCheckPath: /api/health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: PYTHON_VERSION
+        value: 3.11.9
