@@ -13,6 +13,11 @@ os.environ["PRISMA_PY_DEBUG_GENERATOR"] = "1"
 backend_dir = Path(__file__).parent
 sys.path.insert(0, str(backend_dir))
 
+# Load apps/env/local.env (or production via APP_ENV) before app imports
+from app.core.env_loader import load_env
+
+env_file = load_env()
+
 if __name__ == "__main__":
     import uvicorn
     
@@ -20,6 +25,8 @@ if __name__ == "__main__":
     print("Starting WhatsApp AI Assistant Backend")
     print("=" * 60)
     print(f"Backend directory: {backend_dir}")
+    print(f"Environment file: {env_file}")
+    print(f"APP_ENV: {os.getenv('APP_ENV', 'local')}")
     print(f"Python path: {sys.path[0]}")
     print("=" * 60)
     

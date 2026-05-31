@@ -1,28 +1,32 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { authApi } from "@/lib/api";
 import { themeClasses } from "@/lib/theme";
 import { toast } from "sonner";
-import { Skeleton } from "@/components/ui/skeleton";
 import { FloatingInput } from "@/components/ui/floating-input";
 import { getErrorMessage } from "@/lib/utils";
+import {
+    RESET_EMAIL_KEY,
+    consumeForgotPasswordEmail,
+    migrateLegacyAuthQueryParams,
+} from "@/lib/auth-storage";
 
-function ForgotPasswordContent() {
+export default function ForgotPasswordPage() {
     const router = useRouter();
-    const searchParams = useSearchParams();
     const [email, setEmail] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState(false);
 
     useEffect(() => {
-        const emailParam = searchParams.get("email");
-        if (emailParam) {
-            setEmail(emailParam);
+        migrateLegacyAuthQueryParams();
+        const prefillEmail = consumeForgotPasswordEmail();
+        if (prefillEmail) {
+            setEmail(prefillEmail);
         }
-    }, [searchParams]);
+    }, []);
 
     const validateEmail = (email: string): boolean => {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -45,12 +49,10 @@ function ForgotPasswordContent() {
             setSuccess(true);
             toast.success("Password reset code sent to your email");
 
-            // Store email in sessionStorage for the reset page
-            sessionStorage.setItem("reset_email", email);
+            sessionStorage.setItem(RESET_EMAIL_KEY, email);
 
-            // Redirect to reset password page after 2 seconds
             setTimeout(() => {
-                router.push(`/reset-password`);
+                router.push("/reset-password");
             }, 2000);
         } catch (error: unknown) {
             const message = getErrorMessage(error, "Failed to send reset code. Please try again.");
@@ -65,7 +67,6 @@ function ForgotPasswordContent() {
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4">
             <div className="w-full max-w-md">
                 <div className="bg-white rounded-2xl shadow-2xl p-8">
-                    {/* Header */}
                     <div className="text-center mb-8">
                         <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 rounded-full mb-4">
                             <svg className="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -87,14 +88,12 @@ function ForgotPasswordContent() {
                         </div>
                     ) : (
                         <form onSubmit={handleSubmit} className="space-y-5">
-                            {/* Error Message */}
                             {error && (
                                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
                                     {error}
                                 </div>
                             )}
 
-                            {/* Email Field */}
                             <FloatingInput
                                 label="Email Address"
                                 type="email"
@@ -106,7 +105,6 @@ function ForgotPasswordContent() {
                                 autoFocus
                             />
 
-                            {/* Submit Button */}
                             <button
                                 type="submit"
                                 disabled={isLoading}
@@ -124,7 +122,6 @@ function ForgotPasswordContent() {
                         </form>
                     )}
 
-                    {/* Back to Login Link */}
                     <div className="mt-6 text-center">
                         <a href="/login" className="text-sm text-primary hover:text-primary/90 font-semibold transition inline-flex items-center">
                             <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -136,17 +133,5 @@ function ForgotPasswordContent() {
                 </div>
             </div>
         </div>
-    );
-}
-
-export default function ForgotPasswordPage() {
-    return (
-        <Suspense fallback={
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4">
-                <Skeleton className="h-96 w-full max-w-md rounded-2xl" />
-            </div>
-        }>
-            <ForgotPasswordContent />
-        </Suspense>
     );
 }

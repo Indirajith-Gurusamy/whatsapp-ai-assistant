@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { authApi } from "@/lib/api";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -9,10 +9,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FloatingInput } from "@/components/ui/floating-input";
 import { Eye, EyeOff } from "lucide-react";
 import { getErrorMessage } from "@/lib/utils";
+import {
+    consumeAuthRedirect,
+    getDefaultPostLoginPath,
+    migrateLegacyAuthQueryParams,
+    setForgotPasswordEmail,
+    setVerifyEmail,
+} from "@/lib/auth-storage";
 
-function LoginContent() {
+export default function LoginPage() {
     const router = useRouter();
-    const searchParams = useSearchParams();
     const { login, isAuthenticated, user } = useAuth();
     const [formData, setFormData] = useState({
         email: "",
@@ -23,10 +29,13 @@ function LoginContent() {
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isLoading, setIsLoading] = useState(false);
 
-    // Check if user is already logged in
+    useEffect(() => {
+        migrateLegacyAuthQueryParams();
+    }, []);
+
     useEffect(() => {
         if (isAuthenticated && user) {
-            router.push(user.role === "ADMIN" ? "/conversations" : "/dashboard");
+            router.push(getDefaultPostLoginPath(user.role));
         }
     }, [isAuthenticated, user, router]);
 
@@ -50,7 +59,6 @@ function LoginContent() {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
 
-        // Real-time validation - also clear general error when user types
         const error = validateField(name, value);
         setErrors((prev) => {
             const rest = { ...prev };
@@ -66,7 +74,6 @@ function LoginContent() {
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        // Validate all fields
         const newErrors: Record<string, string> = {};
         Object.keys(formData).forEach((key) => {
             const error = validateField(key, formData[key as keyof typeof formData]);
@@ -84,7 +91,6 @@ function LoginContent() {
         try {
             const response = await authApi.login(formData.email, formData.password);
 
-            // Use auth context to handle login
             login(
                 response.user,
                 response.tokens.access_token,
@@ -94,19 +100,21 @@ function LoginContent() {
 
             toast.success(`Welcome back, ${response.user.name}!`);
 
-            // Redirect based on role
-            const redirectTo = searchParams.get("redirect") || (response.user.role === "ADMIN" ? "/conversations" : "/dashboard");
+            const redirectTo =
+                consumeAuthRedirect() || getDefaultPostLoginPath(response.user.role);
             router.push(redirectTo);
         } catch (error: unknown) {
             const message = getErrorMessage(error, "Login failed");
-            // Handle specific error cases
             if (message.includes("verify your email")) {
                 setErrors({ general: message });
                 toast.error(
                     <div>
                         <p>{message}</p>
                         <button
-                            onClick={() => router.push(`/verify-email?email=${encodeURIComponent(formData.email)}`)}
+                            onClick={() => {
+                                setVerifyEmail(formData.email);
+                                router.push("/verify-email");
+                            }}
                             className="mt-2 text-sm underline font-semibold"
                         >
                             Resend verification code
@@ -128,11 +136,17 @@ function LoginContent() {
         }
     };
 
+    const handleForgotPasswordClick = () => {
+        if (formData.email) {
+            setForgotPasswordEmail(formData.email);
+        }
+        router.push("/forgot-password");
+    };
+
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4">
             <div className="w-full max-w-md">
                 <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8">
-                    {/* Header */}
                     <div className="text-center mb-8">
                         <h1 className="text-3xl font-bold text-gray-900 mb-2">
                             Welcome Back
@@ -140,16 +154,13 @@ function LoginContent() {
                         <p className="text-gray-600">Sign in to your account</p>
                     </div>
 
-                    {/* Login Form */}
                     <form onSubmit={handleLogin} className="space-y-5">
-                        {/* General Error */}
                         {errors.general && (
                             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
                                 {errors.general}
                             </div>
                         )}
 
-                        {/* Email Field */}
                         <FloatingInput
                             label="Email Address"
                             type="email"
@@ -162,7 +173,6 @@ function LoginContent() {
                             error={errors.email}
                         />
 
-                        {/* Password Field */}
                         <div className="relative">
                             <FloatingInput
                                 label="Password"
@@ -190,7 +200,6 @@ function LoginContent() {
                             </button>
                         </div>
 
-                        {/* Remember Me & Forgot Password */}
                         <div className="flex items-center justify-between">
                             <label className="flex items-center cursor-pointer">
                                 <input
@@ -201,15 +210,15 @@ function LoginContent() {
                                 />
                                 <span className="ml-2 text-sm text-gray-700">Remember me</span>
                             </label>
-                            <a
-                                href={`/forgot-password${formData.email ? `?email=${encodeURIComponent(formData.email)}` : ""}`}
+                            <button
+                                type="button"
+                                onClick={handleForgotPasswordClick}
                                 className="text-sm text-primary hover:text-primary/90 font-semibold transition"
                             >
                                 Forgot Password?
-                            </a>
+                            </button>
                         </div>
 
-                        {/* Submit Button */}
                         <button
                             type="submit"
                             disabled={isLoading || Object.keys(errors).length > 0}
@@ -225,30 +234,8 @@ function LoginContent() {
                             )}
                         </button>
                     </form>
-
-                    {/* Sign Up Link Removed */
-                    /* <div className="mt-6 text-center">
-                        <p className="text-gray-600">
-                            Don't have an account?{" "}
-                            <a href="/signup" className="text-purple-600 font-semibold hover:text-purple-700 transition">
-                                Sign Up
-                            </a>
-                        </p>
-                    </div> */}
                 </div>
             </div>
         </div>
-    );
-}
-
-export default function LoginPage() {
-    return (
-        <Suspense fallback={
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4">
-                <Skeleton className="h-[500px] w-full max-w-md rounded-2xl" />
-            </div>
-        }>
-            <LoginContent />
-        </Suspense>
     );
 }
