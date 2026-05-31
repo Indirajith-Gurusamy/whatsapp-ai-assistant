@@ -5,7 +5,7 @@
 - **Frontend**: `cd apps/frontend && npm run dev` (runs on port 3000)
 - **Lint frontend**: `cd apps/frontend && npm run lint`
 - **Build frontend**: `cd apps/frontend && npm run build`
-- **Database**: `python scripts/db.py push local` (or `production`)
+- **Database**: `python scripts/db.py push local` (schema changes — run locally against Supabase, not on Render build)
 - **Env files**: `apps/env/local.env` (dev), `apps/env/production.env` (Render)
 
 ## Architecture
