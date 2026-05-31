@@ -1,12 +1,10 @@
 """Configuration management using Pydantic Settings."""
-import os
-from pathlib import Path
 from typing import Optional
 from pydantic_settings import BaseSettings
-from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+from app.core.env_loader import load_env
+
+load_env()
 
 
 class Settings(BaseSettings):
@@ -16,7 +14,7 @@ class Settings(BaseSettings):
     PORT: int = 8000
     HOST: str = "0.0.0.0"
     
-    # Database Configuration
+    # Database Configuration (Supabase PostgreSQL URI — direct connection, port 5432)
     DATABASE_URL: str = "postgresql://postgres:password@localhost:5432/whatsapp_ai"
     
     # Twilio WhatsApp Configuration
@@ -62,7 +60,6 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     
     class Config:
-        env_file = ".env"
         case_sensitive = True
 
 

@@ -1,32 +1,39 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { authApi } from "@/lib/api";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getErrorMessage } from "@/lib/utils";
+import {
+    clearVerifyEmail,
+    getVerifyEmail,
+    migrateLegacyAuthQueryParams,
+} from "@/lib/auth-storage";
 
-function VerifyEmailContent() {
+export default function VerifyEmailPage() {
     const router = useRouter();
-    const searchParams = useSearchParams();
     const [otp, setOtp] = useState(["", "", "", "", "", ""]);
     const [email, setEmail] = useState("");
     const [isVerifying, setIsVerifying] = useState(false);
     const [error, setError] = useState("");
     const [resendCooldown, setResendCooldown] = useState(0);
     const [isResending, setIsResending] = useState(false);
+    const [isReady, setIsReady] = useState(false);
 
     useEffect(() => {
-        const emailParam = searchParams.get("email");
-        if (emailParam) {
-            setEmail(emailParam);
+        migrateLegacyAuthQueryParams();
+        const storedEmail = getVerifyEmail();
+        if (storedEmail) {
+            setEmail(storedEmail);
+            setIsReady(true);
         } else {
             setError("Email not provided");
+            setIsReady(true);
         }
-    }, [searchParams]);
+    }, []);
 
-    // Countdown timer for resend cooldown
     useEffect(() => {
         if (resendCooldown > 0) {
             const timer = setTimeout(() => {
@@ -49,7 +56,6 @@ function VerifyEmailContent() {
         newOtp[index] = value;
         setOtp(newOtp);
 
-        // Auto-focus next input
         if (value && index < 5) {
             const nextInput = document.getElementById(`otp-${index + 1}`);
             nextInput?.focus();
@@ -74,7 +80,6 @@ function VerifyEmailContent() {
 
         setOtp(newOtp);
 
-        // Focus last filled input
         const lastIndex = Math.min(pastedData.length, 5);
         document.getElementById(`otp-${lastIndex}`)?.focus();
     };
@@ -99,6 +104,7 @@ function VerifyEmailContent() {
 
         try {
             await authApi.verifyEmail(email, otpCode);
+            clearVerifyEmail();
             toast.success("Email verified successfully!");
 
             setTimeout(() => {
@@ -122,8 +128,8 @@ function VerifyEmailContent() {
         try {
             await authApi.resendOtp(email);
             toast.success("Verification code sent!");
-            setResendCooldown(30); // 30-second cooldown
-            setOtp(["", "", "", "", "", ""]); // Clear OTP inputs
+            setResendCooldown(30);
+            setOtp(["", "", "", "", "", ""]);
             document.getElementById("otp-0")?.focus();
         } catch (error: unknown) {
             const errorMsg = getErrorMessage(error, "Failed to resend code");
@@ -134,11 +140,18 @@ function VerifyEmailContent() {
         }
     };
 
+    if (!isReady) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4">
+                <Skeleton className="h-96 w-full max-w-md rounded-2xl" />
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4">
             <div className="w-full max-w-md">
                 <div className="bg-white rounded-2xl shadow-2xl p-8">
-                    {/* Header */}
                     <div className="text-center mb-8">
                         <div className="flex justify-center mb-4">
                             <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center">
@@ -166,7 +179,6 @@ function VerifyEmailContent() {
                         <p className="text-primary font-semibold">{email}</p>
                     </div>
 
-                    {/* OTP Form */}
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-3 text-center">
@@ -210,7 +222,6 @@ function VerifyEmailContent() {
                         </button>
                     </form>
 
-                    {/* Footer */}
                     <div className="mt-6 text-center">
                         <p className="text-gray-600 text-sm">
                             Didn&apos;t receive the code?{" "}
@@ -233,17 +244,5 @@ function VerifyEmailContent() {
                 </div>
             </div>
         </div>
-    );
-}
-
-export default function VerifyEmailPage() {
-    return (
-        <Suspense fallback={
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4">
-                <Skeleton className="h-96 w-full max-w-md rounded-2xl" />
-            </div>
-        }>
-            <VerifyEmailContent />
-        </Suspense>
     );
 }

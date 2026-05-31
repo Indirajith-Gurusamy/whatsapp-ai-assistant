@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { setAuthRedirect } from "@/lib/auth-storage";
 
 interface ProtectedRouteProps {
     children: React.ReactNode;
@@ -25,7 +26,8 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
 
         // If not authenticated and trying to access protected route, redirect to login
         if (!isAuthenticated && !isPublicRoute) {
-            router.push(`/login?redirect=${encodeURIComponent(pathname || "/conversations")}`);
+            setAuthRedirect(pathname || "/conversations");
+            router.push("/login");
         }
 
         // If authenticated and trying to access login/signup, redirect to conversations

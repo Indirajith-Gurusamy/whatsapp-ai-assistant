@@ -9,6 +9,7 @@ import { PasswordStrength } from "@/components/auth/PasswordStrength";
 import { FloatingInput } from "@/components/ui/floating-input";
 import { Eye, EyeOff } from "lucide-react";
 import { getErrorMessage } from "@/lib/utils";
+import { RESET_EMAIL_KEY } from "@/lib/auth-storage";
 
 export default function ResetPasswordPage() {
     const router = useRouter();
@@ -23,7 +24,7 @@ export default function ResetPasswordPage() {
     const [success, setSuccess] = useState(false);
 
     useEffect(() => {
-        const savedEmail = sessionStorage.getItem("reset_email");
+        const savedEmail = sessionStorage.getItem(RESET_EMAIL_KEY);
         if (savedEmail) {
             setEmail(savedEmail);
         } else {
@@ -89,7 +90,7 @@ export default function ResetPasswordPage() {
             toast.success("Password reset successful!");
 
             // Clear session storage
-            sessionStorage.removeItem("reset_email");
+            sessionStorage.removeItem(RESET_EMAIL_KEY);
 
             // Redirect to login after 3 seconds
             setTimeout(() => {
