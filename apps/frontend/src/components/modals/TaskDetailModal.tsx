@@ -21,6 +21,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { themeClasses } from '@/lib/theme';
 import type { TaskDetail, TaskStatus, TaskPriority, UpdateTaskPayload } from '@/types';
 
@@ -61,6 +62,7 @@ export function TaskDetailModal({
     const [dueDate, setDueDate] = useState('');
     const [isUpdating, setIsUpdating] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
     // Update local state when task changes
     useEffect(() => {
@@ -100,12 +102,11 @@ export function TaskDetailModal({
     };
 
     const handleDelete = async () => {
-        if (!confirm('Are you sure you want to delete this task?')) return;
-        
         setIsDeleting(true);
         try {
             await onDelete?.();
             toast.success('Task deleted successfully');
+            setShowDeleteConfirm(false);
             onOpenChange(false);
         } catch (error) {
             toast.error('Failed to delete task');
@@ -136,6 +137,7 @@ export function TaskDetailModal({
     };
 
     return (
+        <>
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col p-0 overflow-hidden">
                 {/* Sticky Header */}
@@ -300,10 +302,10 @@ export function TaskDetailModal({
                 <DialogFooter className="sticky bottom-0 z-10 bg-background border-t px-6 py-4 flex flex-row items-center justify-between gap-2">
                     <Button
                         variant="destructive"
-                        onClick={handleDelete}
+                        onClick={() => setShowDeleteConfirm(true)}
                         disabled={isDeleting || isUpdating}
                     >
-                        {isDeleting ? 'Deleting...' : 'Delete Task'}
+                        Delete Task
                     </Button>
                     <div className="flex items-center gap-2">
                         <Button
@@ -323,5 +325,23 @@ export function TaskDetailModal({
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+
+        <ConfirmDialog
+            open={showDeleteConfirm}
+            onOpenChange={setShowDeleteConfirm}
+            title="Delete task?"
+            description={
+                <>
+                    Are you sure you want to delete{' '}
+                    <span className="font-medium text-foreground">{task.title}</span>? This action cannot be undone.
+                </>
+            }
+            confirmLabel="Delete"
+            loadingLabel="Deleting..."
+            variant="destructive"
+            isLoading={isDeleting}
+            onConfirm={handleDelete}
+        />
+        </>
     );
 }

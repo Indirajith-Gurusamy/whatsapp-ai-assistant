@@ -26,11 +26,6 @@ export function TableSkeleton({
     const totalColumns = showActions ? columns + 1 : columns;
     return (
         <div className="space-y-4">
-            {title && (
-                <div className="flex items-center justify-between">
-                    <Skeleton className="h-6 w-48" />
-                </div>
-            )}
             <div className="rounded-lg border border-border bg-card overflow-hidden">
                 <Table>
                     {showHeader && (

@@ -212,14 +212,8 @@ export default function ProfilePage() {
             : null;
 
     return (
-        <div className="p-4 md:p-6 lg:p-8">
-            {/* Page Header */}
-            <div className="flex items-center justify-between mb-8">
-                <h1 className="text-2xl font-bold tracking-tight">Profile</h1>
-            </div>
-
-            {/* Main Content */}
-            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 md:p-8">
+        <div className="w-full min-w-0">
+            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 px-3 pt-3 pb-4 sm:px-4 sm:pt-4 md:px-6 md:pb-6">
                 {/* Profile Details Header */}
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">

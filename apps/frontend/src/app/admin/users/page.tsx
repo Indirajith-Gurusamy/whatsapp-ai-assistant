@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { adminApi, authApi, UserListItem } from "@/lib/api";
 import { toast } from "sonner";
@@ -37,10 +37,16 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { TableSkeleton } from "@/components/data/TableSkeleton";
-import { Plus, MoreVertical, ShieldCheck, UserCheck, UserX, KeyRound, Trash2, Download, ChevronLeft, ChevronRight, User } from "lucide-react";
+import { ListPageSkeleton } from "@/components/data/ListPageSkeleton";
+import { ListPageShell } from "@/components/data/ListPageShell";
+import { ListPageToolbar } from "@/components/data/ListPageToolbar";
+import { TableFilterModal } from "@/components/data/TableFilterModal";
+import { applyTableFilters, type FilterCondition } from "@/lib/table-filter";
+import { adminUserFilterFields } from "@/lib/table-filter-presets";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Plus, MoreVertical, ShieldCheck, UserCheck, UserX, KeyRound, Trash2, Download, ChevronLeft, ChevronRight, User, Loader2 } from "lucide-react";
 import { PasswordStrength } from "@/components/auth/PasswordStrength";
+import { cn } from "@/lib/utils";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -54,6 +60,20 @@ export default function AdminUsersPage() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [actionLoading, setActionLoading] = useState<number | null>(null);
     const [selectedUsers, setSelectedUsers] = useState<Set<number>>(new Set());
+    const [searchQuery, setSearchQuery] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const [resetPasswordTarget, setResetPasswordTarget] = useState<UserListItem | null>(null);
+    const [isResettingPassword, setIsResettingPassword] = useState(false);
+    const [deleteUserTarget, setDeleteUserTarget] = useState<UserListItem | null>(null);
+    const [isDeletingUser, setIsDeletingUser] = useState(false);
+    const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+    const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+    const [filterModalOpen, setFilterModalOpen] = useState(false);
+    const [appliedFilters, setAppliedFilters] = useState<FilterCondition[]>([]);
+
+    const displayedUsers = useMemo(() => {
+        return applyTableFilters(users, appliedFilters, adminUserFilterFields);
+    }, [users, appliedFilters]);
 
     // New User Form State
     const [newUser, setNewUser] = useState({
@@ -63,11 +83,11 @@ export default function AdminUsersPage() {
         role: "USER"
     });
 
-    const fetchUsers = async (page: number = 1) => {
+    const fetchUsers = useCallback(async (page: number = 1, search: string = "") => {
         setIsLoading(true);
         try {
             const skip = (page - 1) * ITEMS_PER_PAGE;
-            const response = await adminApi.getAllUsers(skip, ITEMS_PER_PAGE);
+            const response = await adminApi.getAllUsers(skip, ITEMS_PER_PAGE, search);
             setUsers(response.users);
             setTotalUsers(response.total);
         } catch {
@@ -75,11 +95,22 @@ export default function AdminUsersPage() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
-        fetchUsers(currentPage);
-    }, [currentPage]);
+        const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
+    useEffect(() => {
+        fetchUsers(currentPage, debouncedSearch);
+    }, [currentPage, debouncedSearch, fetchUsers]);
+
+    const handleSearchChange = (value: string) => {
+        setSearchQuery(value);
+        setCurrentPage(1);
+        setSelectedUsers(new Set());
+    };
 
     const totalPages = Math.ceil(totalUsers / ITEMS_PER_PAGE);
 
@@ -98,7 +129,7 @@ export default function AdminUsersPage() {
             toast.success("User created successfully!");
             setIsDialogOpen(false);
             setNewUser({ name: "", email: "", password: "", role: "USER" });
-            fetchUsers(currentPage);
+            fetchUsers(currentPage, debouncedSearch);
         } catch (err: unknown) {
             toast.error(err instanceof Error ? err.message : "Failed to create user");
         } finally {
@@ -106,9 +137,11 @@ export default function AdminUsersPage() {
         }
     };
 
-    const handleDeleteUser = async (userId: number) => {
-        if (!confirm("Are you sure you want to delete this user? This action cannot be undone.")) return;
+    const handleDeleteUser = async () => {
+        if (!deleteUserTarget) return;
 
+        const userId = deleteUserTarget.id;
+        setIsDeletingUser(true);
         setActionLoading(userId);
         try {
             await adminApi.deleteUser(userId);
@@ -118,10 +151,12 @@ export default function AdminUsersPage() {
                 newSet.delete(userId);
                 return newSet;
             });
-            fetchUsers(currentPage);
+            setDeleteUserTarget(null);
+            fetchUsers(currentPage, debouncedSearch);
         } catch (err: unknown) {
             toast.error(err instanceof Error ? err.message : "Failed to delete user");
         } finally {
+            setIsDeletingUser(false);
             setActionLoading(null);
         }
     };
@@ -175,32 +210,36 @@ export default function AdminUsersPage() {
 
     const handleBulkDelete = async () => {
         if (selectedUsers.size === 0) return;
-        if (!confirm(`Are you sure you want to delete ${selectedUsers.size} selected users? This action cannot be undone.`)) return;
 
-        setIsLoading(true); // Reuse isLoading or create specific bulk loading state
+        setIsBulkDeleting(true);
         try {
             const deletePromises = Array.from(selectedUsers).map(userId => adminApi.deleteUser(userId));
             await Promise.all(deletePromises);
             toast.success(`${selectedUsers.size} users deleted successfully`);
             setSelectedUsers(new Set());
-            fetchUsers(currentPage);
+            setShowBulkDeleteConfirm(false);
+            fetchUsers(currentPage, debouncedSearch);
         } catch (err: unknown) {
             toast.error(err instanceof Error ? err.message : "Failed to delete some users");
         } finally {
-            setIsLoading(false);
+            setIsBulkDeleting(false);
         }
     };
 
-    const handleResetPassword = async (userId: number) => {
-        if (!confirm("This will reset the user's password and send a temporary password via email. Continue?")) return;
+    const handleResetPassword = async () => {
+        if (!resetPasswordTarget) return;
 
+        const userId = resetPasswordTarget.id;
+        setIsResettingPassword(true);
         setActionLoading(userId);
         try {
             const response = await adminApi.resetUserPassword(userId);
             toast.success(response.message);
+            setResetPasswordTarget(null);
         } catch (err: unknown) {
             toast.error(err instanceof Error ? err.message : "Failed to reset password");
         } finally {
+            setIsResettingPassword(false);
             setActionLoading(null);
         }
     };
@@ -208,7 +247,7 @@ export default function AdminUsersPage() {
     // Selection handlers
     const handleSelectAll = (checked: boolean) => {
         if (checked) {
-            setSelectedUsers(new Set(users.map(u => u.id)));
+            setSelectedUsers(new Set(displayedUsers.map(u => u.id)));
         } else {
             setSelectedUsers(new Set());
         }
@@ -226,14 +265,14 @@ export default function AdminUsersPage() {
         });
     };
 
-    const isAllSelected = users.length > 0 && users.every(u => selectedUsers.has(u.id));
+    const isAllSelected = displayedUsers.length > 0 && displayedUsers.every(u => selectedUsers.has(u.id));
     const isSomeSelected = selectedUsers.size > 0;
 
     // Export functionality
     const exportUsers = (exportAll: boolean = false) => {
         const usersToExport = exportAll
-            ? users
-            : users.filter(u => selectedUsers.has(u.id));
+            ? displayedUsers
+            : displayedUsers.filter(u => selectedUsers.has(u.id));
 
         if (usersToExport.length === 0) {
             toast.error("No users selected for export");
@@ -273,67 +312,44 @@ export default function AdminUsersPage() {
         }
     };
 
-    if (isLoading) {
-        return (
-            <div className="p-4 md:p-6">
-                <div className="flex items-center justify-between mb-6">
-                    <div className="space-y-2">
-                        <Skeleton className="h-8 w-40" />
-                        <Skeleton className="h-4 w-56" />
-                    </div>
-                    <div className="flex gap-2">
-                        <Skeleton className="h-9 w-32" />
-                        <Skeleton className="h-9 w-28" />
-                    </div>
-                </div>
-                <TableSkeleton columns={6} rows={10} title="" />
-            </div>
-        );
-    }
+    const toolbarActions = (
+        <>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="h-10 shrink-0 gap-2 px-4">
+                        <Download className="h-4 w-4" />
+                        Export
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                        onClick={() => exportUsers(false)}
+                        disabled={selectedUsers.size === 0}
+                        className="cursor-pointer"
+                    >
+                        Export Selected ({selectedUsers.size})
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                        onClick={() => exportUsers(true)}
+                        className="cursor-pointer"
+                    >
+                        Export All ({displayedUsers.length})
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
 
-    return (
-        <div className="p-4 md:p-6">
-            <div className="flex justify-between items-center mb-8">
-                <div>
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-                        User Management
-                    </h1>
-                    <p className="text-muted-foreground mt-1">Manage system users and their roles</p>
-                </div>
-
-                <div className="flex items-center gap-3">
-                    {/* Export Dropdown */}
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="gap-2">
-                                <Download className="w-4 h-4" />
-                                Export
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                                onClick={() => exportUsers(false)}
-                                disabled={selectedUsers.size === 0}
-                                className="cursor-pointer"
-                            >
-                                Export Selected ({selectedUsers.size})
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                                onClick={() => exportUsers(true)}
-                                className="cursor-pointer"
-                            >
-                                Export All ({users.length})
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-
-                    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                        <DialogTrigger asChild>
-                            <Button className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg hover:shadow-xl transition-all">
-                                <Plus className="w-4 h-4 mr-2" />
-                                Add User
-                            </Button>
-                        </DialogTrigger>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogTrigger asChild>
+                    <Button
+                        className={cn(
+                            'h-10 shrink-0 gap-2 px-4',
+                            'bg-gray-900 hover:bg-gray-800 text-white dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white',
+                        )}
+                    >
+                        <Plus className="h-4 w-4" />
+                        Add User
+                    </Button>
+                </DialogTrigger>
                         <DialogContent className="sm:max-w-[425px]">
                             <DialogHeader>
                                 <DialogTitle>Create New User</DialogTitle>
@@ -391,13 +407,27 @@ export default function AdminUsersPage() {
                                 </div>
                             </form>
                         </DialogContent>
-                    </Dialog>
-                </div>
-            </div>
+            </Dialog>
+        </>
+    );
 
-            {/* Selection info bar */}
+    if (isLoading && users.length === 0) {
+        return <ListPageSkeleton columns={6} />;
+    }
+
+    return (
+        <ListPageShell>
+            <ListPageToolbar
+                searchPlaceholder="Search..."
+                searchValue={searchQuery}
+                onSearchChange={handleSearchChange}
+                actions={toolbarActions}
+                showFilterButton
+                onFilter={() => setFilterModalOpen(true)}
+            />
+
             {isSomeSelected && (
-                <div className="mb-4 p-4 bg-muted/50 border border-border rounded-lg flex items-center justify-between animate-in fade-in duration-300">
+                <div className="mx-4 mb-2 flex items-center justify-between rounded-lg border border-border bg-muted/50 p-4 animate-in fade-in duration-300 md:mx-5">
                     <div className="flex items-center gap-3">
                         <span className="text-sm font-medium">
                             {selectedUsers.size} user{selectedUsers.size > 1 ? 's' : ''} selected
@@ -407,7 +437,7 @@ export default function AdminUsersPage() {
                             <Button
                                 variant="destructive"
                                 size="sm"
-                                onClick={handleBulkDelete}
+                                onClick={() => setShowBulkDeleteConfirm(true)}
                                 className="h-8"
                             >
                                 <Trash2 className="w-4 h-4 mr-2" />
@@ -435,36 +465,53 @@ export default function AdminUsersPage() {
                 </div>
             )}
 
-            <div className="rounded-lg border border-border bg-card overflow-hidden">
-                <Table>
+            <div className="flex-1 min-h-0 overflow-auto border-t border-gray-200 dark:border-gray-800">
+                <Table containerClassName="overflow-visible">
                     <TableHeader>
-                        <TableRow className="bg-muted/30">
-                            <TableHead className="w-12">
+                        <TableRow className="border-b-0 bg-transparent hover:bg-transparent">
+                            <TableHead className="sticky top-0 z-10 w-12 bg-gray-50 px-4 shadow-[inset_0_-1px_0_0] shadow-gray-200 dark:bg-gray-900 dark:shadow-gray-800">
                                 <Checkbox
                                     checked={isAllSelected}
                                     onCheckedChange={handleSelectAll}
                                     aria-label="Select all"
                                 />
                             </TableHead>
-                            <TableHead>User</TableHead>
-                            <TableHead>Role</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Verified</TableHead>
-                            <TableHead>Last Login</TableHead>
-                            <TableHead className="text-right w-16">Actions</TableHead>
+                            <TableHead className="sticky top-0 z-10 bg-gray-50 px-4 py-3.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 shadow-[inset_0_-1px_0_0] shadow-gray-200 dark:bg-gray-900 dark:text-gray-400 dark:shadow-gray-800">
+                                User
+                            </TableHead>
+                            <TableHead className="sticky top-0 z-10 bg-gray-50 px-4 py-3.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 shadow-[inset_0_-1px_0_0] shadow-gray-200 dark:bg-gray-900 dark:text-gray-400 dark:shadow-gray-800">
+                                Role
+                            </TableHead>
+                            <TableHead className="sticky top-0 z-10 bg-gray-50 px-4 py-3.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 shadow-[inset_0_-1px_0_0] shadow-gray-200 dark:bg-gray-900 dark:text-gray-400 dark:shadow-gray-800">
+                                Status
+                            </TableHead>
+                            <TableHead className="sticky top-0 z-10 bg-gray-50 px-4 py-3.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 shadow-[inset_0_-1px_0_0] shadow-gray-200 dark:bg-gray-900 dark:text-gray-400 dark:shadow-gray-800">
+                                Verified
+                            </TableHead>
+                            <TableHead className="sticky top-0 z-10 bg-gray-50 px-4 py-3.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 shadow-[inset_0_-1px_0_0] shadow-gray-200 dark:bg-gray-900 dark:text-gray-400 dark:shadow-gray-800">
+                                Last Login
+                            </TableHead>
+                            <TableHead className="sticky top-0 z-10 w-16 bg-gray-50 px-4 py-3.5 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-500 shadow-[inset_0_-1px_0_0] shadow-gray-200 dark:bg-gray-900 dark:text-gray-400 dark:shadow-gray-800">
+                                Actions
+                            </TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {users.length === 0 ? (
+                        {displayedUsers.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
-                                    No users found
+                                    {debouncedSearch.trim()
+                                        ? `No users found matching "${debouncedSearch.trim()}"`
+                                        : "No users found"}
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            users.map((user) => (
-                                <TableRow key={user.id} className="hover:bg-muted/50 transition-colors">
-                                    <TableCell>
+                            displayedUsers.map((user) => (
+                                <TableRow
+                                    key={user.id}
+                                    className="border-b border-gray-100 transition-colors hover:bg-gray-50/80 dark:border-gray-800 dark:hover:bg-gray-800/40"
+                                >
+                                    <TableCell className="px-4">
                                         <Checkbox
                                             checked={selectedUsers.has(user.id)}
                                             onCheckedChange={(checked) => handleSelectUser(user.id, checked as boolean)}
@@ -573,7 +620,7 @@ export default function AdminUsersPage() {
                                                 <DropdownMenuSeparator />
 
                                                 <DropdownMenuItem
-                                                    onClick={() => handleResetPassword(user.id)}
+                                                    onClick={() => setResetPasswordTarget(user)}
                                                     className="cursor-pointer"
                                                 >
                                                     <KeyRound className="w-4 h-4 mr-2 text-blue-600" />
@@ -583,7 +630,7 @@ export default function AdminUsersPage() {
                                                 <DropdownMenuSeparator />
 
                                                 <DropdownMenuItem
-                                                    onClick={() => handleDeleteUser(user.id)}
+                                                    onClick={() => setDeleteUserTarget(user)}
                                                     className="cursor-pointer text-red-600 focus:text-red-600"
                                                 >
                                                     <Trash2 className="w-4 h-4 mr-2" />
@@ -600,7 +647,7 @@ export default function AdminUsersPage() {
 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                    <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                    <div className="flex items-center justify-between border-t border-gray-200 px-4 py-3 dark:border-gray-800 md:px-5">
                         <div className="text-sm text-muted-foreground">
                             Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, totalUsers)} of {totalUsers} users
                         </div>
@@ -651,6 +698,70 @@ export default function AdminUsersPage() {
                     </div>
                 )}
             </div>
-        </div>
+
+            <ConfirmDialog
+                open={resetPasswordTarget !== null}
+                onOpenChange={(open) => {
+                    if (!open) setResetPasswordTarget(null);
+                }}
+                title="Reset user password?"
+                description={
+                    <>
+                        This will reset the password for{' '}
+                        <span className="font-medium text-foreground">
+                            {resetPasswordTarget?.name ?? 'this user'}
+                        </span>
+                        {' '}and send a temporary password via email. Continue?
+                    </>
+                }
+                confirmLabel="Reset Password"
+                loadingLabel="Resetting..."
+                isLoading={isResettingPassword}
+                onConfirm={handleResetPassword}
+            />
+
+            <ConfirmDialog
+                open={deleteUserTarget !== null}
+                onOpenChange={(open) => {
+                    if (!open) setDeleteUserTarget(null);
+                }}
+                title="Delete user?"
+                description={
+                    <>
+                        Are you sure you want to delete{' '}
+                        <span className="font-medium text-foreground">
+                            {deleteUserTarget?.name ?? 'this user'}
+                        </span>
+                        ? This action cannot be undone.
+                    </>
+                }
+                confirmLabel="Delete"
+                loadingLabel="Deleting..."
+                variant="destructive"
+                isLoading={isDeletingUser}
+                onConfirm={handleDeleteUser}
+            />
+
+            <ConfirmDialog
+                open={showBulkDeleteConfirm}
+                onOpenChange={setShowBulkDeleteConfirm}
+                title="Delete selected users?"
+                description={`Are you sure you want to delete ${selectedUsers.size} selected user${selectedUsers.size === 1 ? '' : 's'}? This action cannot be undone.`}
+                confirmLabel="Delete"
+                loadingLabel="Deleting..."
+                variant="destructive"
+                isLoading={isBulkDeleting}
+                onConfirm={handleBulkDelete}
+            />
+
+            <TableFilterModal
+                open={filterModalOpen}
+                onOpenChange={setFilterModalOpen}
+                fields={adminUserFilterFields}
+                data={users as unknown as Record<string, unknown>[]}
+                appliedConditions={appliedFilters}
+                onApply={(conditions) => setAppliedFilters(conditions)}
+            />
+        </ListPageShell>
     );
 }

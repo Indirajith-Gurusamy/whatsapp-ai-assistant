@@ -16,7 +16,6 @@ import {
     Users,
     AlignLeft,
     Menu,
-    Shield,
 } from 'lucide-react';
 
 const commonNavItems = [
@@ -27,7 +26,6 @@ const commonNavItems = [
 const adminNavItems = [
     { href: '/messages', label: 'Messages', icon: Mail },
     { href: '/customers', label: 'Customers', icon: Users },
-    { href: '/admin/panel', label: 'Admin Panel', icon: Shield },
     { href: '/admin/users', label: 'User Management', icon: Users },
 ];
 
@@ -61,7 +59,7 @@ function SidebarContent({ collapsed, onToggle }: { collapsed?: boolean; onToggle
                         <MessageSquare className="w-4 h-4" />
                     </div>
                     <span className={cn("font-bold text-base truncate whitespace-nowrap", themeClasses.sidebarTextGradient)}>
-                        WhatsApp AI
+                        Vivafy
                     </span>
                 </div>
                 <Button

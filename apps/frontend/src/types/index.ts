@@ -15,6 +15,7 @@ export interface Message {
   name: string | null;
   message: string;
   timestamp: string;
+  customer_uuid?: string;
 }
 
 export interface Conversation {

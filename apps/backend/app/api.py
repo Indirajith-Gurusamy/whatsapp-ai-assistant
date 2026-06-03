@@ -6,6 +6,7 @@ from app.modules.analytics.router import router as analytics_router
 from app.modules.auth.router import router as auth_router
 from app.modules.admin.router import router as admin_router
 from app.modules.settings.router import router as settings_router
+from app.modules.ai.router import router as assistant_router
 
 api_router = APIRouter()
 
@@ -16,6 +17,7 @@ api_router.include_router(analytics_router, prefix="/api")
 api_router.include_router(auth_router, prefix="/api/v1")
 api_router.include_router(admin_router, prefix="/api/v1")
 api_router.include_router(settings_router, prefix="/api/v1")
+api_router.include_router(assistant_router, prefix="/api/v1")
 
 @api_router.get("/api/health")
 async def health_check():

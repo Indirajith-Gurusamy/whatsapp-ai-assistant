@@ -1,9 +1,21 @@
 'use client';
 
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useMessages } from '@/hooks/useMessages';
+import { useCustomers } from '@/hooks/useCustomers';
 import { DataTable } from '@/components/data/DataTable';
-import { TableSkeleton } from '@/components/data/TableSkeleton';
+import { ListPageSkeleton } from '@/components/data/ListPageSkeleton';
+import { ListPageShell } from '@/components/data/ListPageShell';
+import { messageFilterFields } from '@/lib/table-filter-presets';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -12,6 +24,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { MoreVertical, Eye, Download } from 'lucide-react';
 import type { Message } from '@/types';
+import { toast } from 'sonner';
 
 function formatDate(dateString: string | null | undefined): { date: string; time: string } {
     if (!dateString) return { date: '-', time: '' };
@@ -22,18 +35,53 @@ function formatDate(dateString: string | null | undefined): { date: string; time
     };
 }
 
+function downloadMessage(message: Message) {
+    const lines = [
+        `Name: ${message.name || 'User'}`,
+        `Phone: +${message.phone}`,
+        `Timestamp: ${message.timestamp}`,
+        '',
+        message.message,
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `message-${message.phone}-${message.id}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+}
+
 export default function MessagesPage() {
+    const router = useRouter();
     const { messages, isLoading } = useMessages();
+    const { customers } = useCustomers();
+    const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+
+    const resolveCustomerUuid = (message: Message) => {
+        if (message.customer_uuid) return message.customer_uuid;
+        return customers.find((c) => c.phone === message.phone)?.uuid ?? null;
+    };
 
     const handleViewDetails = (message: Message) => {
-        console.log('View message:', message);
+        const customerUuid = resolveCustomerUuid(message);
+        if (customerUuid) {
+            router.push(`/customers/${customerUuid}?from=messages`);
+            return;
+        }
+        setSelectedMessage(message);
     };
 
     const handleDownload = (message: Message) => {
-        console.log('Download message:', message);
+        downloadMessage(message);
+        toast.success('Message downloaded');
     };
 
     const handleExport = () => {
+        if (messages.length === 0) {
+            toast.error('No messages to export');
+            return;
+        }
         const csvContent = messages.map(m =>
             `"${m.name || 'User'}","${m.phone}","${m.message.replace(/"/g, '""')}","${m.timestamp}"`
         ).join('\n');
@@ -45,28 +93,29 @@ export default function MessagesPage() {
         a.download = 'messages.csv';
         a.click();
         URL.revokeObjectURL(url);
+        toast.success('Messages exported');
     };
 
     const columns = [
         {
             key: 'name',
-            header: 'Name',
+            header: 'NAME',
             cell: (item: Message) => (
-                <span className="text-indigo-600 hover:text-indigo-800 font-medium">
+                <span className="font-medium text-gray-900 dark:text-gray-100">
                     {item.name || 'User'}
                 </span>
             ),
         },
         {
             key: 'phone',
-            header: 'Phone',
+            header: 'PHONE',
             cell: (item: Message) => (
-                <span className="text-muted-foreground">+{item.phone}</span>
+                <span className="text-gray-600 tabular-nums dark:text-gray-400">+{item.phone}</span>
             ),
         },
         {
             key: 'message',
-            header: 'Message',
+            header: 'MESSAGE',
             cell: (item: Message) => (
                 <div className="max-w-[300px] truncate text-muted-foreground">
                     {item.message.substring(0, 80)}
@@ -75,12 +124,12 @@ export default function MessagesPage() {
         },
         {
             key: 'timestamp',
-            header: 'Timestamp',
+            header: 'TIMESTAMP',
             cell: (item: Message) => {
                 const { date, time } = formatDate(item.timestamp);
                 return (
                     <div className="text-right">
-                        <div className="font-medium text-sm">{date}</div>
+                        <div className="text-sm font-medium">{date}</div>
                         <div className="text-xs text-muted-foreground">{time}</div>
                     </div>
                 );
@@ -89,17 +138,18 @@ export default function MessagesPage() {
         },
         {
             key: 'actions',
-            header: '',
+            header: 'ACTIONS',
             cell: (item: Message) => (
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button
                             variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
+                            size="icon"
+                            className="h-8 w-8"
                             onClick={(e) => e.stopPropagation()}
+                            aria-label="Row actions"
                         >
-                            <MoreVertical className="h-4 w-4 text-muted-foreground" />
+                            <MoreVertical className="h-4 w-4 text-gray-500" />
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
@@ -124,29 +174,57 @@ export default function MessagesPage() {
                     </DropdownMenuContent>
                 </DropdownMenu>
             ),
-            className: 'w-12',
+            className: 'w-[72px] text-right',
         },
     ];
 
     if (isLoading) {
-        return (
-            <div className="p-4 md:p-6">
-                <TableSkeleton columns={5} rows={10} title="Messages" />
-            </div>
-        );
+        return <ListPageSkeleton columns={5} />;
     }
 
     return (
-        <div className="p-4 md:p-6">
+        <ListPageShell>
             <DataTable
+                className="flex flex-1 flex-col min-h-0"
                 data={messages}
                 columns={columns}
                 onRowClick={handleViewDetails}
-                title="Messages"
-                searchPlaceholder="Search"
+                searchPlaceholder="Search..."
                 onExport={handleExport}
                 searchFields={['name', 'phone', 'message'] as (keyof Message)[]}
+                filterFields={messageFilterFields}
             />
-        </div>
+
+            <Dialog open={selectedMessage !== null} onOpenChange={(open) => !open && setSelectedMessage(null)}>
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Message details</DialogTitle>
+                        <DialogDescription>
+                            {selectedMessage?.name || 'User'} · +{selectedMessage?.phone}
+                        </DialogDescription>
+                    </DialogHeader>
+                    {selectedMessage && (
+                        <div className="space-y-3">
+                            <p className="text-xs text-muted-foreground">
+                                {formatDate(selectedMessage.timestamp).date}{' '}
+                                {formatDate(selectedMessage.timestamp).time}
+                            </p>
+                            <div className="rounded-md border bg-muted/30 p-4 text-sm whitespace-pre-wrap">
+                                {selectedMessage.message}
+                            </div>
+                            <div className="flex justify-end gap-2">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => handleDownload(selectedMessage)}
+                                >
+                                    <Download className="mr-2 h-4 w-4" />
+                                    Download
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+        </ListPageShell>
     );
 }

@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { tokenStorage, User } from "@/lib/api";
+import { redirectToLogin } from "@/lib/auth-storage";
 
 interface AuthContextType {
     user: User | null;
@@ -60,6 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 } catch (error) {
                     console.error("Failed to parse token:", error);
                     tokenStorage.clearTokens();
+                    setUser(null);
                 }
             }
 
@@ -77,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const logout = () => {
         setUser(null);
         tokenStorage.clearTokens();
-        window.location.href = "/login";
+        redirectToLogin();
     };
 
     const isAdmin = () => {

@@ -1,33 +1,23 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useTasks, useCreateTask, useUpdateTask, useDeleteTask } from '@/hooks/useTasks';
 import { DataTable } from '@/components/data/DataTable';
-import { TableSkeleton } from '@/components/data/TableSkeleton';
-import { Skeleton } from '@/components/ui/skeleton';
+import { ListPageSkeleton } from '@/components/data/ListPageSkeleton';
+import { ListPageShell } from '@/components/data/ListPageShell';
 import { TaskDetailModal } from '@/components/modals/TaskDetailModal';
 import { CreateTaskModal } from '@/components/modals/CreateTaskModal';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Download, Loader2, MoreHorizontal, Plus, Calendar, User } from 'lucide-react';
+import { MoreHorizontal, Calendar, User } from 'lucide-react';
 import type { Task, TaskDetail, TaskStatus, CreateTaskPayload, UpdateTaskPayload } from '@/types';
+import { taskFilterFields } from '@/lib/table-filter-presets';
 import { toast } from 'sonner';
-import { themeClasses } from '@/lib/theme';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-
-const filterTabs: { key: string; label: string; status: TaskStatus | null }[] = [
-    { key: 'all', label: 'All Tasks', status: null },
-    { key: 'todo', label: 'To Do', status: 'todo' },
-    { key: 'in_progress', label: 'In Progress', status: 'in_progress' },
-    { key: 'review', label: 'Review', status: 'review' },
-    { key: 'completed', label: 'Completed', status: 'completed' },
-    { key: 'cancelled', label: 'Cancelled', status: 'cancelled' },
-];
 
 const statusConfig: Record<TaskStatus, { label: string; color: string; bgColor: string; textColor: string }> = {
     todo: { label: 'To Do', color: 'bg-gray-500', bgColor: 'bg-gray-100', textColor: 'text-gray-700' },
@@ -50,20 +40,13 @@ export default function TasksPage() {
     const updateTask = useUpdateTask();
     const deleteTask = useDeleteTask();
 
-    const [activeFilter, setActiveFilter] = useState('all');
     const [selectedTask, setSelectedTask] = useState<TaskDetail | null>(null);
     const [detailModalOpen, setDetailModalOpen] = useState(false);
     const [createModalOpen, setCreateModalOpen] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
 
-    const filteredTasks = useMemo(() => {
-        const filter = filterTabs.find(t => t.key === activeFilter);
-        if (!filter?.status) return tasks;
-        return tasks.filter(t => t.status === filter.status);
-    }, [tasks, activeFilter]);
-
     const handleExport = async () => {
-        if (filteredTasks.length === 0) {
+        if (tasks.length === 0) {
             toast.warning('No data available to export');
             return;
         }
@@ -84,7 +67,7 @@ export default function TasksPage() {
                 'Created At',
             ];
 
-            const rows = filteredTasks.map(task => [
+            const rows = tasks.map(task => [
                 task.uuid,
                 `"${(task.title || '').replace(/"/g, '""')}"`,
                 `"${(task.description || '').replace(/"/g, '""')}"`,
@@ -267,115 +250,26 @@ export default function TasksPage() {
     ];
 
     if (isLoading) {
-        return (
-            <div className="p-4 md:p-6 space-y-6">
-                {/* Header skeleton */}
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    <div className="space-y-2">
-                        <Skeleton className="h-8 w-32" />
-                        <Skeleton className="h-4 w-48" />
-                    </div>
-                    <Skeleton className="h-9 w-24" />
-                </div>
-
-                {/* Tabs skeleton */}
-                <div className="flex gap-2">
-                    {Array.from({ length: 6 }).map((_, i) => (
-                        <Skeleton key={i} className="h-9 w-24" />
-                    ))}
-                </div>
-
-                {/* Table skeleton */}
-                <TableSkeleton columns={7} rows={10} showActions={false} />
-            </div>
-        );
+        return <ListPageSkeleton columns={7} />;
     }
 
     return (
-        <div className="p-4 md:p-6 space-y-6">
-            {/* Page Header */}
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl md:text-3xl font-bold">Tasks</h1>
-                    <p className="text-muted-foreground">Manage and track your tasks</p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="outline"
-                        onClick={handleExport}
-                        disabled={isExporting}
-                    >
-                        {isExporting ? (
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                            <Download className="w-4 h-4 mr-2" />
-                        )}
-                        {isExporting ? 'Exporting...' : 'Export'}
-                    </Button>
-                    <Button
-                        onClick={() => setCreateModalOpen(true)}
-                        className={themeClasses.btnPrimary}
-                    >
-                        <Plus className="w-4 h-4 mr-2" />
-                        New Task
-                    </Button>
-                </div>
-            </div>
-
-            {/* Filter Tabs */}
-            <Tabs value={activeFilter} onValueChange={setActiveFilter}>
-                <TabsList className="flex-wrap h-auto gap-1 bg-transparent p-0">
-                    {filterTabs.map((tab) => (
-                        <TabsTrigger
-                            key={tab.key}
-                            value={tab.key}
-                            className={`data-[state=active]:${themeClasses.sidebarActive} data-[state=active]:border-b-2 data-[state=active]:${themeClasses.borderPrimary} rounded-none px-4`}
-                        >
-                            {tab.label}
-                            {tab.status && (
-                                <span className={`ml-2 px-1.5 py-0.5 rounded text-xs font-medium ${themeClasses.bgPrimaryLight} ${themeClasses.textPrimary}`}>
-                                    {tasks.filter(t => t.status === tab.status).length}
-                                </span>
-                            )}
-                            {!tab.status && (
-                                <span className={`ml-2 px-1.5 py-0.5 rounded text-xs font-medium ${themeClasses.bgPrimaryLight} ${themeClasses.textPrimary}`}>
-                                    {tasks.length}
-                                </span>
-                            )}
-                        </TabsTrigger>
-                    ))}
-                </TabsList>
-            </Tabs>
-
-            {/* Task Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className={`p-4 rounded-lg border ${themeClasses.cardPrimary}`}>
-                    <div className="text-2xl font-bold text-green-600">{tasks.filter(t => t.status === 'todo').length}</div>
-                    <div className="text-sm text-muted-foreground">To Do</div>
-                </div>
-                <div className="p-4 rounded-lg border bg-blue-50 border-blue-100 dark:bg-blue-950/20 dark:border-blue-900/30">
-                    <div className="text-2xl font-bold text-blue-600">{tasks.filter(t => t.status === 'in_progress').length}</div>
-                    <div className="text-sm text-muted-foreground">In Progress</div>
-                </div>
-                <div className="p-4 rounded-lg border bg-yellow-50 border-yellow-100 dark:bg-yellow-950/20 dark:border-yellow-900/30">
-                    <div className="text-2xl font-bold text-yellow-600">{tasks.filter(t => t.status === 'review').length}</div>
-                    <div className="text-sm text-muted-foreground">Review</div>
-                </div>
-                <div className="p-4 rounded-lg border bg-green-50 border-green-100 dark:bg-green-950/20 dark:border-green-900/30">
-                    <div className="text-2xl font-bold text-green-600">{tasks.filter(t => t.status === 'completed').length}</div>
-                    <div className="text-sm text-muted-foreground">Completed</div>
-                </div>
-            </div>
-
-            {/* Data Table */}
+        <ListPageShell>
             <DataTable
-                data={filteredTasks}
+                className="flex flex-1 flex-col min-h-0"
+                data={tasks}
                 columns={columns}
                 onRowClick={(item) => handleRowClick(item as Task)}
                 emptyMessage="No tasks found"
+                searchPlaceholder="Search..."
+                addLabel="New Task"
+                onAdd={() => setCreateModalOpen(true)}
+                onExport={handleExport}
+                isExporting={isExporting}
+                searchFields={['title', 'description'] as (keyof Task)[]}
+                filterFields={taskFilterFields}
             />
 
-            {/* Detail Modal */}
             <TaskDetailModal
                 task={selectedTask}
                 open={detailModalOpen}
@@ -384,12 +278,11 @@ export default function TasksPage() {
                 onDelete={handleDeleteTask}
             />
 
-            {/* Create Modal */}
             <CreateTaskModal
                 open={createModalOpen}
                 onOpenChange={setCreateModalOpen}
                 onCreate={handleCreateTask}
             />
-        </div>
+        </ListPageShell>
     );
 }

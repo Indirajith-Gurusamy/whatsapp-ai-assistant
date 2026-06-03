@@ -24,28 +24,64 @@ class AdminService:
     def __init__(self, db: Prisma):
         self.db = db
     
-    async def get_all_users(self, skip: int = 0, limit: int = 50) -> Tuple[list, int]:
+    async def get_all_users(
+        self,
+        skip: int = 0,
+        limit: int = 50,
+        search: Optional[str] = None,
+        role: Optional[str] = None,
+        is_active: Optional[bool] = None,
+    ) -> Tuple[list, int]:
         """
         Get paginated list of all users.
-        
+
         Args:
             skip: Number of records to skip
             limit: Maximum number of records to return
-            
+            search: Optional filter on name or email (case-insensitive)
+            role: Optional filter by role (USER or ADMIN)
+            is_active: Optional filter by active status
+
         Returns:
             Tuple of (users list, total count)
         """
-        # Get total count
-        total = await self.db.user.count()
-        
-        # Get paginated users
+        conditions = []
+        if search and search.strip():
+            q = search.strip()
+            conditions.append({
+                'OR': [
+                    {'name': {'contains': q, 'mode': 'insensitive'}},
+                    {'email': {'contains': q, 'mode': 'insensitive'}},
+                ]
+            })
+        if role:
+            role_upper = role.strip().upper()
+            if role_upper in ('USER', 'ADMIN'):
+                conditions.append({'role': role_upper})
+        if is_active is not None:
+            conditions.append({'isActive': is_active})
+
+        where = {'AND': conditions} if conditions else None
+
+        total = await self.db.user.count(where=where)
+
         users = await self.db.user.find_many(
+            where=where,
             skip=skip,
             take=limit,
-            order={'createdAt': 'desc'}
+            order={'createdAt': 'desc'},
         )
-        
-        logger.info(f"Retrieved {len(users)} users (skip={skip}, limit={limit}, total={total})")
+
+        logger.info(
+            "Retrieved %s users (skip=%s, limit=%s, total=%s, search=%r, role=%r, is_active=%r)",
+            len(users),
+            skip,
+            limit,
+            total,
+            search,
+            role,
+            is_active,
+        )
         return users, total
     
     async def count_admins(self) -> int:

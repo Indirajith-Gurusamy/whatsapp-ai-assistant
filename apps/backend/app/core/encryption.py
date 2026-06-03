@@ -47,4 +47,5 @@ SENSITIVE_KEYS = frozenset({
     "access_token",
     "webhook_verify_token",
     "whatsapp_accounts",
+    "ai_providers",
 })

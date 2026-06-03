@@ -42,7 +42,17 @@ export function useSettings(category: string) {
     const saveSettings = async () => {
         setIsSaving(true);
         try {
-            const res = await settingsApi.updateSettings(category, settings);
+            let payload = settings;
+            if (category.toLowerCase() === "ai") {
+                payload = {
+                    ai_providers: settings.ai_providers ?? "[]",
+                    temperature: settings.temperature ?? "0.7",
+                    max_tokens: settings.max_tokens ?? "300",
+                    system_prompt: settings.system_prompt ?? "",
+                    fallback_message: settings.fallback_message ?? "",
+                };
+            }
+            const res = await settingsApi.updateSettings(category, payload);
             setSettings(res.settings);
             setOriginalSettings(res.settings);
             toast.success("Settings saved successfully");
@@ -68,12 +78,15 @@ export function useSettings(category: string) {
         }
     };
 
-    const testConnection = async (type: "whatsapp" | "ai", options?: { accountId?: string }) => {
+    const testConnection = async (
+        type: "whatsapp" | "ai",
+        options?: { accountId?: string; providerId?: string }
+    ) => {
         setIsTesting(true);
         try {
             const res = type === "whatsapp"
                 ? await settingsApi.testWhatsApp(options?.accountId)
-                : await settingsApi.testAI();
+                : await settingsApi.testAI(options?.providerId);
             if (res.success) {
                 toast.success(res.message);
             } else {
@@ -111,6 +124,7 @@ export function useSettings(category: string) {
 
     return {
         settings,
+        originalSettings,
         isLoading,
         isSaving,
         isTesting,

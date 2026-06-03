@@ -3,14 +3,12 @@
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { setAuthRedirect } from "@/lib/auth-storage";
+import { isPublicAuthRoute, setAuthRedirect } from "@/lib/auth-storage";
 
 interface ProtectedRouteProps {
     children: React.ReactNode;
     requiredRole?: string;
 }
-
-const publicRoutes = ["/login", "/signup", "/verify-email", "/forgot-password", "/reset-password", "/admin/login", "/admin/signup"];
 
 export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
     const { isAuthenticated, isLoading, hasRole } = useAuth();
@@ -21,18 +19,17 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
         // Don't redirect if still loading
         if (isLoading) return;
 
-        // Check if current route is public
-        const isPublicRoute = publicRoutes.some(route => pathname?.startsWith(route));
+        const isPublicRoute = isPublicAuthRoute(pathname);
 
         // If not authenticated and trying to access protected route, redirect to login
         if (!isAuthenticated && !isPublicRoute) {
             setAuthRedirect(pathname || "/conversations");
-            router.push("/login");
+            router.replace("/login");
         }
 
         // If authenticated and trying to access login/signup, redirect to conversations
         if (isAuthenticated && (pathname === "/login" || pathname === "/signup")) {
-            router.push("/conversations");
+            router.replace("/conversations");
         }
 
         // Check role requirement
@@ -45,15 +42,17 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
     // Don't block rendering while checking authentication
     // The layout (sidebar/navbar) should render immediately
     // Individual pages handle their own loading states with skeletons
+    const isPublicRoute = isPublicAuthRoute(pathname);
+
     if (isLoading) {
-        // For public routes, just render children (auth pages handle their own state)
-        const isPublicRoute = publicRoutes.some(route => pathname?.startsWith(route));
         if (isPublicRoute) {
             return <>{children}</>;
         }
-        // For protected routes during initial auth check, render children
-        // Pages will show their skeleton states
-        return <>{children}</>;
+        return null;
+    }
+
+    if (!isAuthenticated && !isPublicRoute) {
+        return null;
     }
 
     // Show access denied if role requirement not met

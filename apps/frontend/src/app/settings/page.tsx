@@ -13,6 +13,7 @@ import { AuditLogPanel } from "@/components/settings/AuditLogPanel";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { UnsavedChangesModal } from "@/components/ui/unsaved-changes-modal";
+import { settingsContentPad, settingsPadX } from "@/components/settings/settings-layout";
 
 export default function SettingsPage() {
     const { isAdmin, isLoading: authLoading } = useAuth();
@@ -23,13 +24,20 @@ export default function SettingsPage() {
 
     const [showUnsavedConfirm, setShowUnsavedConfirm] = useState(false);
 
+    const pageWrap = "w-full min-w-0";
+    const cardWrap =
+        "w-full bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800";
+    const stickyTabsClass =
+        `sticky top-0 z-30 w-full ${settingsPadX} py-3 rounded-t-xl ` +
+        "bg-white/95 dark:bg-gray-900/95 backdrop-blur-md supports-[backdrop-filter]:bg-white/90 " +
+        "border-b border-gray-200/80 dark:border-gray-800";
+
     // Admin guard
     if (authLoading) {
         return (
-            <div className="p-4 md:p-6 lg:p-8 space-y-6">
-                <Skeleton className="h-8 w-48" />
-                <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 md:p-8 space-y-4">
-                    <Skeleton className="h-10 w-full max-w-xl" />
+            <div className={pageWrap}>
+                <div className={`${cardWrap} ${settingsContentPad} space-y-4`}>
+                    <Skeleton className="h-10 w-full" />
                     {Array.from({ length: 5 }).map((_, i) => (
                         <Skeleton key={i} className="h-14 w-full" />
                     ))}
@@ -40,8 +48,8 @@ export default function SettingsPage() {
 
     if (!isAdmin()) {
         return (
-            <div className="p-4 md:p-6 lg:p-8">
-                <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 md:p-8 text-center py-20">
+            <div className={pageWrap}>
+                <div className={`${cardWrap} text-center py-16`}>
                     <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-4">
                         <ShieldAlert className="w-8 h-8 text-red-500" />
                     </div>
@@ -76,56 +84,58 @@ export default function SettingsPage() {
         setShowUnsavedConfirm(false);
     };
 
-
-
     const tabItems = [
-        { value: "whatsapp", label: "WhatsApp", icon: MessageSquare },
-        { value: "ai", label: "AI", icon: Brain },
-        { value: "automation", label: "Automation", icon: Zap },
-        { value: "crm", label: "CRM", icon: Users },
-        { value: "audit", label: "Audit Log", icon: ClipboardList },
+        { value: "whatsapp", label: "WhatsApp", shortLabel: "WA", icon: MessageSquare },
+        { value: "ai", label: "AI", shortLabel: "AI", icon: Brain },
+        { value: "automation", label: "Automation", shortLabel: "Auto", icon: Zap },
+        { value: "crm", label: "CRM", shortLabel: "CRM", icon: Users },
+        { value: "audit", label: "Audit Log", shortLabel: "Log", icon: ClipboardList },
     ];
 
     return (
-        <div className="p-4 md:p-6 lg:p-8">
-            {/* Page Header */}
-            <div className="flex items-center justify-between mb-8">
-                <h1 className="text-2xl font-bold tracking-tight">System Settings</h1>
+        <div className={pageWrap}>
+            <div className={cardWrap}>
+                <Tabs value={activeTab} onValueChange={handleTabChange} className="gap-0">
+                    <div className={stickyTabsClass}>
+                        <TabsList className="flex w-full h-11 sm:h-10 rounded-lg bg-muted p-1 gap-0.5 sm:gap-1 shadow-none">
+                            {tabItems.map((tab) => {
+                                const Icon = tab.icon;
+                                return (
+                                    <TabsTrigger
+                                        key={tab.value}
+                                        value={tab.value}
+                                        className="flex-1 min-w-0 h-full flex-col gap-0.5 sm:flex-row sm:gap-1.5 rounded-md border-0 px-1 py-1.5 sm:px-2 text-xs sm:text-sm font-medium
+                                            text-gray-600 dark:text-gray-400
+                                            data-[state=active]:bg-white data-[state=active]:text-gray-900
+                                            dark:data-[state=active]:bg-white dark:data-[state=active]:text-gray-900
+                                            data-[state=active]:shadow-sm data-[state=inactive]:bg-transparent"
+                                    >
+                                        <Icon className="w-4 h-4 shrink-0" />
+                                        <span className="sm:hidden leading-none">{tab.shortLabel}</span>
+                                        <span className="hidden sm:inline truncate">{tab.label}</span>
+                                    </TabsTrigger>
+                                );
+                            })}
+                        </TabsList>
+                    </div>
 
-
-            </div>
-
-            {/* Main Content */}
-            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 md:p-8">
-                {/* Tabs */}
-                <Tabs value={activeTab} onValueChange={handleTabChange}>
-                    <TabsList className="mb-6 w-full sm:w-auto">
-                        {tabItems.map((tab) => {
-                            const Icon = tab.icon;
-                            return (
-                                <TabsTrigger key={tab.value} value={tab.value} className="gap-1.5">
-                                    <Icon className="w-4 h-4" />
-                                    <span className="hidden sm:inline">{tab.label}</span>
-                                </TabsTrigger>
-                            );
-                        })}
-                    </TabsList>
-
-                    <TabsContent value="whatsapp">
-                        <WhatsAppTab onDirtyChange={setIsDirty} />
-                    </TabsContent>
-                    <TabsContent value="ai">
-                        <AITab onDirtyChange={setIsDirty} />
-                    </TabsContent>
-                    <TabsContent value="automation">
-                        <AutomationTab onDirtyChange={setIsDirty} />
-                    </TabsContent>
-                    <TabsContent value="crm">
-                        <CRMTab onDirtyChange={setIsDirty} />
-                    </TabsContent>
-                    <TabsContent value="audit">
-                        <AuditLogPanel />
-                    </TabsContent>
+                    <div className={settingsContentPad}>
+                        <TabsContent value="whatsapp" className="mt-0">
+                            <WhatsAppTab onDirtyChange={setIsDirty} />
+                        </TabsContent>
+                        <TabsContent value="ai" className="mt-0">
+                            <AITab onDirtyChange={setIsDirty} />
+                        </TabsContent>
+                        <TabsContent value="automation" className="mt-0">
+                            <AutomationTab onDirtyChange={setIsDirty} />
+                        </TabsContent>
+                        <TabsContent value="crm" className="mt-0">
+                            <CRMTab onDirtyChange={setIsDirty} />
+                        </TabsContent>
+                        <TabsContent value="audit" className="mt-0">
+                            <AuditLogPanel />
+                        </TabsContent>
+                    </div>
                 </Tabs>
             </div>
 

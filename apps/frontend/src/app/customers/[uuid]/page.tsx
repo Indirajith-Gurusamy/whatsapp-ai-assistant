@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { fetchCustomerByUuid, fetchCustomerHistoryByUuid, toggleConversationAI, sendAgentMessage } from '@/lib/api';
 import { WhatsAppChat } from '@/components/chat/WhatsAppChat';
-import { Button } from '@/components/ui/button';
+import { PageBreadcrumb } from '@/components/layout/PageBreadcrumb';
+import { getPageBreadcrumb } from '@/lib/page-titles';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, User, Tag, MessageCircle, Info } from 'lucide-react';
+import { User, Tag, MessageCircle, Info } from 'lucide-react';
 import type { Customer, ConversationHistory, MessageDeliveryStatus } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
@@ -51,6 +52,11 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 function CustomerDetailContent() {
     const params = useParams();
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const pathname = usePathname();
+    const breadcrumb = getPageBreadcrumb(pathname, searchParams.get('from'));
+    const initialTab = searchParams.get('tab') === 'details' ? 'details' : 'chat';
+    const [activeTab, setActiveTab] = useState(initialTab);
 
     const customerUuid = params.uuid as string;
     const isValidUuid = UUID_REGEX.test(customerUuid);
@@ -64,6 +70,10 @@ function CustomerDetailContent() {
     const [isSending, setIsSending] = useState(false);
     const [conversationUuid, setConversationUuid] = useState<string | null>(null);
     const [pendingMessages, setPendingMessages] = useState<ConversationHistory[]>([]);
+
+    useEffect(() => {
+        setActiveTab(searchParams.get('tab') === 'details' ? 'details' : 'chat');
+    }, [searchParams]);
 
     useEffect(() => {
         if (!isValidUuid) {
@@ -212,11 +222,14 @@ function CustomerDetailContent() {
     if (!customer && !isLoading) {
         return (
             <div className="p-6">
-                <Button variant="ghost" onClick={() => router.back()}>
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Back
-                </Button>
-                <div className="mt-8 text-center text-muted-foreground">
+                {breadcrumb && (
+                    <PageBreadcrumb
+                        href={breadcrumb.href}
+                        label={breadcrumb.label}
+                        className="mb-6"
+                    />
+                )}
+                <div className="text-center text-muted-foreground">
                     Customer not found
                 </div>
             </div>
@@ -227,18 +240,10 @@ function CustomerDetailContent() {
 
     return (
         <div className="flex flex-col flex-1 min-h-0 h-full w-full max-w-none overflow-hidden">
-            <Tabs defaultValue="chat" className="flex flex-col flex-1 min-h-0 h-full w-full max-w-none gap-0 [&>[data-slot=tabs-content]]:flex-1">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0 h-full w-full max-w-none gap-0 [&>[data-slot=tabs-content]]:flex-1">
                 {/* Top bar: back + tab switcher */}
-                <div className="flex-none flex items-center gap-3 px-3 py-2 border-b border-[#d1d7db] bg-white shrink-0 w-full">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => router.back()}
-                        className="shrink-0 h-9 w-9"
-                    >
-                        <ArrowLeft className="w-5 h-5" />
-                    </Button>
-                    <TabsList className="h-9 bg-[#f0f2f5] p-0.5 flex-1 max-w-xs">
+                <div className="flex-none flex w-full shrink-0 items-center gap-3 border-b border-[#d1d7db] bg-white px-3 py-2">
+                    <TabsList className="h-9 max-w-xs flex-1 bg-[#f0f2f5] p-0.5">
                         <TabsTrigger
                             value="chat"
                             className="flex-1 gap-1.5 text-xs sm:text-sm data-[state=active]:bg-white data-[state=active]:text-[#008069] data-[state=active]:shadow-sm"

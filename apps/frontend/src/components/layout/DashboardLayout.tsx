@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { pageScrollClass } from './PageScroll';
 import { useIsClient } from '@/hooks/useIsClient';
+import { AppAssistant } from '@/components/assistant/AppAssistant';
 
 interface DashboardLayoutProps {
     children: React.ReactNode;
@@ -19,7 +20,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     // Show a minimal layout shell during SSR/hydration
     if (!mounted) {
         return (
-            <div className="flex h-screen overflow-hidden bg-muted/30">
+            <div className="flex h-screen overflow-hidden bg-gray-100 dark:bg-gray-950">
                 {/* Sidebar skeleton */}
                 <aside className="hidden lg:flex flex-col w-56 bg-card border-r border-border/50">
                     <div className="flex items-center px-4 py-3 border-b border-border/50 min-h-[57px]">
@@ -55,16 +56,17 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     }
 
     return (
-        <div className="flex h-screen overflow-hidden bg-muted/30">
+        <div className="flex h-screen overflow-hidden bg-gray-100 dark:bg-gray-950">
             <Sidebar
                 collapsed={sidebarCollapsed}
                 onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
             />
-            <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+            <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-white dark:bg-gray-900">
                 <TopBar />
-                <main className={cn('relative flex flex-col', pageScrollClass)}>
+                <main className={cn('relative flex flex-1 flex-col min-h-0', pageScrollClass)}>
                     {children}
                 </main>
+                <AppAssistant />
             </div>
         </div>
     );

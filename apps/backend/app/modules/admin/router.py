@@ -1,4 +1,6 @@
 """Admin router with API endpoints for user management."""
+from typing import Optional
+
 from fastapi import APIRouter, Depends, Query, Request, HTTPException, status, UploadFile, File
 from app.db.prisma import Prisma
 from app.modules.auth.dependencies import get_db, require_role, get_current_user
@@ -182,6 +184,9 @@ async def admin_login(
 async def get_all_users(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(50, ge=1, le=100, description="Maximum records to return"),
+    search: Optional[str] = Query(None, description="Filter by name or email"),
+    role: Optional[str] = Query(None, description="Filter by role (USER or ADMIN)"),
+    is_active: Optional[bool] = Query(None, description="Filter by active status"),
     current_user = Depends(require_role(['ADMIN'])),
     db: Prisma = Depends(get_db)
 ):
@@ -192,12 +197,17 @@ async def get_all_users(
     
     - **skip**: Number of records to skip (for pagination)
     - **limit**: Maximum number of records to return (1-100)
+    - **search**: Optional case-insensitive filter on name or email
+    - **role**: Optional filter by USER or ADMIN
+    - **is_active**: Optional filter by active/disabled status
     
     Returns list of users with their details and total count.
     """
     try:
         service = AdminService(db)
-        users, total = await service.get_all_users(skip, limit)
+        users, total = await service.get_all_users(
+            skip, limit, search, role=role, is_active=is_active
+        )
         
         # Convert to response model
         user_items = [

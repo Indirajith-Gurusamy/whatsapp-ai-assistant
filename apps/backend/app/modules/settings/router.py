@@ -95,12 +95,13 @@ async def send_test_whatsapp(
     response_model=TestResult,
 )
 async def test_ai(
+    provider_id: Optional[str] = Query(None),
     current_user=Depends(require_role(["ADMIN"])),
     db: Prisma = Depends(get_db),
 ):
-    """Send a test prompt to Groq and return the AI response."""
+    """Send a test prompt via the active or selected AI provider."""
     svc = SettingsService(db)
-    result = await svc.test_ai()
+    result = await svc.test_ai(provider_id)
     return TestResult(**result)
 
 

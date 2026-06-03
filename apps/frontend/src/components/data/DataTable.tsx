@@ -17,17 +17,16 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
+import { cn } from '@/lib/utils';
+import { ListPageToolbar, ListPageBelowToolbar } from '@/components/data/ListPageToolbar';
+import { TableFilterModal } from '@/components/data/TableFilterModal';
 import {
-    ChevronLeft,
-    ChevronRight,
-    Search,
-    Plus,
-    Download,
-    SlidersHorizontal,
-    Settings2,
-} from 'lucide-react';
+    applyTableFilters,
+    type FilterCondition,
+    type TableFilterField,
+} from '@/lib/table-filter';
+import { ChevronLeft, ChevronRight, Settings2 } from 'lucide-react';
 
 interface Column<T> {
     key: string;
@@ -48,8 +47,18 @@ interface DataTableProps<T> {
     searchPlaceholder?: string;
     onAdd?: () => void;
     onExport?: () => void;
+    onFilter?: () => void;
+    addLabel?: string;
     showSelection?: boolean;
     searchFields?: (keyof T)[];
+    isExporting?: boolean;
+    /** Renders between toolbar and table (e.g. status filter tabs). */
+    belowToolbar?: React.ReactNode;
+    showFilterButton?: boolean;
+    /** Advanced multi-condition filter fields; enables filter modal when set. */
+    filterFields?: TableFilterField[];
+    /** card = full-bleed list layout (search row + flush table) */
+    layout?: 'default' | 'card';
 }
 
 export function DataTable<T extends { id?: number | string }>({
@@ -60,33 +69,55 @@ export function DataTable<T extends { id?: number | string }>({
     className,
     emptyMessage = "No data found",
     title,
-    searchPlaceholder = "Search",
+    searchPlaceholder = "Search...",
     onAdd,
     onExport,
+    onFilter,
+    addLabel = 'Add',
     showSelection = true,
     searchFields,
+    isExporting = false,
+    belowToolbar,
+    showFilterButton,
+    filterFields,
+    layout = 'card',
 }: DataTableProps<T>) {
+    const isCardLayout = layout === 'card';
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(initialPageSize);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedRows, setSelectedRows] = useState<Set<number | string>>(new Set());
+    const [filterModalOpen, setFilterModalOpen] = useState(false);
+    const [appliedFilters, setAppliedFilters] = useState<FilterCondition[]>([]);
 
     const filteredData = useMemo(() => {
-        if (!searchQuery.trim()) return data;
+        let result = data;
 
-        const query = searchQuery.toLowerCase();
-        return data.filter((item) => {
-            if (searchFields) {
-                return searchFields.some((field) => {
-                    const value = item[field];
-                    return value && String(value).toLowerCase().includes(query);
-                });
-            }
-            return Object.values(item as Record<string, unknown>).some(
-                (value) => value && String(value).toLowerCase().includes(query)
+        if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase();
+            result = result.filter((item) => {
+                if (searchFields) {
+                    return searchFields.some((field) => {
+                        const value = item[field];
+                        return value && String(value).toLowerCase().includes(query);
+                    });
+                }
+                return Object.values(item as Record<string, unknown>).some(
+                    (value) => value && String(value).toLowerCase().includes(query),
+                );
+            });
+        }
+
+        if (filterFields?.length && appliedFilters.length > 0) {
+            result = applyTableFilters(
+                result as (T & Record<string, unknown>)[],
+                appliedFilters,
+                filterFields,
             );
-        });
-    }, [data, searchQuery, searchFields]);
+        }
+
+        return result;
+    }, [data, searchQuery, searchFields, appliedFilters, filterFields]);
 
     const totalPages = Math.ceil(filteredData.length / pageSize);
     const startIndex = (currentPage - 1) * pageSize;
@@ -125,85 +156,90 @@ export function DataTable<T extends { id?: number | string }>({
         selectedRows.has(item.id ?? index)
     );
 
+    const hasFilterModal = Boolean(filterFields?.length);
+    const showFilter = showFilterButton ?? (hasFilterModal || Boolean(onFilter));
+    const handleFilterClick = hasFilterModal
+        ? () => setFilterModalOpen(true)
+        : onFilter;
+
+    const stickyHeadClass = isCardLayout
+        ? 'sticky top-0 z-10 bg-gray-50 shadow-[inset_0_-1px_0_0] shadow-gray-200 dark:bg-gray-900 dark:shadow-gray-800'
+        : 'sticky top-0 z-10 bg-muted shadow-[inset_0_-1px_0_0] shadow-border';
+
     return (
-        <div className={className}>
-            {/* Header with Title, Search, and Actions */}
-            <div className="flex flex-col gap-4 mb-4">
-                {title && (
-                    <h1 className="text-xl font-semibold">{title}</h1>
-                )}
-
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    {/* Search */}
-                    <div className="relative w-full sm:w-80">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            placeholder={searchPlaceholder}
-                            value={searchQuery}
-                            onChange={(e) => {
-                                setSearchQuery(e.target.value);
-                                setCurrentPage(1);
-                            }}
-                            className="pl-10 h-9 bg-background"
-                        />
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex items-center gap-2">
-                        {onAdd && (
-                            <Button
-                                onClick={onAdd}
-                                size="sm"
-                                className="bg-indigo-600 hover:bg-indigo-700 text-white"
-                            >
-                                <Plus className="h-4 w-4 mr-1" />
-                                Add
-                            </Button>
-                        )}
-                        {onExport && (
-                            <Button
-                                onClick={onExport}
-                                variant="outline"
-                                size="sm"
-                            >
-                                <Download className="h-4 w-4 mr-1" />
-                                Export
-                            </Button>
-                        )}
-                        <Button variant="outline" size="icon" className="h-9 w-9">
-                            <SlidersHorizontal className="h-4 w-4" />
-                        </Button>
-                        <Button variant="outline" size="icon" className="h-9 w-9">
+        <div className={cn(isCardLayout && 'flex flex-1 flex-col min-h-0', className)}>
+            <ListPageToolbar
+                className={!isCardLayout ? 'px-0 pt-0' : undefined}
+                searchPlaceholder={searchPlaceholder}
+                searchValue={searchQuery}
+                onSearchChange={(value) => {
+                    setSearchQuery(value);
+                    setCurrentPage(1);
+                }}
+                onAdd={onAdd}
+                addLabel={addLabel}
+                onExport={onExport}
+                isExporting={isExporting}
+                onFilter={handleFilterClick}
+                showFilterButton={showFilter}
+                trailingActions={
+                    !isCardLayout ? (
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-10 w-10 shrink-0"
+                            type="button"
+                            aria-label="Table settings"
+                        >
                             <Settings2 className="h-4 w-4" />
                         </Button>
-                    </div>
-                </div>
-            </div>
+                    ) : undefined
+                }
+            />
 
-            {/* Table */}
-            <div className="rounded-lg border border-border bg-card overflow-hidden">
-                <div className="overflow-x-auto">
-                    <Table>
-                        <TableHeader>
-                            <TableRow className="bg-muted/30 hover:bg-muted/30 border-b">
-                                {showSelection && (
-                                    <TableHead className="w-12 px-4">
-                                        <Checkbox
-                                            checked={isAllSelected}
-                                            onCheckedChange={handleSelectAll}
-                                        />
-                                    </TableHead>
-                                )}
-                                {columns.map((column) => (
-                                    <TableHead
-                                        key={column.key}
-                                        className={`text-xs font-medium text-muted-foreground px-4 py-3 ${column.className || ''}`}
-                                    >
-                                        {column.header}
-                                    </TableHead>
-                                ))}
-                            </TableRow>
-                        </TableHeader>
+            {belowToolbar && <ListPageBelowToolbar>{belowToolbar}</ListPageBelowToolbar>}
+
+            <div
+                className={
+                    isCardLayout
+                        ? 'flex-1 min-h-0 overflow-auto border-t border-gray-200 dark:border-gray-800'
+                        : 'overflow-auto rounded-lg border border-border bg-card'
+                }
+            >
+                <Table containerClassName="overflow-visible">
+                    <TableHeader>
+                        <TableRow
+                            className={
+                                isCardLayout
+                                    ? 'border-b-0 bg-transparent hover:bg-transparent'
+                                    : 'border-b-0 bg-transparent hover:bg-transparent'
+                            }
+                        >
+                            {showSelection && (
+                                <TableHead className={cn('w-12 px-4', stickyHeadClass)}>
+                                    <Checkbox
+                                        checked={isAllSelected}
+                                        onCheckedChange={handleSelectAll}
+                                    />
+                                </TableHead>
+                            )}
+                            {columns.map((column) => (
+                                <TableHead
+                                    key={column.key}
+                                    className={cn(
+                                        'px-4 py-3.5',
+                                        stickyHeadClass,
+                                        isCardLayout
+                                            ? 'text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400'
+                                            : 'text-xs font-medium text-muted-foreground',
+                                        column.className,
+                                    )}
+                                >
+                                    {column.header}
+                                </TableHead>
+                            ))}
+                        </TableRow>
+                    </TableHeader>
                         <TableBody>
                             {pageData.length === 0 ? (
                                 <TableRow>
@@ -221,7 +257,11 @@ export function DataTable<T extends { id?: number | string }>({
                                         <TableRow
                                             key={rowId}
                                             onClick={() => onRowClick?.(item)}
-                                            className={`${onRowClick ? 'cursor-pointer' : ''} hover:bg-muted/30 border-b border-border/50`}
+                                            className={`${onRowClick ? 'cursor-pointer' : ''} ${
+                                                isCardLayout
+                                                    ? 'hover:bg-gray-50/80 dark:hover:bg-gray-800/40 border-b border-gray-100 dark:border-gray-800'
+                                                    : 'hover:bg-muted/30 border-b border-border/50'
+                                            }`}
                                         >
                                             {showSelection && (
                                                 <TableCell className="w-12 px-4">
@@ -248,11 +288,16 @@ export function DataTable<T extends { id?: number | string }>({
                             )}
                         </TableBody>
                     </Table>
-                </div>
             </div>
 
-            {/* Pagination */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 px-2">
+            <div
+                className={cn(
+                    'flex flex-col sm:flex-row items-center justify-between gap-4 shrink-0',
+                    isCardLayout
+                        ? 'border-t border-gray-200 dark:border-gray-800 py-3 px-4 md:px-5'
+                        : 'mt-4 px-2',
+                )}
+            >
                 <p className="text-sm text-muted-foreground">
                     {filteredData.length === 0 ? 0 : startIndex + 1} – {endIndex} of {filteredData.length}
                 </p>
@@ -294,6 +339,20 @@ export function DataTable<T extends { id?: number | string }>({
                     </div>
                 </div>
             </div>
+
+            {hasFilterModal && filterFields && (
+                <TableFilterModal
+                    open={filterModalOpen}
+                    onOpenChange={setFilterModalOpen}
+                    fields={filterFields}
+                    data={data as (T & Record<string, unknown>)[]}
+                    appliedConditions={appliedFilters}
+                    onApply={(conditions) => {
+                        setAppliedFilters(conditions);
+                        setCurrentPage(1);
+                    }}
+                />
+            )}
         </div>
     );
 }

@@ -5,15 +5,16 @@ import { useRouter, useParams } from 'next/navigation';
 import { adminApi } from '@/lib/api';
 import type { UserProfile, UpdateProfilePayload } from '@/types';
 import { getErrorMessage } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { FloatingInput } from '@/components/ui/floating-input';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { DatePicker } from '@/components/ui/date-picker';
 import { toast } from 'sonner';
-import { Loader2, User, CheckCircle2, X, KeyRound, ChevronDown, ArrowLeft } from 'lucide-react';
+import { Loader2, User, CheckCircle2, X, KeyRound, ChevronDown } from 'lucide-react';
 import {
     countries,
     getStatesForCountry,
@@ -22,6 +23,10 @@ import {
 } from '@/lib/location-data';
 
 import { ProfileSkeleton } from '@/components/skeletons/ProfileSkeleton';
+import { listPageCard, listPageFill, pageContentPad, pagePadX } from '@/components/settings/settings-layout';
+
+const flatControlClass = 'rounded-none';
+const flatBadgeClass = 'rounded-none';
 
 export default function AdminUserProfilePage() {
     const router = useRouter();
@@ -191,34 +196,20 @@ export default function AdminUserProfilePage() {
     const isActive = profile.isActive ?? true;
 
     return (
-        <div className="p-4 md:p-6 lg:p-8">
-            {/* Page Header */}
-            <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-3">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => router.push('/admin/users')}
-                        className="h-9 w-9"
-                    >
-                        <ArrowLeft className="w-5 h-5" />
-                    </Button>
-                    <h1 className="text-2xl font-bold tracking-tight">
-                        User Profile – {profile.name}
-                    </h1>
+        <div className={listPageFill}>
+            <div className={listPageCard}>
+                <div className={pageContentPad}>
+                <div className="mb-6 border-b border-gray-200 pb-5 dark:border-gray-800">
+                    <h2 className="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+                        {profile.name}
+                    </h2>
                 </div>
-            </div>
-
-            {/* Main Content */}
-            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 md:p-8">
-                {/* Profile Details Header */}
-                <div className="flex items-center justify-between mb-6">
+                <div className="mb-6 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <h2 className="text-lg font-semibold">Profile Details</h2>
-                        <Badge className="capitalize text-xs bg-orange-100 text-orange-700 hover:bg-orange-100 border-0">
+                        <Badge className={cn('border-0 bg-orange-100 text-xs capitalize text-orange-700 hover:bg-orange-100', flatBadgeClass)}>
                             {profile.role}
                         </Badge>
-                        <Badge className={`text-xs border-0 ${isActive ? 'bg-green-100 text-green-700 hover:bg-green-100' : 'bg-red-100 text-red-700 hover:bg-red-100'}`}>
+                        <Badge className={cn('border-0 text-xs', flatBadgeClass, isActive ? 'bg-green-100 text-green-700 hover:bg-green-100' : 'bg-red-100 text-red-700 hover:bg-red-100')}>
                             {isActive ? 'Active' : 'Inactive'}
                         </Badge>
                         {profile.emailVerified && (
@@ -230,7 +221,7 @@ export default function AdminUserProfilePage() {
                     </div>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className="gap-1.5 text-sm font-medium">
+                            <Button variant="outline" size="sm" className="gap-1.5 rounded-none text-sm font-medium">
                                 Actions
                                 <ChevronDown className="w-4 h-4" />
                             </Button>
@@ -248,7 +239,7 @@ export default function AdminUserProfilePage() {
                 <div className="mb-8">
                     <div className="relative inline-block">
                         <div
-                            className="w-28 h-28 rounded-xl overflow-hidden border-2 border-gray-200 dark:border-gray-700 cursor-pointer hover:opacity-90 transition-opacity"
+                            className="h-28 w-28 cursor-pointer overflow-hidden border-2 border-gray-200 transition-opacity hover:opacity-90 dark:border-gray-700"
                             onClick={() => !isUploadingAvatar && fileInputRef.current?.click()}
                         >
                             {isUploadingAvatar ? (
@@ -275,7 +266,7 @@ export default function AdminUserProfilePage() {
                                     e.stopPropagation();
                                     clearAvatar();
                                 }}
-                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 transition-colors shadow-md"
+                                className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center bg-red-500 text-white shadow-md transition-colors hover:bg-red-600"
                                 title="Change photo"
                             >
                                 <X className="w-3.5 h-3.5" />
@@ -301,6 +292,7 @@ export default function AdminUserProfilePage() {
                             id="name"
                             value={formData.name}
                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                            className={flatControlClass}
                         />
                         <FloatingInput
                             label="Phone Number"
@@ -308,6 +300,7 @@ export default function AdminUserProfilePage() {
                             type="tel"
                             value={formData.phone}
                             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                            className={flatControlClass}
                         />
                     </div>
 
@@ -319,13 +312,14 @@ export default function AdminUserProfilePage() {
                             type="email"
                             value={formData.email}
                             readOnly
-                            className="bg-gray-50 dark:bg-gray-800 cursor-not-allowed"
+                            className={cn(flatControlClass, 'cursor-not-allowed bg-gray-50 dark:bg-gray-800')}
                         />
                         <DatePicker
                             id="dateOfBirth"
                             label="Date of Birth *"
                             value={formData.dateOfBirth}
                             onChange={(iso) => setFormData({ ...formData, dateOfBirth: iso })}
+                            className={flatControlClass}
                         />
                     </div>
 
@@ -342,6 +336,7 @@ export default function AdminUserProfilePage() {
                                 label="Country *"
                                 searchPlaceholder="Search countries..."
                                 showFlags
+                                className={flatControlClass}
                             />
                             <SearchableSelect
                                 options={stateOptions}
@@ -350,6 +345,7 @@ export default function AdminUserProfilePage() {
                                 label="State / Region"
                                 searchPlaceholder="Search states..."
                                 disabled={!formData.country}
+                                className={flatControlClass}
                             />
                         </div>
 
@@ -360,12 +356,14 @@ export default function AdminUserProfilePage() {
                                 id="city"
                                 value={formData.city}
                                 onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                                className={flatControlClass}
                             />
                             <FloatingInput
                                 label="Postal Code"
                                 id="postalCode"
                                 value={formData.postalCode}
                                 onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
+                                className={flatControlClass}
                             />
                         </div>
                     </div>
@@ -376,7 +374,7 @@ export default function AdminUserProfilePage() {
                     <Button
                         onClick={handleSave}
                         disabled={isSaving}
-                        className="bg-orange-500 hover:bg-orange-600 text-white px-8 h-11"
+                        className="h-11 rounded-none bg-orange-500 px-8 text-white hover:bg-orange-600"
                     >
                         {isSaving ? (
                             <>
@@ -388,38 +386,24 @@ export default function AdminUserProfilePage() {
                         )}
                     </Button>
                 </div>
-            </div>
 
-            {/* Password Reset Dialog */}
-            <Dialog open={showPasswordReset} onOpenChange={setShowPasswordReset}>
-                <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                        <DialogTitle>Reset User Password</DialogTitle>
-                        <DialogDescription>
-                            This will reset the password for {profile.name}. The user will receive a new temporary password.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="flex gap-2 justify-end pt-4">
-                        <Button variant="outline" onClick={() => setShowPasswordReset(false)}>
-                            Cancel
-                        </Button>
-                        <Button
-                            className="bg-orange-500 hover:bg-orange-600"
-                            onClick={handleResetPassword}
-                            disabled={isResettingPassword}
-                        >
-                            {isResettingPassword ? (
-                                <>
-                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                    Resetting...
-                                </>
-                            ) : (
-                                'Reset Password'
-                            )}
-                        </Button>
-                    </div>
-                </DialogContent>
-            </Dialog>
+            <ConfirmDialog
+                open={showPasswordReset}
+                onOpenChange={setShowPasswordReset}
+                title="Reset user password?"
+                description={
+                    <>
+                        This will reset the password for{' '}
+                        <span className="font-medium text-foreground">{profile.name}</span>. The user will receive a new temporary password.
+                    </>
+                }
+                confirmLabel="Reset Password"
+                loadingLabel="Resetting..."
+                isLoading={isResettingPassword}
+                onConfirm={handleResetPassword}
+            />
+                </div>
+            </div>
         </div>
     );
 }

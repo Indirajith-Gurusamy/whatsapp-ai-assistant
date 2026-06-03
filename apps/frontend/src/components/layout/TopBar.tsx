@@ -1,11 +1,14 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { MobileSidebar } from './Sidebar';
 import { Settings, User, LogOut, Shield } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { getPageTitle, getPageBreadcrumb } from '@/lib/page-titles';
+import { PageBreadcrumb } from './PageBreadcrumb';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -15,17 +18,36 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { themeClasses } from '@/lib/theme';
+import { cn } from '@/lib/utils';
 
 export function TopBar() {
     const { logout, isAdmin } = useAuth();
     const { user } = useCurrentUser();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const pageTitle = getPageTitle(pathname);
+    const breadcrumb = getPageBreadcrumb(pathname, searchParams.get('from'));
 
     return (
-        <header className="sticky top-0 z-40 flex items-center gap-4 px-4 md:px-6 py-3 bg-card/80 backdrop-blur-md border-b border-border/50">
-            {/* Mobile Menu */}
+        <header
+            className={cn(
+                'sticky top-0 z-40 flex items-center gap-3 border-b px-4 py-2.5 backdrop-blur-md md:px-5',
+                breadcrumb
+                    ? 'border-orange-100/80 bg-orange-50/40 dark:border-orange-950/50 dark:bg-orange-950/20'
+                    : 'border-border/50 bg-card/80',
+            )}
+        >
             <MobileSidebar />
 
-            <div className="flex-1" />
+            {breadcrumb ? (
+                <PageBreadcrumb href={breadcrumb.href} label={breadcrumb.label} />
+            ) : pageTitle ? (
+                <h1 className="min-w-0 truncate text-lg font-semibold tracking-tight text-foreground">
+                    {pageTitle}
+                </h1>
+            ) : null}
+
+            <div className="flex-1 min-w-0" />
 
             {/* Actions */}
             <div className="flex items-center gap-2">
@@ -68,9 +90,9 @@ export function TopBar() {
                             <span>My Profile</span>
                         </DropdownMenuItem>
                         {isAdmin() && (
-                            <DropdownMenuItem className="cursor-pointer" onClick={() => window.location.href = '/admin/panel'}>
+                            <DropdownMenuItem className="cursor-pointer" onClick={() => window.location.href = '/admin/users'}>
                                 <Shield className="mr-2 h-4 w-4" />
-                                <span>Admin Panel</span>
+                                <span>User Management</span>
                             </DropdownMenuItem>
                         )}
                         <DropdownMenuItem className="cursor-pointer" onClick={() => window.location.href = '/settings/sessions'}>
