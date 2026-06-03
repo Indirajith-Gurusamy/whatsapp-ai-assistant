@@ -13,6 +13,13 @@ logger = logging.getLogger(__name__)
 
 import json
 
+from app.modules.ai.providers_util import build_default_ai_providers, normalize_ai_settings
+
+
+def _ai_default_providers() -> str:
+    return build_default_ai_providers()
+
+
 def _build_defaults() -> Dict[str, Dict[str, str]]:
     """Build default settings, pulling values from env vars when available."""
     whatsapp_accounts = []
@@ -39,8 +46,7 @@ def _build_defaults() -> Dict[str, Dict[str, str]]:
             "webhook_verify_token": app_settings.VERIFY_TOKEN or "",
         },
         "AI": {
-            "groq_api_key": app_settings.GROQ_API_KEY or "",
-            "groq_model": app_settings.GROQ_MODEL or "llama-3.3-70b-versatile",
+            "ai_providers": _ai_default_providers(),
             "temperature": "0.7",
             "max_tokens": "300",
             "system_prompt": (
@@ -104,6 +110,9 @@ class SettingsService:
             val = decrypt_value(row.value) if row.isEncrypted else row.value
             result[row.key] = val
 
+        if cat == "AI":
+            result = normalize_ai_settings(result)
+
         return result
 
     async def _seed_category(self, category: str) -> None:
@@ -140,7 +149,12 @@ class SettingsService:
         # Only accept known keys for this category, but allow more for WhatsApp now
         known_keys = set(DEFAULT_SETTINGS.get(cat, {}).keys())
         # For WhatsApp, we might add new platforms later, so let's be more flexible
-        filtered_data = {k: v for k, v in data.items() if k in known_keys or cat == "WHATSAPP"}
+        filtered_data = {
+            k: v for k, v in data.items() if k in known_keys or cat in ("WHATSAPP", "AI")
+        }
+        if cat == "AI":
+            for legacy_key in ("groq_api_key", "groq_model"):
+                filtered_data.pop(legacy_key, None)
 
         # Capture old values for audit
         old_values = await self.get_settings(cat)
@@ -376,41 +390,48 @@ class SettingsService:
 
     # ── TEST AI ──────────────────────────────────────
 
-    async def test_ai(self) -> Dict[str, Any]:
-        """Send a test prompt to Groq and return the response."""
+    async def test_ai(self, provider_id: Optional[str] = None) -> Dict[str, Any]:
+        """Send a test prompt using a specific or active AI provider."""
+        from app.modules.ai.chat import complete_chat
+        from app.modules.ai.providers_util import get_provider_by_id, parse_ai_providers
+
         settings_data = await self.get_settings("AI")
-        api_key = settings_data.get("groq_api_key", "")
-        model = settings_data.get("groq_model", "llama-3.3-70b-versatile")
+        providers = parse_ai_providers(settings_data.get("ai_providers", ""))
+        provider = get_provider_by_id(providers, provider_id)
 
-        # Fall back to env vars if DB settings are empty
-        if not api_key:
-            from app.core.config import settings as app_settings
-            api_key = app_settings.GROQ_API_KEY
+        if not provider:
+            return {"success": False, "message": "No AI provider configured"}
 
-        if not api_key:
-            return {"success": False, "message": "Groq API key not configured"}
+        provider_type = provider.get("provider", "")
+        config = provider.get("config") or {}
+        model = config.get("model", "")
 
         try:
-            from groq import Groq
-            client = Groq(api_key=api_key)
-            completion = client.chat.completions.create(
+            response = await complete_chat(
+                provider_type=provider_type,
+                config=config,
                 messages=[
                     {"role": "system", "content": "Reply in one short sentence."},
                     {"role": "user", "content": "Say hello and confirm you are working."},
                 ],
-                model=model,
                 temperature=0.5,
                 max_tokens=60,
             )
-            response = completion.choices[0].message.content.strip()
             return {
                 "success": True,
-                "message": "AI responded successfully",
-                "details": {"response": response, "model": model},
+                "message": f"{provider.get('name', provider_type)} responded successfully",
+                "details": {
+                    "response": response,
+                    "model": model,
+                    "provider": provider_type,
+                    "provider_id": provider.get("id"),
+                },
             }
         except Exception as e:
+            from app.modules.ai.chat import format_ai_error
+
             logger.error(f"AI test failed: {e}")
-            return {"success": False, "message": f"AI test failed: {str(e)}"}
+            return {"success": False, "message": format_ai_error(e)}
 
     # ── AUDIT LOGS ───────────────────────────────────
 
@@ -471,7 +492,7 @@ class SettingsService:
                 masked[k] = v
                 continue
 
-            if k == "whatsapp_accounts":
+            if k in ("whatsapp_accounts", "ai_providers"):
                 try:
                     import json
                     accounts = json.loads(v)
@@ -483,7 +504,7 @@ class SettingsService:
                                     val = str(acc["config"][ck])
                                     acc["config"][ck] = val[:4] + "••••" if len(val) > 4 else "••••"
                     masked[k] = json.dumps(accounts)
-                except:
+                except Exception:
                     masked[k] = "••••••••"
             elif k in SENSITIVE_KEYS:
                 masked[k] = v[:4] + "••••" if len(v) > 4 else "••••"

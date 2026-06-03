@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from app.modules.conversations.service import ConversationService
-from app.modules.ai.groq import GroqService
+from app.modules.ai.service import AIService
 from app.modules.whatsapp.sender import WhatsAppService
 from app.core.constants import (
     MESSAGE_ROLE_USER,
@@ -130,7 +130,7 @@ class MetaWebhookProvider:
                 return
 
             # Generate LLM response
-            response_text = await GroqService.generate_response_safe(text, conversation_id)
+            response_text = await AIService.generate_response_safe(text, conversation_id)
             
             # Send reply
             send_success, wamid = await WhatsAppService.send_message(from_phone, response_text)

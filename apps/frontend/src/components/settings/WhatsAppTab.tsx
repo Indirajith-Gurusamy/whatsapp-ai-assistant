@@ -18,7 +18,11 @@ import {
     Loader2
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { WhatsAppAccountModal, WhatsAppAccount } from "./WhatsAppAccountModal";
+import { SettingsSectionHeader } from "@/components/settings/SettingsSectionHeader";
+import { SettingsSaveFooter } from "@/components/settings/SettingsSaveFooter";
+import { settingsFormWrap } from "@/components/settings/settings-layout";
 
 export function WhatsAppTab({ onDirtyChange }: { onDirtyChange?: (dirty: boolean) => void }) {
     const {
@@ -48,6 +52,7 @@ export function WhatsAppTab({ onDirtyChange }: { onDirtyChange?: (dirty: boolean
     const [testMsgContent, setTestMsgContent] = useState("Hello! This is a test message from your WhatsApp AI Assistant Dashboard. Reply to test the webhook!");
     const [isTemplate, setIsTemplate] = useState(false);
     const [isSendingTest, setIsSendingTest] = useState(false);
+    const [deleteAccountId, setDeleteAccountId] = useState<string | null>(null);
 
     const accounts = useMemo(() => {
         try {
@@ -74,9 +79,14 @@ export function WhatsAppTab({ onDirtyChange }: { onDirtyChange?: (dirty: boolean
     };
 
     const handleDeleteAccount = (id: string) => {
-        if (!confirm("Are you sure you want to delete this account?")) return;
-        const newAccounts = accounts.filter(a => a.id !== id);
+        setDeleteAccountId(id);
+    };
+
+    const confirmDeleteAccount = () => {
+        if (!deleteAccountId) return;
+        const newAccounts = accounts.filter(a => a.id !== deleteAccountId);
         updateField("whatsapp_accounts", JSON.stringify(newAccounts));
+        setDeleteAccountId(null);
     };
 
     const handleTestAccount = async (account: WhatsAppAccount) => {
@@ -118,23 +128,17 @@ export function WhatsAppTab({ onDirtyChange }: { onDirtyChange?: (dirty: boolean
     }
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h3 className="text-lg font-semibold text-gray-800">WhatsApp Accounts</h3>
-                    <p className="text-sm text-gray-500">Manage multiple WhatsApp platforms and accounts.</p>
-                </div>
-                <button
-                    onClick={() => {
-                        setEditingAccount(undefined);
-                        setIsModalOpen(true);
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium rounded-lg transition-all shadow-sm active:scale-95"
-                >
-                    <Plus className="w-4 h-4" />
-                    Add Account
-                </button>
-            </div>
+        <div className={settingsFormWrap}>
+            <SettingsSectionHeader
+                title="WhatsApp Accounts"
+                description="Manage multiple WhatsApp platforms and accounts."
+                actionLabel="Add Account"
+                actionIcon={<Plus className="w-4 h-4 shrink-0" />}
+                onAction={() => {
+                    setEditingAccount(undefined);
+                    setIsModalOpen(true);
+                }}
+            />
 
             {accounts.length === 0 ? (
                 <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
@@ -147,35 +151,37 @@ export function WhatsAppTab({ onDirtyChange }: { onDirtyChange?: (dirty: boolean
                     {accounts.map((acc) => (
                         <div
                             key={acc.id}
-                            className={`p-5 rounded-xl border transition-all ${acc.active
+                            className={`p-4 sm:p-5 rounded-xl border transition-all ${acc.active
                                 ? "bg-white border-orange-100 shadow-sm"
                                 : "bg-gray-50 border-gray-200 opacity-75"
                                 }`}
                         >
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                <div className="flex items-start gap-4">
-                                    <div className={`p-3 rounded-lg ${acc.platform === 'twilio' ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                                <div className="flex items-start gap-3 sm:gap-4 min-w-0">
+                                    <div className={`p-2.5 sm:p-3 rounded-lg shrink-0 ${acc.platform === 'twilio' ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'
                                         }`}>
                                         {acc.platform === 'twilio' ? <Server className="w-6 h-6" /> : <Smartphone className="w-6 h-6" />}
                                     </div>
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <h4 className="font-bold text-gray-800">{acc.name}</h4>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <h4 className="font-bold text-gray-800 truncate max-w-full">{acc.name}</h4>
                                             {acc.active && (
                                                 <span className="px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold uppercase rounded-full">
                                                     Active
                                                 </span>
                                             )}
                                         </div>
-                                        <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1.5">
+                                        <p className="text-xs text-gray-500 mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                                             <span className="capitalize">{acc.platform}</span>
-                                            <span className="w-1 h-1 bg-gray-300 rounded-full" />
-                                            <span>{acc.config.whatsapp_number || acc.config.phone_number_id || "No ID"}</span>
+                                            <span className="w-1 h-1 bg-gray-300 rounded-full hidden sm:inline" />
+                                            <span className="break-all sm:break-normal">
+                                                {acc.config.whatsapp_number || acc.config.phone_number_id || "No ID"}
+                                            </span>
                                         </p>
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center justify-end gap-1 sm:gap-2 shrink-0">
                                     <button
                                         onClick={() => handleTestAccount(acc)}
                                         disabled={isTestingAcc[acc.id]}
@@ -240,19 +246,11 @@ export function WhatsAppTab({ onDirtyChange }: { onDirtyChange?: (dirty: boolean
                 </div>
             )}
 
-            <div className="flex items-center justify-end gap-3 pt-4">
-                {hasChanges && (
-                    <span className="text-sm font-medium text-orange-600 animate-pulse">
-                        You have unsaved changes
-                    </span>
-                )}
-                <button
-                    onClick={saveSettings}
-                    className="px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white text-sm font-bold rounded-lg transition-all shadow-md active:scale-95"
-                >
-                    Save
-                </button>
-            </div>
+            <SettingsSaveFooter
+                onSave={saveSettings}
+                hasChanges={hasChanges}
+                saveLabel="Save"
+            />
 
             <WhatsAppAccountModal
                 isOpen={isModalOpen}
@@ -387,6 +385,18 @@ export function WhatsAppTab({ onDirtyChange }: { onDirtyChange?: (dirty: boolean
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <ConfirmDialog
+                open={deleteAccountId !== null}
+                onOpenChange={(open) => {
+                    if (!open) setDeleteAccountId(null);
+                }}
+                title="Delete WhatsApp account?"
+                description="Are you sure you want to delete this account? You will need to save settings to apply this change."
+                confirmLabel="Delete"
+                variant="destructive"
+                onConfirm={confirmDeleteAccount}
+            />
         </div>
     );
 }

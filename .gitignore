@@ -90,7 +90,7 @@ apps/backend/app/db/prisma/*
 apps/backend/prisma-query-engine-*
 
 # Local planning docs
-docs/meta-whatsapp-groups-build-plan.md
+docs
 
 # Logs
 *.log

@@ -118,9 +118,65 @@ export function AuditLogPanel() {
     };
 
     return (
-        <div className="space-y-4">
-            <div className="overflow-hidden border border-gray-200 rounded-lg shadow-sm bg-white">
-                <table className="w-full text-sm">
+        <div className="space-y-4 pb-4 sm:pb-0">
+            {/* Mobile: card list */}
+            <div className="md:hidden space-y-2">
+                {logs.map((log) => {
+                    const isExpanded = expandedRows.has(log.id);
+                    return (
+                        <div
+                            key={log.id}
+                            className="border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 shadow-sm overflow-hidden"
+                        >
+                            <button
+                                type="button"
+                                onClick={() => toggleRow(log.id)}
+                                className="w-full text-left p-3 space-y-2"
+                            >
+                                <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0 flex-1">
+                                        <p className="font-medium text-gray-800 dark:text-gray-100 truncate">
+                                            {log.admin_name}
+                                        </p>
+                                        <p className="text-xs text-gray-400 truncate">{log.admin_email}</p>
+                                    </div>
+                                    {isExpanded ? (
+                                        <ChevronDown className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+                                    ) : (
+                                        <ChevronRight className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+                                    )}
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span
+                                        className={`capitalize text-xs font-semibold px-2 py-0.5 rounded-full ${log.action === 'reset' ? 'bg-red-50 text-red-600' : 'bg-orange-50 text-orange-600'
+                                            }`}
+                                    >
+                                        {log.action}
+                                    </span>
+                                    <span
+                                        className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${categoryColors[log.category] || "bg-gray-100 text-gray-600"
+                                            }`}
+                                    >
+                                        {log.category}
+                                    </span>
+                                    <span className="text-xs text-gray-500 ml-auto">{fmtDate(log.created_at)}</span>
+                                </div>
+                            </button>
+                            {isExpanded && (
+                                <div className="px-3 pb-3 border-t border-gray-100 dark:border-gray-800">
+                                    <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-lg p-3 mt-2">
+                                        {renderDiff(log.old_value, log.new_value)}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Desktop: table */}
+            <div className="hidden md:block overflow-x-auto border border-gray-200 rounded-lg shadow-sm bg-white">
+                <table className="w-full text-sm min-w-[640px]">
                     <thead>
                         <tr className="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             <th className="w-10"></th>
@@ -191,11 +247,11 @@ export function AuditLogPanel() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-                <div className="flex items-center justify-between text-sm text-gray-500 py-2">
-                    <span>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-sm text-gray-500 py-2">
+                    <span className="text-center sm:text-left">
                         Showing {page * pageSize + 1}–{Math.min((page + 1) * pageSize, total)} of {total}
                     </span>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 justify-center sm:justify-end">
                         <button
                             onClick={() => setPage((p) => Math.max(0, p - 1))}
                             disabled={page === 0}

@@ -2,7 +2,8 @@
 
 import { useCustomers } from '@/hooks/useCustomers';
 import { DataTable } from '@/components/data/DataTable';
-import { TableSkeleton } from '@/components/data/TableSkeleton';
+import { ListPageSkeleton } from '@/components/data/ListPageSkeleton';
+import { StatusBadge } from '@/components/data/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -11,10 +12,13 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreVertical, Eye, Edit, Trash2 } from 'lucide-react';
+import { MoreVertical, Eye } from 'lucide-react';
 import type { Customer } from '@/types';
 import { useRouter } from 'next/navigation';
-import { themeClasses } from '@/lib/theme';
+import { ListPageShell } from '@/components/data/ListPageShell';
+import { customerFilterFields } from '@/lib/table-filter-presets';
+import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 const categoryKeywords: Record<string, string[]> = {
     'Loan': ['loan', 'credit', 'borrow', 'finance', 'lending'],
@@ -28,15 +32,15 @@ const categoryKeywords: Record<string, string[]> = {
 };
 
 const categoryColors: Record<string, string> = {
-    'Loan': 'bg-blue-100 text-blue-800',
-    'Insurance': themeClasses.badgePrimary,
-    'Investment': 'bg-purple-100 text-purple-800',
-    'Savings': themeClasses.badgePrimary,
-    'Business': 'bg-amber-100 text-amber-800',
-    'Education': 'bg-lime-100 text-lime-800',
-    'Property': 'bg-pink-100 text-pink-800',
-    'Consultation': 'bg-gray-100 text-gray-800',
-    'General': 'bg-gray-100 text-gray-600',
+    'Loan': 'bg-blue-50 text-blue-700 border-blue-100',
+    'Insurance': 'bg-orange-50 text-orange-700 border-orange-100',
+    'Investment': 'bg-purple-50 text-purple-700 border-purple-100',
+    'Savings': 'bg-amber-50 text-amber-700 border-amber-100',
+    'Business': 'bg-amber-50 text-amber-800 border-amber-100',
+    'Education': 'bg-lime-50 text-lime-800 border-lime-100',
+    'Property': 'bg-pink-50 text-pink-700 border-pink-100',
+    'Consultation': 'bg-gray-50 text-gray-600 border-gray-200',
+    'General': 'bg-gray-50 text-gray-600 border-gray-200',
 };
 
 function categorizeCustomer(message: string | null): string {
@@ -69,46 +73,65 @@ export default function CustomersPage() {
         router.push(`/customers/${customer.uuid}`);
     };
 
-    const handleEdit = (customer: Customer) => {
-        console.log('Edit customer:', customer);
-    };
-
-    const handleDelete = (customer: Customer) => {
-        console.log('Delete customer:', customer);
-    };
-
     const handleAdd = () => {
-        console.log('Add new customer');
+        toast.info('Add customer is not available yet.');
     };
 
     const handleExport = () => {
-        console.log('Export customers');
+        if (customers.length === 0) {
+            toast.error('No customers to export');
+            return;
+        }
+        const header = 'Name,Phone,Category,Lead Status,Last Message Time\n';
+        const rows = customers
+            .map((c) => {
+                const category = categorizeCustomer(c.message);
+                const name = (c.name || 'Unnamed').replace(/"/g, '""');
+                return `"${name}","${c.phone}","${category}","${c.lead_status}","${c.message_time}"`;
+            })
+            .join('\n');
+        const blob = new Blob([header + rows], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'customers.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success('Customers exported');
     };
 
     const columns = [
         {
             key: 'name',
-            header: 'Name',
+            header: 'NAME',
             cell: (item: Customer) => (
-                <span className="text-indigo-600 hover:text-indigo-800 font-medium">
+                <span className="font-medium text-gray-900 dark:text-gray-100">
                     {item.name || 'Unnamed'}
                 </span>
             ),
         },
         {
             key: 'phone',
-            header: 'Phone',
+            header: 'PHONE',
             cell: (item: Customer) => (
-                <span className="text-muted-foreground">+{item.phone}</span>
+                <span className="text-gray-600 dark:text-gray-400 tabular-nums">
+                    +{item.phone}
+                </span>
             ),
         },
         {
             key: 'category',
-            header: 'Category',
+            header: 'CATEGORY',
             cell: (item: Customer) => {
                 const category = categorizeCustomer(item.message);
                 return (
-                    <Badge className={`${categoryColors[category]} font-medium text-xs`}>
+                    <Badge
+                        variant="outline"
+                        className={cn(
+                            'font-medium text-xs uppercase tracking-wide border',
+                            categoryColors[category],
+                        )}
+                    >
                         {category}
                     </Badge>
                 );
@@ -116,40 +139,38 @@ export default function CustomersPage() {
         },
         {
             key: 'status',
-            header: 'Status',
-            cell: () => (
-                <Badge className="bg-emerald-100 text-emerald-700 text-xs font-medium">
-                    Active
-                </Badge>
-            ),
+            header: 'STATUS',
+            cell: (item: Customer) => <StatusBadge status={item.lead_status} />,
         },
         {
             key: 'created',
-            header: 'Created',
+            header: 'LAST CONTACT',
             cell: (item: Customer) => {
                 const { date, time } = formatDate(item.message_time);
                 return (
-                    <div className="text-right">
-                        <div className="font-medium text-sm">{date}</div>
-                        <div className="text-xs text-muted-foreground">{time}</div>
+                    <div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{date}</div>
+                        {time && (
+                            <div className="text-xs text-gray-500 dark:text-gray-400">{time}</div>
+                        )}
                     </div>
                 );
             },
-            className: 'text-right',
         },
         {
             key: 'actions',
-            header: '',
+            header: 'ACTIONS',
             cell: (item: Customer) => (
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button
                             variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
+                            size="icon"
+                            className="h-8 w-8"
                             onClick={(e) => e.stopPropagation()}
+                            aria-label="Row actions"
                         >
-                            <MoreVertical className="h-4 w-4 text-muted-foreground" />
+                            <MoreVertical className="h-4 w-4 text-gray-500" />
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
@@ -162,52 +183,32 @@ export default function CustomersPage() {
                             <Eye className="mr-2 h-4 w-4" />
                             View Details
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleEdit(item);
-                            }}
-                        >
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleDelete(item);
-                            }}
-                            className="text-red-600"
-                        >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                        </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
             ),
-            className: 'w-12',
+            className: 'w-[72px] text-right',
         },
     ];
 
     if (isLoading) {
-        return (
-            <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6">
-                <TableSkeleton columns={5} rows={10} title="Customers" />
-            </div>
-        );
+        return <ListPageSkeleton columns={6} />;
     }
 
     return (
-        <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6">
+        <ListPageShell>
             <DataTable
-                data={customers.map(c => ({ ...c, id: c.uuid }))}
+                className="flex flex-1 flex-col min-h-0"
+                data={customers.map((c) => ({ ...c, id: c.uuid }))}
                 columns={columns}
                 onRowClick={handleViewDetails}
-                title="Customers"
-                searchPlaceholder="Search"
+                searchPlaceholder="Search..."
+                addLabel="Add"
                 onAdd={handleAdd}
                 onExport={handleExport}
                 searchFields={['name', 'phone'] as (keyof Customer)[]}
+                emptyMessage="No customers found"
+                filterFields={customerFilterFields}
             />
-        </div>
+        </ListPageShell>
     );
 }

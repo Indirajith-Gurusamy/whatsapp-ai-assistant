@@ -1,19 +1,19 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useConversations } from '@/hooks/useConversations';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchConversationDetailByUuid } from '@/lib/api';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/data/DataTable';
-import { TableSkeleton } from '@/components/data/TableSkeleton';
+import { ListPageSkeleton } from '@/components/data/ListPageSkeleton';
+import { ListPageShell } from '@/components/data/ListPageShell';
 import { StatusBadge } from '@/components/data/StatusBadge';
-import { Skeleton } from '@/components/ui/skeleton';
 import { DetailModal } from '@/components/modals/DetailModal';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Download, Loader2, MoreHorizontal, UserPlus } from 'lucide-react';
-import type { Conversation, ConversationDetail, LeadStatus } from '@/types';
+import { MoreVertical, UserPlus, Eye } from 'lucide-react';
+import type { Conversation, ConversationDetail } from '@/types';
+import { conversationFilterFields } from '@/lib/table-filter-presets';
 import { AssignLeadModal } from '@/components/modals/AssignLeadModal';
 import {
     DropdownMenu,
@@ -21,36 +21,17 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { themeClasses } from '@/lib/theme';
-
-const filterTabs: { key: string; label: string; status: LeadStatus | null }[] = [
-    { key: 'all', label: 'All', status: null },
-    { key: 'new', label: 'New Lead', status: 'new lead' },
-    { key: 'sent', label: 'App Sent', status: 'application sent' },
-    { key: 'in', label: 'App In', status: 'application in' },
-    { key: 'nurture', label: 'Nurture', status: 'nurture' },
-    { key: 'hold', label: 'On Hold', status: 'on hold' },
-    { key: 'lost', label: 'Lost', status: 'lost' },
-];
-
 export default function ConversationsPage() {
     const { conversations, isLoading, refresh } = useConversations();
     const { isAdmin } = useAuth();
-    const [activeFilter, setActiveFilter] = useState('all');
     const [selectedConversation, setSelectedConversation] = useState<ConversationDetail | null>(null);
     const [detailModalOpen, setDetailModalOpen] = useState(false);
     const [assignModalOpen, setAssignModalOpen] = useState(false);
     const [assignTarget, setAssignTarget] = useState<{ uuid: string; assignedTo?: string | null } | null>(null);
     const [isExporting, setIsExporting] = useState(false);
 
-    const filteredConversations = useMemo(() => {
-        const filter = filterTabs.find(t => t.key === activeFilter);
-        if (!filter?.status) return conversations;
-        return conversations.filter(c => c.lead_status === filter.status);
-    }, [conversations, activeFilter]);
-
     const handleExport = async () => {
-        if (filteredConversations.length === 0) {
+        if (conversations.length === 0) {
             toast.warning('No data available to export');
             return;
         }
@@ -75,7 +56,7 @@ export default function ConversationsPage() {
             ];
 
             // Convert data to CSV rows
-            const rows = filteredConversations.map(conv => [
+            const rows = conversations.map(conv => [
                 conv.message_id,
                 `="${conv.phone}"`, // Force Excel to treat phone as string
                 conv.name || 'Unknown',
@@ -205,104 +186,67 @@ export default function ConversationsPage() {
         },
         {
             key: 'action',
-            header: 'Action',
+            header: 'ACTIONS',
             cell: (item: Conversation) => (
-                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
-                                <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleRowClick(item)}>
-                                View Details
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(e) => e.stopPropagation()}
+                            aria-label="Row actions"
+                        >
+                            <MoreVertical className="h-4 w-4 text-gray-500" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleRowClick(item);
+                            }}
+                        >
+                            <Eye className="mr-2 h-4 w-4" />
+                            View Details
+                        </DropdownMenuItem>
+                        {isAdmin() && (
+                            <DropdownMenuItem
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleAssignClick(item);
+                                }}
+                            >
+                                <UserPlus className="mr-2 h-4 w-4" />
+                                Assign Lead
                             </DropdownMenuItem>
-                            {isAdmin() && (
-                                <DropdownMenuItem onClick={() => handleAssignClick(item)}>
-                                    <UserPlus className="mr-2 h-4 w-4" />
-                                    Assign Lead
-                                </DropdownMenuItem>
-                            )}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
+                        )}
+                    </DropdownMenuContent>
+                </DropdownMenu>
             ),
+            className: 'w-[72px] text-right',
         },
     ];
 
     if (isLoading) {
-        return (
-            <div className="p-4 md:p-6 space-y-6">
-                {/* Header skeleton */}
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    <div className="space-y-2">
-                        <Skeleton className="h-8 w-32" />
-                        <Skeleton className="h-4 w-48" />
-                    </div>
-                    <Skeleton className="h-9 w-24" />
-                </div>
-
-                {/* Tabs skeleton */}
-                <div className="flex gap-2">
-                    {Array.from({ length: 7 }).map((_, i) => (
-                        <Skeleton key={i} className="h-9 w-20" />
-                    ))}
-                </div>
-
-                {/* Table skeleton */}
-                <TableSkeleton columns={7} rows={10} showActions={false} />
-            </div>
-        );
+        return <ListPageSkeleton columns={7} />;
     }
 
     return (
-        <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 space-y-6">
-            {/* Page Header */}
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl md:text-3xl font-bold">Leads</h1>
-                    <p className="text-muted-foreground">Manage and assign leads</p>
-                </div>
-                <Button
-                    variant="outline"
-                    className="w-fit"
-                    onClick={handleExport}
-                    disabled={isExporting}
-                >
-                    {isExporting ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                        <Download className="w-4 h-4 mr-2" />
-                    )}
-                    {isExporting ? 'Exporting...' : 'Export'}
-                </Button>
-            </div>
-
-            {/* Filter Tabs */}
-            <Tabs value={activeFilter} onValueChange={setActiveFilter}>
-                <TabsList className="flex-wrap h-auto gap-1 bg-transparent p-0">
-                    {filterTabs.map((tab) => (
-                        <TabsTrigger
-                            key={tab.key}
-                            value={tab.key}
-                            className={`data-[state=active]:${themeClasses.sidebarActive} data-[state=active]:border-b-2 data-[state=active]:${themeClasses.borderPrimary} rounded-none px-4`}
-                        >
-                            {tab.label}
-                        </TabsTrigger>
-                    ))}
-                </TabsList>
-            </Tabs>
-
-            {/* Data Table */}
+        <ListPageShell>
             <DataTable
-                data={filteredConversations.map(c => ({ ...c, id: c.uuid }))}
+                className="flex flex-1 flex-col min-h-0"
+                data={conversations.map(c => ({ ...c, id: c.uuid }))}
                 columns={columns}
                 onRowClick={(item) => handleRowClick(item as Conversation)}
                 emptyMessage="No leads assigned"
+                searchPlaceholder="Search..."
+                onExport={handleExport}
+                isExporting={isExporting}
+                searchFields={['name', 'phone', 'message'] as (keyof Conversation)[]}
+                filterFields={conversationFilterFields}
             />
 
-            {/* Detail Modal */}
             <DetailModal
                 conversation={selectedConversation}
                 open={detailModalOpen}
@@ -317,6 +261,6 @@ export default function ConversationsPage() {
                 onOpenChange={setAssignModalOpen}
                 onSuccess={refresh}
             />
-        </div>
+        </ListPageShell>
     );
 }

@@ -86,3 +86,25 @@ export function migrateLegacyAuthQueryParams(): void {
 export function getDefaultPostLoginPath(role: string): string {
     return role === 'ADMIN' ? '/conversations' : '/dashboard';
 }
+
+const PUBLIC_AUTH_PATHS = [
+    '/login',
+    '/signup',
+    '/verify-email',
+    '/forgot-password',
+    '/reset-password',
+    '/admin/login',
+    '/admin/signup',
+];
+
+export function isPublicAuthRoute(pathname: string | null | undefined): boolean {
+    if (!pathname) return false;
+    return PUBLIC_AUTH_PATHS.some((route) => pathname.startsWith(route));
+}
+
+/** Hard navigation to login — use after logout or 401. */
+export function redirectToLogin(): void {
+    if (!isBrowser()) return;
+    if (window.location.pathname.startsWith('/login')) return;
+    window.location.replace('/login');
+}

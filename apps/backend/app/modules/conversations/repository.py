@@ -242,6 +242,7 @@ class ConversationRepository(BaseRepository):
                 "id": msg.id,
                 "phone": msg.conversation.customer.phone,
                 "name": msg.conversation.customer.name,
+                "customer_uuid": str(msg.conversation.customer.uuid),
                 "message": msg.message,
                 "timestamp": msg.timestamp.isoformat(),
                 "whatsapp_id": msg.whatsappId,

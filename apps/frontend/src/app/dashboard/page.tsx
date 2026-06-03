@@ -9,12 +9,10 @@ import { SuccessRateRing } from '@/components/analytics/SuccessRateRing';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MessageSquare, Send, Users, Calendar, FileCheck, FileInput, Clock, XCircle } from 'lucide-react';
 import { useMemo } from 'react';
-import { themeClasses } from '@/lib/theme';
-
-import { pageScrollClass } from '@/components/layout/PageScroll';
+import { pageContentPad, pageWrap } from '@/components/settings/settings-layout';
 import { cn } from '@/lib/utils';
 
-const pageClassName = cn(pageScrollClass, 'p-4 md:p-6 space-y-6');
+const pageClassName = cn(pageWrap, pageContentPad, 'space-y-4 sm:space-y-6');
 
 export default function DashboardPage() {
     const { analytics, isLoading: analyticsLoading } = useAnalytics();
@@ -34,11 +32,6 @@ export default function DashboardPage() {
     if (isLoading) {
         return (
             <div className={pageClassName}>
-                <div className="space-y-2">
-                    <Skeleton className="h-8 w-32" />
-                    <Skeleton className="h-4 w-64" />
-                </div>
-
                 <div className="space-y-3">
                     <Skeleton className="h-6 w-48" />
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -85,13 +78,6 @@ export default function DashboardPage() {
 
     return (
         <div className={pageClassName}>
-            <div className="animate-in fade-in slide-in-from-top-2 duration-500 fill-mode-both">
-                <h1 className={`text-2xl md:text-3xl font-bold ${themeClasses.sidebarTextGradient}`}>
-                    Dashboard
-                </h1>
-                <p className="text-muted-foreground">Performance and engagement metrics</p>
-            </div>
-
             <div>
                 <h2 className="text-lg font-semibold mb-3">Conversation Statistics</h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">

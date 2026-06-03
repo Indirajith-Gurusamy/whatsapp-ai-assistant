@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Dict, Any
 from urllib.parse import parse_qs
 from app.modules.conversations.service import ConversationService
-from app.modules.ai.groq import GroqService
+from app.modules.ai.service import AIService
 from app.modules.whatsapp.sender import WhatsAppService
 from app.core.constants import MESSAGE_ROLE_USER, MESSAGE_ROLE_ASSISTANT, MESSAGE_STATUS_RECEIVED, MESSAGE_STATUS_SENT, MESSAGE_STATUS_FAILED
 
@@ -155,7 +155,7 @@ class TwilioWebhookProvider:
             
             # Generate LLM response with conversation history for this user
             logger.info(f"[AI] Generating response for conversation {conversation_id}...")
-            response_text = await GroqService.generate_response_safe(text, conversation_id)
+            response_text = await AIService.generate_response_safe(text, conversation_id)
             
             # Always reply to the sender, using the same number that received the message
             logger.info(f"[SEND] Sending reply to {phone} from {to_number}")

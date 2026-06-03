@@ -1,10 +1,12 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { DashboardLayout } from "./DashboardLayout";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { ForcePasswordChangeModal } from "@/components/auth/ForcePasswordChangeModal";
+import { isPublicAuthRoute } from "@/lib/auth-storage";
 
 interface AuthLayoutWrapperProps {
     children: React.ReactNode;
@@ -12,11 +14,21 @@ interface AuthLayoutWrapperProps {
 
 function AuthLayoutContent({ children }: AuthLayoutWrapperProps) {
     const pathname = usePathname();
-    const { mustChangePassword, isAuthenticated } = useAuth();
+    const router = useRouter();
+    const { mustChangePassword, isAuthenticated, isLoading } = useAuth();
 
-    // Pages that should not use the dashboard layout
-    const authPages = ["/signup", "/login", "/verify-email", "/forgot-password", "/reset-password", "/admin/signup", "/admin/login"];
-    const isAuthPage = authPages.some(page => pathname.startsWith(page));
+    const isAuthPage = isPublicAuthRoute(pathname);
+
+    useEffect(() => {
+        if (isLoading) return;
+        if (!isAuthenticated && !isAuthPage) {
+            router.replace("/login");
+        }
+    }, [isAuthenticated, isLoading, isAuthPage, router]);
+
+    if (!isLoading && !isAuthenticated && !isAuthPage) {
+        return null;
+    }
 
     return (
         <>

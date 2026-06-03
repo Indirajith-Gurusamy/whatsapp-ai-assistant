@@ -24,7 +24,7 @@ export default function AdminLoginPage() {
             const response = await adminApi.adminLogin(formData);
             login(response.user, response.tokens.access_token, response.tokens.refresh_token, false);
             toast.success("Welcome back, Administrator!");
-            router.push("/admin/panel");
+            router.push("/admin/users");
         } catch (err: unknown) {
             console.error("Login failed", err);
             const message = getErrorMessage(err, "Admin login failed");
@@ -43,7 +43,7 @@ export default function AdminLoginPage() {
             <div className="w-full max-w-md">
                 <div className="bg-white rounded-2xl shadow-2xl p-8">
                     <div className="text-center mb-8">
-                        <p className="text-gray-600">Sign in to access the admin panel</p>
+                        <p className="text-gray-600">Sign in to access user management</p>
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-6">

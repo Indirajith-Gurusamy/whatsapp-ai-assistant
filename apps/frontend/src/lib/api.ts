@@ -15,6 +15,8 @@ import type {
   UserProfile,
 } from '@/types';
 
+import { redirectToLogin } from '@/lib/auth-storage';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 // Types
@@ -291,6 +293,10 @@ class ApiClient {
       const response = await fetch(url, config);
 
       if (!response.ok) {
+        if (response.status === 401 && token) {
+          tokenStorage.clearTokens();
+          redirectToLogin();
+        }
         const errorData = await response.json().catch(() => ({}));
         const errorMessage = normalizeErrorMessage(
           errorData,
@@ -528,6 +534,29 @@ export const fetchAnalytics = async (): Promise<Analytics> => {
   return apiClient.get('/api/analytics');
 };
 
+// In-app assistant (uses active AI provider from Settings → AI)
+export interface AssistantChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface AssistantChatRequest {
+  message: string;
+  history?: AssistantChatMessage[];
+  pathname?: string;
+}
+
+export interface AssistantChatResponse {
+  reply: string;
+  provider_name?: string;
+}
+
+export const assistantApi = {
+  async chat(body: AssistantChatRequest): Promise<AssistantChatResponse> {
+    return apiClient.post('/api/v1/assistant/chat', body);
+  },
+};
+
 // Tasks API (no backend module exists - stubs for now)
 export const tasksApi = {
   async getTasks(): Promise<TaskListResponse> {
@@ -566,8 +595,9 @@ export const settingsApi = {
     return apiClient.post(`/api/v1/settings/test/whatsapp${query}`);
   },
 
-  async testAI(): Promise<TestResult> {
-    return apiClient.post('/api/v1/settings/test/ai');
+  async testAI(providerId?: string): Promise<TestResult> {
+    const query = providerId ? `?provider_id=${encodeURIComponent(providerId)}` : '';
+    return apiClient.post(`/api/v1/settings/test/ai${query}`);
   },
 
   async sendTestWhatsApp(data: { account_id?: string; phone_number: string; message: string; is_template?: boolean }): Promise<TestResult> {
@@ -586,8 +616,26 @@ export const adminApi = {
     return response.users;
   },
 
-  async getAllUsers(skip = 0, limit = 100): Promise<UserListResponse> {
-    return apiClient.get<UserListResponse>(`/api/v1/admin/users?skip=${skip}&limit=${limit}`);
+  async getAllUsers(
+    skip = 0,
+    limit = 100,
+    search?: string,
+    filters?: { role?: 'USER' | 'ADMIN'; isActive?: boolean },
+  ): Promise<UserListResponse> {
+    const params = new URLSearchParams({
+      skip: String(skip),
+      limit: String(limit),
+    });
+    if (search?.trim()) {
+      params.set('search', search.trim());
+    }
+    if (filters?.role) {
+      params.set('role', filters.role);
+    }
+    if (filters?.isActive !== undefined) {
+      params.set('is_active', String(filters.isActive));
+    }
+    return apiClient.get<UserListResponse>(`/api/v1/admin/users?${params.toString()}`);
   },
 
   async getAdminStats(): Promise<AdminStatsResponse> {
