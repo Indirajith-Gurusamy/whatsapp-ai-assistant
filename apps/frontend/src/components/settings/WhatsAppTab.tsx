@@ -33,6 +33,7 @@ export function WhatsAppTab({ onDirtyChange }: { onDirtyChange?: (dirty: boolean
         saveSettings,
         testConnection,
         sendTestMessage,
+        refetch,
     } = useSettings("whatsapp");
 
     React.useEffect(() => {
@@ -50,7 +51,6 @@ export function WhatsAppTab({ onDirtyChange }: { onDirtyChange?: (dirty: boolean
     const [countryCode, setCountryCode] = useState("+91");
     const [testMsgRecip, setTestMsgRecip] = useState("");
     const [testMsgContent, setTestMsgContent] = useState("Hello! This is a test message from your WhatsApp AI Assistant Dashboard. Reply to test the webhook!");
-    const [isTemplate, setIsTemplate] = useState(false);
     const [isSendingTest, setIsSendingTest] = useState(false);
     const [deleteAccountId, setDeleteAccountId] = useState<string | null>(null);
 
@@ -95,6 +95,9 @@ export function WhatsAppTab({ onDirtyChange }: { onDirtyChange?: (dirty: boolean
             const res = await testConnection("whatsapp", { accountId: account.id });
             if (res) {
                 setTestResults(prev => ({ ...prev, [account.id]: res }));
+                if (res.success) {
+                    await refetch();
+                }
             }
         } finally {
             setIsTestingAcc(prev => ({ ...prev, [account.id]: false }));
@@ -107,7 +110,7 @@ export function WhatsAppTab({ onDirtyChange }: { onDirtyChange?: (dirty: boolean
         try {
             // Combine country code with phone number (remove + and any spaces)
             const fullNumber = (countryCode + testMsgRecip).replace(/[+\s]/g, '');
-            const res = await sendTestMessage(targetTestAcc.id, fullNumber, testMsgContent, isTemplate);
+            const res = await sendTestMessage(targetTestAcc.id, fullNumber, testMsgContent);
             if (res?.success) {
                 setIsTestMsgOpen(false);
                 setTestMsgRecip("");
@@ -175,8 +178,18 @@ export function WhatsAppTab({ onDirtyChange }: { onDirtyChange?: (dirty: boolean
                                             <span className="capitalize">{acc.platform}</span>
                                             <span className="w-1 h-1 bg-gray-300 rounded-full hidden sm:inline" />
                                             <span className="break-all sm:break-normal">
-                                                {acc.config.whatsapp_number || acc.config.phone_number_id || "No ID"}
+                                                {acc.config.whatsapp_number ||
+                                                    acc.config.phone_number_id ||
+                                                    "No ID"}
                                             </span>
+                                            {acc.platform === "meta" && acc.config.waba_id && (
+                                                <>
+                                                    <span className="w-1 h-1 bg-gray-300 rounded-full hidden sm:inline" />
+                                                    <span className="break-all sm:break-normal text-gray-400">
+                                                        WABA {acc.config.waba_id}
+                                                    </span>
+                                                </>
+                                            )}
                                         </p>
                                     </div>
                                 </div>
@@ -319,44 +332,17 @@ export function WhatsAppTab({ onDirtyChange }: { onDirtyChange?: (dirty: boolean
                             </div>
                         </div>
 
-                        {targetTestAcc?.platform === "meta" && (
-                            <div className="flex items-center gap-2 px-1">
-                                <input
-                                    type="checkbox"
-                                    id="is_template"
-                                    checked={isTemplate}
-                                    onChange={(e) => setIsTemplate(e.target.checked)}
-                                    className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
-                                />
-                                <label htmlFor="is_template" className="text-sm font-medium text-gray-700 cursor-pointer">
-                                    Send as Template (Recommended for Meta Test Numbers)
-                                </label>
-                            </div>
-                        )}
-
-                        {!isTemplate && (
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">
-                                    Message Content
-                                </label>
-                                <textarea
-                                    className="w-full min-h-[100px] p-3 text-sm border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all"
-                                    value={testMsgContent}
-                                    onChange={(e) => setTestMsgContent(e.target.value)}
-                                    placeholder="Enter your test message here..."
-                                />
-                            </div>
-                        )}
-
-                        {isTemplate && (
-                            <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                                <p className="text-[11px] text-gray-500 font-mono">
-                                    <strong>Template:</strong> jaspers_market_order_confirmation_v1<br />
-                                    <strong>Language:</strong> en_US<br />
-                                    <strong>Parameters:</strong> [{testMsgContent || 'Test User'}, 123456, Feb 17, 2026]
-                                </p>
-                            </div>
-                        )}
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">
+                                Message Content
+                            </label>
+                            <textarea
+                                className="w-full min-h-[100px] p-3 text-sm border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all"
+                                value={testMsgContent}
+                                onChange={(e) => setTestMsgContent(e.target.value)}
+                                placeholder="Enter your test message here..."
+                            />
+                        </div>
                     </div>
                     <DialogFooter>
                         <button

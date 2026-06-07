@@ -1,5 +1,5 @@
 """Conversation service for business logic."""
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from app.modules.conversations.repository import ConversationRepository
 
 repository = ConversationRepository()
@@ -33,12 +33,16 @@ class ConversationService:
         whatsapp_id: Optional[str],
         conversation_id: int,
         role: str,
-        status: str
-    ) -> int:
-        """Save message."""
+        status: str,
+    ) -> Tuple[int, bool]:
+        """Save message. Returns (id, created)."""
         return await repository.save_message(
             phone, message, name, whatsapp_id, conversation_id, role, status
         )
+
+    @staticmethod
+    async def has_reply_after_message(conversation_id: int, inbound_message_id: int) -> bool:
+        return await repository.has_reply_after_message(conversation_id, inbound_message_id)
     
     @staticmethod
     async def update_status(conversation_id: int, lead_status: str, comments: Optional[str] = None):
@@ -124,3 +128,29 @@ class ConversationService:
     async def get_conversation_by_uuid(uuid: str):
         """Get conversation record by UUID."""
         return await repository.get_conversation_by_uuid(uuid)
+
+    @staticmethod
+    async def create_customer(phone: str, name: Optional[str] = None) -> Dict[str, Any]:
+        """Create a CRM customer manually (admin)."""
+        return await repository.create_customer_manual(phone, name)
+
+    @staticmethod
+    async def delete_customer_by_uuid(uuid: str) -> bool:
+        """Delete customer and cascaded conversations."""
+        return await repository.delete_customer_by_uuid(uuid)
+
+    @staticmethod
+    async def bulk_delete_customers(uuids: List[str]) -> Dict[str, Any]:
+        """Delete multiple customers by UUID."""
+        deleted = []
+        errors = []
+        for uuid in uuids:
+            try:
+                ok = await repository.delete_customer_by_uuid(uuid)
+                if ok:
+                    deleted.append(uuid)
+                else:
+                    errors.append({"uuid": uuid, "error": "Not found"})
+            except Exception as exc:
+                errors.append({"uuid": uuid, "error": str(exc)})
+        return {"deleted": deleted, "errors": errors}

@@ -7,6 +7,7 @@ from urllib.parse import parse_qs
 from app.modules.conversations.service import ConversationService
 from app.modules.ai.service import AIService
 from app.modules.whatsapp.sender import WhatsAppService
+from app.modules.webhooks.dedup import conversation_lock_key, inbound_processing_lock
 from app.core.constants import MESSAGE_ROLE_USER, MESSAGE_ROLE_ASSISTANT, MESSAGE_STATUS_RECEIVED, MESSAGE_STATUS_SENT, MESSAGE_STATUS_FAILED
 
 logger = logging.getLogger(__name__)
@@ -134,53 +135,57 @@ class TwilioWebhookProvider:
             # Update which Twilio number received this message (for reply routing)
             await ConversationService.update_last_received_on(conversation_id, to_number)
             
-            # Save incoming message
-            message_id = await ConversationService.save_message(
-                phone=phone,
-                message=text,
-                name=sender_name,
-                whatsapp_id=msg_id,
-                conversation_id=conversation_id,
-                role=MESSAGE_ROLE_USER,
-                status=MESSAGE_STATUS_RECEIVED
-            )
-            logger.info(f"[DB] Message saved (ID: {message_id})")
-            
-            # Check if AI is enabled for this conversation
-            ai_enabled = await ConversationService.is_ai_enabled(conversation_id)
-            
-            if not ai_enabled:
-                logger.info(f"[AI] AI disabled for conversation {conversation_id} - waiting for human agent")
-                return
-            
-            # Generate LLM response with conversation history for this user
-            logger.info(f"[AI] Generating response for conversation {conversation_id}...")
-            response_text = await AIService.generate_response_safe(text, conversation_id)
-            
-            # Always reply to the sender, using the same number that received the message
-            logger.info(f"[SEND] Sending reply to {phone} from {to_number}")
-            send_success, provider_id = await WhatsAppService.send_message(
-                phone, 
-                response_text, 
-                incoming_to_number=to_number
-            )
-            
-            # Save response as assistant message
-            status = MESSAGE_STATUS_SENT if send_success else MESSAGE_STATUS_FAILED
-            await ConversationService.save_message(
-                phone=phone,
-                message=response_text,
-                name=sender_name,
-                whatsapp_id=provider_id,
-                conversation_id=conversation_id,
-                role=MESSAGE_ROLE_ASSISTANT,
-                status=status
-            )
-            
-            if send_success:
-                logger.info(f"[OK] Reply sent successfully (status: {status})")
-            else:
-                logger.warning(f"[ERROR] WhatsApp delivery failed (status: {status})")
+            async with inbound_processing_lock(conversation_lock_key(conversation_id)):
+                message_id, created = await ConversationService.save_message(
+                    phone=phone,
+                    message=text,
+                    name=sender_name,
+                    whatsapp_id=msg_id,
+                    conversation_id=conversation_id,
+                    role=MESSAGE_ROLE_USER,
+                    status=MESSAGE_STATUS_RECEIVED,
+                )
+                if not created:
+                    logger.info(f"[SKIP] Duplicate Twilio webhook for MessageSid {msg_id}")
+                    return
+                logger.info(f"[DB] Message saved (ID: {message_id})")
+
+                ai_enabled = await ConversationService.is_ai_enabled(conversation_id)
+                if not ai_enabled:
+                    logger.info(
+                        f"[AI] AI disabled for conversation {conversation_id} - waiting for human agent"
+                    )
+                    return
+
+                if await ConversationService.has_reply_after_message(conversation_id, message_id):
+                    logger.info(f"[SKIP] Reply already sent for message {message_id}")
+                    return
+
+                logger.info(f"[AI] Generating response for conversation {conversation_id}...")
+                response_text = await AIService.generate_response_safe(text, conversation_id)
+
+                logger.info(f"[SEND] Sending reply to {phone} from {to_number}")
+                send_success, provider_id = await WhatsAppService.send_message(
+                    phone,
+                    response_text,
+                    incoming_to_number=to_number,
+                )
+
+                status = MESSAGE_STATUS_SENT if send_success else MESSAGE_STATUS_FAILED
+                await ConversationService.save_message(
+                    phone=phone,
+                    message=response_text,
+                    name=sender_name,
+                    whatsapp_id=provider_id,
+                    conversation_id=conversation_id,
+                    role=MESSAGE_ROLE_ASSISTANT,
+                    status=status,
+                )
+
+                if send_success:
+                    logger.info(f"[OK] Reply sent successfully (status: {status})")
+                else:
+                    logger.warning(f"[ERROR] WhatsApp delivery failed (status: {status})")
 
         except Exception as e:
             logger.error(f"[ERROR] Error processing Twilio message: {e}", exc_info=True)

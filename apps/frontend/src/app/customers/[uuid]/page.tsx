@@ -2,7 +2,18 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { fetchCustomerByUuid, fetchCustomerHistoryByUuid, toggleConversationAI, sendAgentMessage } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { ShieldAlert } from 'lucide-react';
+import {
+    fetchCustomerByUuid,
+    fetchCustomerHistoryByUuid,
+    toggleConversationAI,
+    sendAgentMessage,
+    suggestAgentReply,
+    quickRepliesApi,
+} from '@/lib/api';
+import type { QuickReply } from '@/types';
 import { WhatsAppChat } from '@/components/chat/WhatsAppChat';
 import { PageBreadcrumb } from '@/components/layout/PageBreadcrumb';
 import { getPageBreadcrumb } from '@/lib/page-titles';
@@ -50,6 +61,7 @@ function formatEnquiryDate(dateString: string | null | undefined): string {
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function CustomerDetailContent() {
+    const { isAdmin, isLoading: authLoading } = useAuth();
     const params = useParams();
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -70,6 +82,8 @@ function CustomerDetailContent() {
     const [isSending, setIsSending] = useState(false);
     const [conversationUuid, setConversationUuid] = useState<string | null>(null);
     const [pendingMessages, setPendingMessages] = useState<ConversationHistory[]>([]);
+    const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
+    const [isSuggesting, setIsSuggesting] = useState(false);
 
     useEffect(() => {
         setActiveTab(searchParams.get('tab') === 'details' ? 'details' : 'chat');
@@ -93,12 +107,28 @@ function CustomerDetailContent() {
                 setConversationUuid(customerData.conversation_uuid ?? null);
             } catch (error) {
                 console.error('Failed to load customer data:', error);
+                toast.error('Failed to load customer');
             } finally {
                 setIsLoading(false);
             }
         }
         loadData();
+        quickRepliesApi.list().then(setQuickReplies).catch(() => {});
     }, [customerUuid, isValidUuid, router]);
+
+    const handleSuggestReply = async () => {
+        if (!conversationUuid) return;
+        setIsSuggesting(true);
+        try {
+            const { suggestion } = await suggestAgentReply(conversationUuid);
+            setAgentMessage(suggestion);
+            toast.success('Draft inserted — edit before sending');
+        } catch {
+            toast.error('Could not generate suggestion');
+        } finally {
+            setIsSuggesting(false);
+        }
+    };
 
     // Poll for delivery/read ticks and new AI replies
     useEffect(() => {
@@ -217,6 +247,23 @@ function CustomerDetailContent() {
         }
     };
 
+    if (authLoading) {
+        return <div className="p-6 text-muted-foreground">Loading…</div>;
+    }
+
+    if (!isAdmin()) {
+        return (
+            <div className="text-center py-16">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-4">
+                    <ShieldAlert className="w-8 h-8 text-red-500" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-800 mb-2">Access Denied</h2>
+                <p className="text-gray-500 mb-6">Only administrators can view customer details.</p>
+                <Button onClick={() => router.push('/dashboard')}>Go to Dashboard</Button>
+            </div>
+        );
+    }
+
     if (!isValidUuid) return null;
 
     if (!customer && !isLoading) {
@@ -281,6 +328,9 @@ function CustomerDetailContent() {
                         pendingMessages={pendingMessages}
                         onKeyDown={handleKeyDown}
                         onBack={() => router.back()}
+                        quickReplies={quickReplies}
+                        onSuggestReply={handleSuggestReply}
+                        isSuggesting={isSuggesting}
                     />
                 </TabsContent>
 

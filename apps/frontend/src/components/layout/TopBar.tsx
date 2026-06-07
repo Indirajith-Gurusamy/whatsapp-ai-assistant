@@ -1,7 +1,8 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { MobileSidebar } from './Sidebar';
 import { Settings, User, LogOut, Shield } from 'lucide-react';
@@ -19,12 +20,31 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { themeClasses } from '@/lib/theme';
 import { cn } from '@/lib/utils';
+import { VIVAFY_UI_EVENT, closeAssistant, type UiActionTarget } from '@/lib/ui-actions';
 
 export function TopBar() {
     const { logout, isAdmin } = useAuth();
     const { user } = useCurrentUser();
+    const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
+    const [profileOpen, setProfileOpen] = useState(false);
+
+    useEffect(() => {
+        const onUi = (event: Event) => {
+            const detail = (event as CustomEvent<{ target: UiActionTarget }>).detail;
+            if (!detail?.target) return;
+            if (detail.target === 'profile_menu') {
+                setProfileOpen(true);
+            } else if (detail.target === 'profile_logout') {
+                logout();
+            } else if (detail.target === 'open_settings') {
+                router.push('/settings');
+            }
+        };
+        window.addEventListener(VIVAFY_UI_EVENT, onUi);
+        return () => window.removeEventListener(VIVAFY_UI_EVENT, onUi);
+    }, [logout, router]);
     const pageTitle = getPageTitle(pathname);
     const breadcrumb = getPageBreadcrumb(pathname, searchParams.get('from'));
 
@@ -40,7 +60,11 @@ export function TopBar() {
             <MobileSidebar />
 
             {breadcrumb ? (
-                <PageBreadcrumb href={breadcrumb.href} label={breadcrumb.label} />
+                <PageBreadcrumb
+                    href={breadcrumb.href}
+                    label={breadcrumb.label}
+                    onNavigate={closeAssistant}
+                />
             ) : pageTitle ? (
                 <h1 className="min-w-0 truncate text-lg font-semibold tracking-tight text-foreground">
                     {pageTitle}
@@ -51,25 +75,35 @@ export function TopBar() {
 
             {/* Actions */}
             <div className="flex items-center gap-2">
-                {/* Settings */}
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-muted-foreground hover:text-foreground"
-                    asChild
-                >
-                    <Link href="/settings">
-                        <Settings className="w-4 h-4" />
-                        <span className="sr-only">Settings</span>
-                    </Link>
-                </Button>
+                {/* Settings — admin only */}
+                {isAdmin() && (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-muted-foreground hover:text-foreground"
+                        asChild
+                        data-vivafy-target="open_settings"
+                    >
+                        <Link href="/settings" onClick={closeAssistant}>
+                            <Settings className="w-4 h-4" />
+                            <span className="sr-only">Settings</span>
+                        </Link>
+                    </Button>
+                )}
 
                 {/* Profile Dropdown */}
-                <DropdownMenu>
+                <DropdownMenu
+                    open={profileOpen}
+                    onOpenChange={(next) => {
+                        if (next) closeAssistant();
+                        setProfileOpen(next);
+                    }}
+                >
                     <DropdownMenuTrigger asChild>
                         <Button
                             variant="ghost"
                             className="flex items-center gap-2 h-auto px-2 py-1.5 hover:bg-accent rounded-full"
+                            data-vivafy-target="profile_menu"
                         >
                             <div className={`w-8 h-8 rounded-full ${themeClasses.bgPrimaryLight} flex items-center justify-center border-2 ${themeClasses.borderPrimaryLight}`}>
                                 <User className={`w-4 h-4 ${themeClasses.textPrimary}`} />

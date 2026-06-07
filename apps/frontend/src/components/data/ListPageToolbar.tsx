@@ -24,6 +24,34 @@ export interface ListPageToolbarProps {
     className?: string;
 }
 
+/** Compact on mobile (icon-only), full label from sm+. */
+export const toolbarInlineActionBtn = cn(
+    toolbarBtnHeight,
+    'shrink-0 gap-0 px-0 w-10 sm:w-auto sm:gap-2 sm:px-4',
+);
+
+export const toolbarFilterBtn = cn(toolbarBtnHeight, 'w-10 shrink-0');
+
+/** Wrap action label text so it can hide on narrow screens. */
+export function ToolbarActionLabel({ children }: { children: React.ReactNode }) {
+    return <span className="hidden sm:inline">{children}</span>;
+}
+
+function FilterButton({ onClick }: { onClick?: () => void }) {
+    return (
+        <Button
+            variant="outline"
+            size="icon"
+            className={toolbarFilterBtn}
+            onClick={onClick}
+            type="button"
+            aria-label="Filter"
+        >
+            <SlidersHorizontal className="h-4 w-4" />
+        </Button>
+    );
+}
+
 export function ListPageToolbar({
     searchPlaceholder = 'Search...',
     searchValue = '',
@@ -39,20 +67,59 @@ export function ListPageToolbar({
     className,
 }: ListPageToolbarProps) {
     const showSearch = onSearchChange !== undefined;
+    const showFilter = showFilterButton && onFilter;
+
+    const defaultActions = (
+        <>
+            {onAdd && (
+                <Button
+                    onClick={onAdd}
+                    aria-label={addLabel}
+                    className={cn(
+                        toolbarInlineActionBtn,
+                        'bg-gray-900 hover:bg-gray-800 text-white dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white',
+                    )}
+                >
+                    <Plus className="h-4 w-4 shrink-0" />
+                    <ToolbarActionLabel>{addLabel}</ToolbarActionLabel>
+                </Button>
+            )}
+            {onExport && (
+                <Button
+                    onClick={onExport}
+                    variant="outline"
+                    disabled={isExporting}
+                    aria-label={isExporting ? 'Exporting' : 'Export'}
+                    className={toolbarInlineActionBtn}
+                >
+                    {isExporting ? (
+                        <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                    ) : (
+                        <Download className="h-4 w-4 shrink-0" />
+                    )}
+                    <ToolbarActionLabel>
+                        {isExporting ? 'Exporting...' : 'Export'}
+                    </ToolbarActionLabel>
+                </Button>
+            )}
+            {trailingActions}
+        </>
+    );
+
+    const hasActions = Boolean(actions || onAdd || onExport || trailingActions || showFilter);
 
     return (
-        <div className={cn('shrink-0 px-4 md:px-5 pt-4 pb-1', className)}>
+        <div className={cn('shrink-0 px-3 pt-3 pb-1 md:px-5 md:pt-4', className)}>
             <div
                 className={cn(
-                    'flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4',
-                    'rounded-xl border border-border/60 bg-muted/30 px-4 py-3.5 shadow-sm',
-                    'dark:border-border/40 dark:bg-muted/15 md:px-5 md:py-4',
+                    'flex min-w-0 items-center gap-2 rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5 shadow-sm',
+                    'dark:border-border/40 dark:bg-muted/15 sm:gap-3 sm:px-4 sm:py-3 md:px-5 md:py-3.5',
                 )}
             >
                 {showSearch ? (
-                    <div className="relative min-w-0 w-full flex-1 sm:max-w-xl">
+                    <div className="relative min-w-0 flex-1">
                         <Search
-                            className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/80"
+                            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/80"
                             aria-hidden
                         />
                         <Input
@@ -62,62 +129,21 @@ export function ListPageToolbar({
                             onChange={(e) => onSearchChange(e.target.value)}
                             className={cn(
                                 toolbarBtnHeight,
-                                'rounded-full border-border/80 bg-background pl-11 pr-4 shadow-none',
+                                'w-full min-w-0 rounded-full border-border/80 bg-background pl-9 pr-2 text-sm shadow-none sm:pl-10 sm:pr-4',
                                 'placeholder:text-muted-foreground/60',
                             )}
                         />
                     </div>
                 ) : (
-                    <div className="hidden flex-1 sm:block" aria-hidden />
+                    <div className="min-w-0 flex-1" aria-hidden />
                 )}
 
-                <div className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto">
-                    {actions ?? (
-                        <>
-                            {onAdd && (
-                                <Button
-                                    onClick={onAdd}
-                                    className={cn(
-                                        toolbarBtnHeight,
-                                        'shrink-0 gap-2 px-4',
-                                        'bg-gray-900 hover:bg-gray-800 text-white dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white',
-                                    )}
-                                >
-                                    <Plus className="h-4 w-4" />
-                                    {addLabel}
-                                </Button>
-                            )}
-                            {onExport && (
-                                <Button
-                                    onClick={onExport}
-                                    variant="outline"
-                                    disabled={isExporting}
-                                    className={cn(toolbarBtnHeight, 'shrink-0 gap-2 px-4')}
-                                >
-                                    {isExporting ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                        <Download className="h-4 w-4" />
-                                    )}
-                                    {isExporting ? 'Exporting...' : 'Export'}
-                                </Button>
-                            )}
-                            {showFilterButton && (
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    className={cn(toolbarBtnHeight, 'w-10 shrink-0')}
-                                    onClick={onFilter}
-                                    type="button"
-                                    aria-label="Filter"
-                                >
-                                    <SlidersHorizontal className="h-4 w-4" />
-                                </Button>
-                            )}
-                            {trailingActions}
-                        </>
-                    )}
-                </div>
+                {hasActions && (
+                    <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+                        {actions ?? defaultActions}
+                        {showFilter && <FilterButton onClick={onFilter} />}
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -128,7 +154,7 @@ export function ListPageBelowToolbar({ children, className }: { children: React.
     return (
         <div
             className={cn(
-                'shrink-0 border-b border-gray-200 px-4 pb-3 pt-1 dark:border-gray-800 md:px-5',
+                'shrink-0 border-b border-gray-200 px-3 pb-3 pt-1 dark:border-gray-800 md:px-5',
                 className,
             )}
         >

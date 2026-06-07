@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SettingsToggleRow } from "@/components/settings/SettingsToggleRow";
 import { SettingsSaveFooter } from "@/components/settings/SettingsSaveFooter";
 import { settingsFormWrap } from "@/components/settings/settings-layout";
+import { PromptDialog } from "@/components/ui/prompt-dialog";
 import { adminApi } from "@/lib/api";
 import type { UserListItem } from "@/lib/api";
 
@@ -27,6 +28,7 @@ export function CRMTab({ onDirtyChange }: { onDirtyChange?: (dirty: boolean) => 
 
     const [users, setUsers] = useState<UserListItem[]>([]);
     const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+    const [addStatusOpen, setAddStatusOpen] = useState(false);
 
     useEffect(() => {
         const fetchUsers = async () => {
@@ -67,11 +69,8 @@ export function CRMTab({ onDirtyChange }: { onDirtyChange?: (dirty: boolean) => 
         updateField("status_workflow", newStatuses.join(","));
     };
 
-    const addStatus = () => {
-        const name = prompt("Enter new status name:");
-        if (name?.trim()) {
-            updateStatusWorkflow([...statuses, name.trim()]);
-        }
+    const addStatus = (name: string) => {
+        updateStatusWorkflow([...statuses, name]);
     };
 
     const removeStatus = (index: number) => {
@@ -79,6 +78,7 @@ export function CRMTab({ onDirtyChange }: { onDirtyChange?: (dirty: boolean) => 
     };
 
     return (
+        <>
         <form autoComplete="off" onSubmit={(e) => e.preventDefault()}>
             <div className={settingsFormWrap}>
                 <SettingsToggleRow
@@ -137,7 +137,7 @@ export function CRMTab({ onDirtyChange }: { onDirtyChange?: (dirty: boolean) => 
                         ))}
                         <button
                             type="button"
-                            onClick={addStatus}
+                            onClick={() => setAddStatusOpen(true)}
                             className="w-full border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-md py-2 text-sm text-gray-500 hover:border-orange-400 hover:text-orange-600 transition-colors"
                         >
                             + Add Status
@@ -152,5 +152,15 @@ export function CRMTab({ onDirtyChange }: { onDirtyChange?: (dirty: boolean) => 
                 hasChanges={hasChanges}
             />
         </form>
+
+        <PromptDialog
+            open={addStatusOpen}
+            onOpenChange={setAddStatusOpen}
+            title="Add status"
+            description="Enter new status name:"
+            placeholder="e.g. Assigned"
+            onConfirm={addStatus}
+        />
+        </>
     );
 }

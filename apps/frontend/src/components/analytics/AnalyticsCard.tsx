@@ -32,30 +32,42 @@ export function AnalyticsCard({
     return (
         <Card
             className={cn(
-                'group transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 hover:border-orange-200 dark:hover:border-orange-800/50',
+                'group gap-2 py-3 px-3 sm:gap-4 sm:py-4 sm:px-4',
+                'transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 hover:border-orange-200 dark:hover:border-orange-800/50',
                 animate && 'animate-in fade-in slide-in-from-bottom-3 duration-500 fill-mode-both',
                 onClick && 'cursor-pointer',
-                className
+                className,
             )}
             style={animate ? { animationDelay: `${index * 60}ms` } : undefined}
             onClick={onClick}
         >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <CardHeader className="relative space-y-0 p-0 pb-1">
+                <CardTitle
+                    title={title}
+                    className={cn(
+                        'pr-9 sm:pr-10',
+                        'text-[11px] sm:text-xs font-semibold text-muted-foreground',
+                        'leading-snug break-words [overflow-wrap:anywhere]',
+                        'normal-case sm:uppercase tracking-normal sm:tracking-wide',
+                    )}
+                >
                     {title}
                 </CardTitle>
                 {Icon && (
-                    <div className={cn(
-                        'flex h-8 w-8 items-center justify-center rounded-lg transition-transform duration-300 group-hover:scale-110',
-                        themeClasses.bgPrimaryLight,
-                        'dark:bg-orange-950/40'
-                    )}>
-                        <Icon className={cn('h-4 w-4', themeClasses.iconPrimary, 'dark:text-orange-400')} />
+                    <div
+                        className={cn(
+                            'absolute right-0 top-0 flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg',
+                            'transition-transform duration-300 group-hover:scale-110',
+                            themeClasses.bgPrimaryLight,
+                            'dark:bg-orange-950/40',
+                        )}
+                    >
+                        <Icon className={cn('h-3.5 w-3.5 sm:h-4 sm:w-4', themeClasses.iconPrimary, 'dark:text-orange-400')} />
                     </div>
                 )}
             </CardHeader>
-            <CardContent>
-                <div className={cn('text-2xl md:text-3xl font-bold', themeClasses.textPrimary, 'dark:text-orange-400')}>
+            <CardContent className="p-0">
+                <div className={cn('text-xl sm:text-2xl md:text-3xl font-bold', themeClasses.textPrimary, 'dark:text-orange-400')}>
                     {isNumeric ? (
                         <AnimatedNumber value={value} />
                     ) : (

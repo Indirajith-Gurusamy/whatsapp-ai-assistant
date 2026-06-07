@@ -18,6 +18,8 @@ import {
     defaultModelForProvider,
 } from "@/components/settings/ai-provider-types";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { QuickRepliesTab } from "@/components/settings/QuickRepliesTab";
+import { KnowledgeTab } from "@/components/settings/KnowledgeTab";
 import { Brain, Loader2, Plus, Sparkles } from "lucide-react";
 import type { TestResult } from "@/lib/api";
 
@@ -333,6 +335,20 @@ export function AITab({ onDirtyChange }: { onDirtyChange?: (dirty: boolean) => v
                         value={settings.fallback_message || ""}
                         onChange={(e) => updateField("fallback_message", e.target.value)}
                     />
+                </SettingsCollapsibleSection>
+
+                <SettingsCollapsibleSection
+                    title="Quick Replies"
+                    description="Canned responses appear in the chat composer when AI is off."
+                >
+                    <QuickRepliesTab embedded />
+                </SettingsCollapsibleSection>
+
+                <SettingsCollapsibleSection
+                    title="Knowledge Base"
+                    description="Upload FAQs or PDFs. Relevant chunks are injected into the WhatsApp AI system prompt on each reply."
+                >
+                    <KnowledgeTab embedded />
                 </SettingsCollapsibleSection>
             </div>
 

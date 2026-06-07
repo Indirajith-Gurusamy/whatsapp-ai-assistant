@@ -1,7 +1,8 @@
 """Admin router with API endpoints for user management."""
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query, Request, HTTPException, status, UploadFile, File
+from pydantic import BaseModel
 from app.db.prisma import Prisma
 from app.modules.auth.dependencies import get_db, require_role, get_current_user
 from app.modules.admin.service import AdminService
@@ -27,6 +28,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
+
+
+class BulkDeleteUsersRequest(BaseModel):
+    user_ids: List[int]
 
 
 @router.post("/signup", response_model=MessageResponse, status_code=201)
@@ -330,6 +335,17 @@ async def delete_user(
         )
 
 
+@router.post("/users/bulk-delete")
+async def bulk_delete_users(
+    body: BulkDeleteUsersRequest,
+    current_user=Depends(require_role(["ADMIN"])),
+    db: Prisma = Depends(get_db),
+):
+    """Delete multiple users. Admin only."""
+    service = AdminService(db)
+    return await service.bulk_delete_users(body.user_ids, current_user.id)
+
+
 @router.get("/stats", response_model=AdminStatsResponse)
 async def get_admin_stats(
     current_user = Depends(require_role(['ADMIN'])),
@@ -459,22 +475,20 @@ async def reset_user_password(
     db: Prisma = Depends(get_db)
 ):
     """
-    Reset user password and send temporary password via email.
-    
+    Reset user password and return a temporary password to the admin.
+
     **Admin only endpoint.**
-    
-    - **user_id**: ID of the user whose password to reset
-    
-    A random password is generated, emailed to the user, and they must change it on first login.
+
+    Email delivery is not configured; the admin must share the password securely.
     """
     try:
         service = AdminService(db)
-        message = await service.reset_user_password(
+        temp_password = await service.reset_user_password(
             user_id=user_id,
             admin_id=current_user.id
         )
-        
-        return ResetPasswordResponse(message=message)
+
+        return ResetPasswordResponse(temporary_password=temp_password)
     
     except HTTPException:
         raise
