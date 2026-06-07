@@ -67,7 +67,7 @@ def _build_defaults() -> Dict[str, Dict[str, str]]:
             "auto_assign_lead": "false",
             "default_assignee": "",
             "followup_reminder_hours": "24",
-            "status_workflow": "new lead,contacted,qualified,proposal,negotiation,won,lost",
+            "status_workflow": "new lead,assigned,application sent,application in,nurture,follow up,on hold,lost,duplicate,closed",
         },
     }
 
@@ -260,7 +260,6 @@ class SettingsService:
         phone_number: str, 
         message_text: str, 
         account_id: Optional[str] = None,
-        is_template: bool = False
     ) -> Dict[str, Any]:
         """Send a real WhatsApp message for end-to-end verification."""
         settings_data = await self.get_settings("WHATSAPP")
@@ -286,14 +285,14 @@ class SettingsService:
             
             success = False
             if platform == "meta":
-                success, _ = await WhatsAppService._send_meta(phone_number, message_text, config, is_template)
+                success, _ = await WhatsAppService._send_meta(phone_number, message_text, config)
             elif platform == "twilio":
                 success, _ = await WhatsAppService._send_twilio(phone_number, message_text, config)
             
             return {
                 "success": success,
                 "message": f"Test message {'sent successfully' if success else 'failed to send'} via {platform.capitalize()}",
-                "details": {"account_id": target_acc.get("id"), "platform": platform, "template": is_template}
+                "details": {"account_id": target_acc.get("id"), "platform": platform}
             }
         except Exception as e:
             logger.error(f"Error sending test message: {e}")
@@ -324,47 +323,88 @@ class SettingsService:
         accounts: List[Dict[str, Any]],
     ) -> Dict[str, Any]:
         """Validate Meta credentials and resolve correct Phone Number ID."""
-        from app.modules.whatsapp.meta_api import resolve_meta_config
+        from app.modules.whatsapp.meta_api import (
+            DEFAULT_META_API_VERSION,
+            resolve_meta_config,
+            resolve_waba_id,
+            verify_waba_owns_phone,
+        )
 
         phone_id, err, info = await resolve_meta_config(config)
         if err or not phone_id:
             return {"success": False, "message": err or "Could not resolve Meta phone number ID"}
 
+        waba_id, waba_err, waba_info = await resolve_waba_id(config)
+        if waba_err:
+            waba_id = None
+            waba_info = None
+
         display = (info or {}).get("display_phone_number") or (info or {}).get("verified_name") or phone_id
         corrected_from = (info or {}).get("corrected_from")
+        api_version = (config.get("api_version") or DEFAULT_META_API_VERSION).strip()
+        token = (config.get("access_token") or "").strip()
 
+        config_updates: Dict[str, str] = {}
         if corrected_from and account_id:
-            await self._update_meta_phone_number_id_in_accounts(
-                accounts, account_id, phone_id
+            config_updates["phone_number_id"] = phone_id
+        stored_waba = (config.get("waba_id") or "").strip()
+        if waba_id and account_id and waba_id != stored_waba:
+            waba_source = (waba_info or {}).get("source")
+            owns_phone = await verify_waba_owns_phone(
+                waba_id, phone_id, token, api_version
             )
-            message = (
-                f"Connected to Meta: {display}. "
-                f"Fixed Phone Number ID (was {corrected_from} → now {phone_id}). Settings saved."
-            )
+            if waba_source == "phone_whatsapp_business_account" or owns_phone:
+                config_updates["waba_id"] = waba_id
+            elif stored_waba and not await verify_waba_owns_phone(
+                stored_waba, phone_id, token, api_version
+            ):
+                return {
+                    "success": False,
+                    "message": (
+                        f"WABA ID {stored_waba} does not own phone {phone_id}. "
+                        f"Set WABA to asset_id from your WhatsApp Manager URL "
+                        f"(resolved parent: {waba_id or 'unknown'})."
+                    ),
+                }
+
+        if config_updates and account_id:
+            await self._update_meta_config_in_accounts(accounts, account_id, config_updates)
+            parts = []
+            if "phone_number_id" in config_updates and corrected_from:
+                parts.append(
+                    f"Phone Number ID (was {corrected_from} → now {phone_id})"
+                )
+            if "waba_id" in config_updates:
+                parts.append(f"WABA ID ({waba_id})")
+            message = f"Connected to Meta: {display}. Saved {' and '.join(parts)}."
         else:
             message = f"Connected to Meta: {display} (phone_number_id: {phone_id})"
+            if waba_id:
+                message += f", WABA: {waba_id}"
 
         return {
             "success": True,
             "message": message,
             "details": {
                 "phone_number_id": phone_id,
+                "waba_id": waba_id,
                 "display_phone_number": (info or {}).get("display_phone_number"),
                 **(info or {}),
+                **(waba_info or {}),
             },
         }
 
-    async def _update_meta_phone_number_id_in_accounts(
+    async def _update_meta_config_in_accounts(
         self,
         accounts: List[Dict[str, Any]],
         account_id: str,
-        phone_number_id: str,
+        config_updates: Dict[str, str],
     ) -> None:
-        """Persist corrected Meta phone_number_id back to whatsapp_accounts."""
+        """Persist corrected Meta config fields back to whatsapp_accounts."""
         updated = False
         for acc in accounts:
             if acc.get("id") == account_id and acc.get("platform") == "meta":
-                acc.setdefault("config", {})["phone_number_id"] = phone_number_id
+                acc.setdefault("config", {}).update(config_updates)
                 updated = True
                 break
         if not updated:
@@ -386,7 +426,9 @@ class SettingsService:
                 "update": {"value": stored, "isEncrypted": True},
             },
         )
-        logger.info(f"Updated Meta phone_number_id to {phone_number_id} for account {account_id}")
+        logger.info(
+            f"Updated Meta config for account {account_id}: {list(config_updates.keys())}"
+        )
 
     # ── TEST AI ──────────────────────────────────────
 

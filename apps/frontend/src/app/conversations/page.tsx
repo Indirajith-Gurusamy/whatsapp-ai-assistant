@@ -1,8 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useConversations } from '@/hooks/useConversations';
+import { useTeamUsers } from '@/hooks/useTeamUsers';
 import { useAuth } from '@/contexts/AuthContext';
+import { AssigneeCell } from '@/components/data/AssigneeCell';
+import { formatAssigneeLabel } from '@/lib/assignee';
 import { fetchConversationDetailByUuid } from '@/lib/api';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/data/DataTable';
@@ -22,13 +26,16 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 export default function ConversationsPage() {
+    const searchParams = useSearchParams();
     const { conversations, isLoading, refresh } = useConversations();
-    const { isAdmin } = useAuth();
+    const { isAdmin, user } = useAuth();
+    const { emailToName } = useTeamUsers(isAdmin());
     const [selectedConversation, setSelectedConversation] = useState<ConversationDetail | null>(null);
     const [detailModalOpen, setDetailModalOpen] = useState(false);
     const [assignModalOpen, setAssignModalOpen] = useState(false);
     const [assignTarget, setAssignTarget] = useState<{ uuid: string; assignedTo?: string | null } | null>(null);
     const [isExporting, setIsExporting] = useState(false);
+    const openedFromUrl = useRef<string | null>(null);
 
     const handleExport = async () => {
         if (conversations.length === 0) {
@@ -47,6 +54,7 @@ export default function ConversationsPage() {
                 'ID',
                 'Phone',
                 'Name',
+                'Assigned To',
                 'Time',
                 'Message',
                 'Status',
@@ -60,6 +68,7 @@ export default function ConversationsPage() {
                 conv.message_id,
                 `="${conv.phone}"`, // Force Excel to treat phone as string
                 conv.name || 'Unknown',
+                formatAssigneeLabel(conv.assigned_to, emailToName, user?.email),
                 conv.message_time,
                 `"${(conv.message || '').replace(/"/g, '""')}"`, // Escape quotes and wrap in quotes
                 conv.lead_status,
@@ -101,8 +110,39 @@ export default function ConversationsPage() {
             setDetailModalOpen(true);
         } catch (error) {
             console.error('Failed to fetch conversation detail:', error);
+            toast.error('Failed to load conversation');
         }
     };
+
+    useEffect(() => {
+        const openUuid = searchParams.get('open');
+        if (!openUuid || isLoading || openedFromUrl.current === openUuid) return;
+        openedFromUrl.current = openUuid;
+
+        const existing = conversations.find((c) => c.uuid === openUuid);
+        if (existing) {
+            void fetchConversationDetailByUuid(existing.uuid)
+                .then((detail) => {
+                    setSelectedConversation(detail);
+                    setDetailModalOpen(true);
+                })
+                .catch((error) => {
+                    console.error('Failed to open conversation from URL:', error);
+                    toast.error('Conversation not found');
+                });
+            return;
+        }
+
+        void fetchConversationDetailByUuid(openUuid)
+            .then((detail) => {
+                setSelectedConversation(detail);
+                setDetailModalOpen(true);
+            })
+            .catch((error) => {
+                console.error('Failed to open conversation from URL:', error);
+                toast.error('Conversation not found');
+            });
+    }, [searchParams, conversations, isLoading]);
 
     const handleAssignClick = (conversation: Conversation) => {
         setAssignTarget({
@@ -174,7 +214,7 @@ export default function ConversationsPage() {
             key: 'status',
             header: 'Status',
             cell: (item: Conversation) => (
-                <div className="flex items-center gap-1.5">
+                <div className="flex min-w-0 max-w-[5.5rem] sm:max-w-none items-center gap-1.5">
                     <StatusBadge status={item.lead_status} />
                     {item.ai_enabled === false && (
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" title="Human agent is in control">
@@ -183,6 +223,18 @@ export default function ConversationsPage() {
                     )}
                 </div>
             ),
+        },
+        {
+            key: 'assigned_to',
+            header: 'Assigned To',
+            cell: (item: Conversation) => (
+                <AssigneeCell
+                    email={item.assigned_to}
+                    emailToName={emailToName}
+                    currentUserEmail={user?.email}
+                />
+            ),
+            className: 'hidden sm:table-cell',
         },
         {
             key: 'action',
@@ -229,7 +281,7 @@ export default function ConversationsPage() {
     ];
 
     if (isLoading) {
-        return <ListPageSkeleton columns={7} />;
+        return <ListPageSkeleton columns={8} />;
     }
 
     return (
@@ -239,11 +291,11 @@ export default function ConversationsPage() {
                 data={conversations.map(c => ({ ...c, id: c.uuid }))}
                 columns={columns}
                 onRowClick={(item) => handleRowClick(item as Conversation)}
-                emptyMessage="No leads assigned"
+                emptyMessage="No leads found"
                 searchPlaceholder="Search..."
                 onExport={handleExport}
                 isExporting={isExporting}
-                searchFields={['name', 'phone', 'message'] as (keyof Conversation)[]}
+                searchFields={['name', 'phone', 'message', 'assigned_to'] as (keyof Conversation)[]}
                 filterFields={conversationFilterFields}
             />
 

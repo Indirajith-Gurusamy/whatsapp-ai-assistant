@@ -1,10 +1,25 @@
 'use client';
 
+import { useState } from 'react';
 import { useCustomers } from '@/hooks/useCustomers';
+import { useTeamUsers } from '@/hooks/useTeamUsers';
+import { useAuth } from '@/contexts/AuthContext';
+import { customersApi } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import { FloatingInput } from '@/components/ui/floating-input';
+import { ShieldAlert } from 'lucide-react';
+import { AssigneeCell } from '@/components/data/AssigneeCell';
+import { formatAssigneeLabel } from '@/lib/assignee';
 import { DataTable } from '@/components/data/DataTable';
 import { ListPageSkeleton } from '@/components/data/ListPageSkeleton';
 import { StatusBadge } from '@/components/data/StatusBadge';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
     DropdownMenu,
@@ -66,15 +81,47 @@ function formatDate(dateString: string | null | undefined): { date: string; time
 }
 
 export default function CustomersPage() {
-    const { customers, isLoading } = useCustomers();
+    const { customers, isLoading, refresh } = useCustomers();
+    const { isAdmin, isLoading: authLoading, user } = useAuth();
+    const { emailToName } = useTeamUsers(isAdmin());
     const router = useRouter();
+    const [addOpen, setAddOpen] = useState(false);
+    const [newPhone, setNewPhone] = useState('');
+    const [newName, setNewName] = useState('');
+    const [isCreating, setIsCreating] = useState(false);
 
     const handleViewDetails = (customer: Customer) => {
         router.push(`/customers/${customer.uuid}`);
     };
 
     const handleAdd = () => {
-        toast.info('Add customer is not available yet.');
+        if (!isAdmin()) {
+            toast.error('Admin access required');
+            return;
+        }
+        setNewPhone('');
+        setNewName('');
+        setAddOpen(true);
+    };
+
+    const handleCreateCustomer = async () => {
+        const phone = newPhone.trim();
+        if (!phone) {
+            toast.error('Phone number is required');
+            return;
+        }
+        setIsCreating(true);
+        try {
+            const result = await customersApi.create({ phone, name: newName.trim() || undefined });
+            toast.success(result.created ? 'Customer created' : 'Customer already exists');
+            setAddOpen(false);
+            await refresh();
+            if (result.uuid) router.push(`/customers/${result.uuid}`);
+        } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : 'Failed to create customer');
+        } finally {
+            setIsCreating(false);
+        }
     };
 
     const handleExport = () => {
@@ -82,12 +129,13 @@ export default function CustomersPage() {
             toast.error('No customers to export');
             return;
         }
-        const header = 'Name,Phone,Category,Lead Status,Last Message Time\n';
+        const header = 'Name,Phone,Category,Lead Status,Assigned To,Last Message Time\n';
         const rows = customers
             .map((c) => {
                 const category = categorizeCustomer(c.message);
                 const name = (c.name || 'Unnamed').replace(/"/g, '""');
-                return `"${name}","${c.phone}","${category}","${c.lead_status}","${c.message_time}"`;
+                const assignee = formatAssigneeLabel(c.assigned_to, emailToName, user?.email);
+                return `"${name}","${c.phone}","${category}","${c.lead_status}","${assignee}","${c.message_time}"`;
             })
             .join('\n');
         const blob = new Blob([header + rows], { type: 'text/csv' });
@@ -143,6 +191,18 @@ export default function CustomersPage() {
             cell: (item: Customer) => <StatusBadge status={item.lead_status} />,
         },
         {
+            key: 'assigned_to',
+            header: 'ASSIGNED TO',
+            cell: (item: Customer) => (
+                <AssigneeCell
+                    email={item.assigned_to}
+                    emailToName={emailToName}
+                    currentUserEmail={user?.email}
+                />
+            ),
+            className: 'hidden md:table-cell',
+        },
+        {
             key: 'created',
             header: 'LAST CONTACT',
             cell: (item: Customer) => {
@@ -190,8 +250,21 @@ export default function CustomersPage() {
         },
     ];
 
-    if (isLoading) {
-        return <ListPageSkeleton columns={6} />;
+    if (authLoading || isLoading) {
+        return <ListPageSkeleton columns={7} />;
+    }
+
+    if (!isAdmin()) {
+        return (
+            <div className="text-center py-16">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-4">
+                    <ShieldAlert className="w-8 h-8 text-red-500" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-800 mb-2">Access Denied</h2>
+                <p className="text-gray-500 mb-6">Only administrators can view customers.</p>
+                <Button onClick={() => router.push('/dashboard')}>Go to Dashboard</Button>
+            </div>
+        );
     }
 
     return (
@@ -205,10 +278,37 @@ export default function CustomersPage() {
                 addLabel="Add"
                 onAdd={handleAdd}
                 onExport={handleExport}
-                searchFields={['name', 'phone'] as (keyof Customer)[]}
+                searchFields={['name', 'phone', 'assigned_to'] as (keyof Customer)[]}
                 emptyMessage="No customers found"
                 filterFields={customerFilterFields}
             />
+            <Dialog open={addOpen} onOpenChange={setAddOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Add customer</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                        <FloatingInput
+                            label="Phone (with country code)"
+                            value={newPhone}
+                            onChange={(e) => setNewPhone(e.target.value)}
+                        />
+                        <FloatingInput
+                            label="Name (optional)"
+                            value={newName}
+                            onChange={(e) => setNewName(e.target.value)}
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setAddOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleCreateCustomer} disabled={isCreating}>
+                            {isCreating ? 'Creating…' : 'Create'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </ListPageShell>
     );
 }

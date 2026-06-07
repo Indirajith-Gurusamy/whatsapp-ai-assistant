@@ -97,4 +97,5 @@ class VerifyUserResponse(BaseModel):
 
 class ResetPasswordResponse(BaseModel):
     """Response after admin resets user password."""
-    message: str
+    message: str = "Password reset successfully."
+    temporary_password: str

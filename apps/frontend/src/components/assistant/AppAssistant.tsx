@@ -1,20 +1,48 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Bot, GripVertical, Loader2, MessageCircle, Send, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { themeClasses } from '@/lib/theme';
-import { assistantApi, type AssistantChatMessage } from '@/lib/api';
+import {
+    assistantApi,
+    type AssistantAction,
+    type AssistantChatMessage,
+} from '@/lib/api';
+import { resolveClientActions } from '@/lib/assistant-intents';
+import { dispatchUiAction, closeAssistant, VIVAFY_ASSISTANT_CLOSE_EVENT } from '@/lib/ui-actions';
+import { hardRefreshPage, reloadView } from '@/lib/refresh-app-data';
+import { useAuth } from '@/contexts/AuthContext';
+
+function actionsMatch(a: AssistantAction, b: AssistantAction): boolean {
+    if (a.type !== b.type) return false;
+    if (a.type === 'navigate' && a.path && b.path) return a.path === b.path;
+    if (a.user_id != null && b.user_id != null) return a.user_id === b.user_id;
+    if (a.conversation_uuid && b.conversation_uuid) {
+        return a.conversation_uuid === b.conversation_uuid;
+    }
+    if (a.path && b.path) return a.path === b.path;
+    return a.label === b.label;
+}
+
+function actionExecuted(executed: AssistantAction[], action: AssistantAction): boolean {
+    return executed.some((done) => actionsMatch(done, action));
+}
 
 const ASSISTANT_NAME = 'Vivafy';
 
-const WELCOME: AssistantChatMessage = {
+type ChatEntry = AssistantChatMessage & {
+    actions?: AssistantAction[];
+    pendingActions?: AssistantAction[];
+};
+
+const WELCOME: ChatEntry = {
     role: 'assistant',
     content:
-        "Hi! I'm Vivafy — I can help you find your way around this app — leads, customers, settings, AI toggles, and more. What do you need?",
+        "Hi! I'm Vivafy — tell me what to do: open pages, logout, change roles, assign leads, send messages, refresh, and more. I execute immediately.",
 };
 
 const POSITION_KEY = 'app-assistant-anchor-v3';
@@ -22,7 +50,12 @@ const FAB_SIZE = 56;
 const PANEL_WIDTH = 380;
 const PANEL_MIN_HEIGHT = 280;
 const EDGE = 16;
-const DRAG_THRESHOLD = 5;
+const DRAG_THRESHOLD_MOUSE = 5;
+const DRAG_THRESHOLD_TOUCH = 2;
+
+function dragThreshold(pointerType: string): number {
+    return pointerType === 'touch' ? DRAG_THRESHOLD_TOUCH : DRAG_THRESHOLD_MOUSE;
+}
 
 /** FAB bottom-left corner distance from viewport left / bottom (px). */
 type Anchor = { left: number; bottom: number };
@@ -176,28 +209,61 @@ function anchorsEqual(a: Anchor, b: Anchor): boolean {
 
 export function AppAssistant() {
     const pathname = usePathname();
+    const { logout } = useAuth();
     const [open, setOpen] = useState(false);
     const [input, setInput] = useState('');
-    const [messages, setMessages] = useState<AssistantChatMessage[]>([WELCOME]);
+    const router = useRouter();
+    const [messages, setMessages] = useState<ChatEntry[]>([WELCOME]);
+    const [executingAction, setExecutingAction] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [anchor, setAnchor] = useState<Anchor | null>(null);
     const [viewport, setViewport] = useState({ w: 0, h: 0 });
     const scrollRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
     const anchorRef = useRef<Anchor>(getDefaultAnchor());
     const openRef = useRef(false);
     const dragState = useRef({
         active: false,
         pointerId: -1,
+        pointerType: 'mouse',
         startX: 0,
         startY: 0,
         originLeft: 0,
         originTop: 0,
         expand: 'right' as Expand,
         moved: false,
+        cleanup: null as (() => void) | null,
     });
 
     openRef.current = open;
+
+    const dismiss = useCallback(() => setOpen(false), []);
+
+    useEffect(() => {
+        const onClose = () => dismiss();
+        window.addEventListener(VIVAFY_ASSISTANT_CLOSE_EVENT, onClose);
+        return () => window.removeEventListener(VIVAFY_ASSISTANT_CLOSE_EVENT, onClose);
+    }, [dismiss]);
+
+    const pathnameRef = useRef(pathname);
+    useEffect(() => {
+        if (pathnameRef.current !== pathname) {
+            dismiss();
+            pathnameRef.current = pathname;
+        }
+    }, [pathname, dismiss]);
+
+    useEffect(() => {
+        if (!open) return;
+        const onPointerDown = (e: PointerEvent) => {
+            const el = containerRef.current;
+            if (!el || el.contains(e.target as Node)) return;
+            dismiss();
+        };
+        document.addEventListener('pointerdown', onPointerDown, true);
+        return () => document.removeEventListener('pointerdown', onPointerDown, true);
+    }, [open, dismiss]);
 
     const commitAnchor = useCallback((next: Anchor | null | undefined) => {
         const safe = clampAnchorSafe(next);
@@ -232,11 +298,11 @@ export function AppAssistant() {
     }, [messages, open, isLoading]);
 
     useEffect(() => {
-        if (open) {
-            const t = setTimeout(() => inputRef.current?.focus(), 100);
+        if (open && !isLoading) {
+            const t = setTimeout(() => inputRef.current?.focus(), 50);
             return () => clearTimeout(t);
         }
-    }, [open]);
+    }, [open, isLoading]);
 
     const persistAnchor = useCallback((value: Anchor) => {
         try {
@@ -246,66 +312,263 @@ export function AppAssistant() {
         }
     }, []);
 
+    const applyDragMove = useCallback(
+        (clientX: number, clientY: number) => {
+            const ds = dragState.current;
+            if (!ds.active) return;
+
+            const dx = clientX - ds.startX;
+            const dy = clientY - ds.startY;
+            const threshold = dragThreshold(ds.pointerType);
+            if (Math.abs(dx) > threshold || Math.abs(dy) > threshold) {
+                ds.moved = true;
+            }
+
+            const { width, height } = widgetSize(openRef.current, anchorRef.current);
+            const vw = window.innerWidth;
+            const vh = window.innerHeight;
+
+            let left = ds.originLeft + dx;
+            let top = ds.originTop + dy;
+
+            left = Math.max(EDGE, Math.min(vw - width - EDGE, left));
+            top = Math.max(EDGE, Math.min(vh - height - EDGE, top));
+
+            commitAnchor(
+                rectToFabAnchor({ left, top, width, height }, openRef.current, ds.expand),
+            );
+        },
+        [commitAnchor],
+    );
+
+    const endDragSession = useCallback(() => {
+        const ds = dragState.current;
+        if (!ds.active) return;
+        ds.active = false;
+        persistAnchor(anchorRef.current);
+        ds.cleanup?.();
+        ds.cleanup = null;
+    }, [persistAnchor]);
+
+    useEffect(() => {
+        return () => dragState.current.cleanup?.();
+    }, []);
+
     const onDragPointerDown = useCallback(
         (e: React.PointerEvent) => {
             const target = e.target as HTMLElement;
             if (!target.closest('[data-assistant-drag]')) return;
+            if (e.button !== 0 && e.pointerType !== 'touch') return;
+
+            dragState.current.cleanup?.();
 
             const current = anchorToRect(anchorRef.current, openRef.current);
             const { expand } = widgetSize(openRef.current, anchorRef.current);
             dragState.current = {
                 active: true,
                 pointerId: e.pointerId,
+                pointerType: e.pointerType,
                 startX: e.clientX,
                 startY: e.clientY,
                 originLeft: current.left,
                 originTop: current.top,
                 expand,
                 moved: false,
+                cleanup: null,
             };
-            e.currentTarget.setPointerCapture(e.pointerId);
+
             e.preventDefault();
+            e.stopPropagation();
+
+            const captureEl = containerRef.current ?? e.currentTarget;
+            if (captureEl instanceof Element && 'setPointerCapture' in captureEl) {
+                try {
+                    (captureEl as HTMLElement).setPointerCapture(e.pointerId);
+                } catch {
+                    /* ignore */
+                }
+            }
+
+            const prevTouchAction = document.body.style.touchAction;
+            const prevOverflow = document.body.style.overflow;
+            document.body.style.touchAction = 'none';
+            document.body.style.overflow = 'hidden';
+
+            const onMove = (ev: PointerEvent) => {
+                if (!dragState.current.active || dragState.current.pointerId !== ev.pointerId) return;
+                ev.preventDefault();
+                applyDragMove(ev.clientX, ev.clientY);
+            };
+
+            const onEnd = (ev: PointerEvent) => {
+                if (!dragState.current.active || dragState.current.pointerId !== ev.pointerId) return;
+                ev.preventDefault();
+                endDragSession();
+                try {
+                    (captureEl as HTMLElement).releasePointerCapture(ev.pointerId);
+                } catch {
+                    /* ignore */
+                }
+            };
+
+            document.addEventListener('pointermove', onMove, { passive: false });
+            document.addEventListener('pointerup', onEnd, { passive: false });
+            document.addEventListener('pointercancel', onEnd, { passive: false });
+
+            dragState.current.cleanup = () => {
+                document.removeEventListener('pointermove', onMove);
+                document.removeEventListener('pointerup', onEnd);
+                document.removeEventListener('pointercancel', onEnd);
+                document.body.style.touchAction = prevTouchAction;
+                document.body.style.overflow = prevOverflow;
+            };
         },
-        [],
+        [applyDragMove, endDragSession],
     );
 
-    const onDragPointerMove = useCallback((e: React.PointerEvent) => {
-        if (!dragState.current.active || dragState.current.pointerId !== e.pointerId) return;
-
-        const dx = e.clientX - dragState.current.startX;
-        const dy = e.clientY - dragState.current.startY;
-        if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
-            dragState.current.moved = true;
-        }
-
-        const { width, height } = widgetSize(openRef.current, anchorRef.current);
-        const vw = window.innerWidth;
-        const vh = window.innerHeight;
-        const expand = dragState.current.expand;
-
-        let left = dragState.current.originLeft + dx;
-        let top = dragState.current.originTop + dy;
-
-        left = Math.max(EDGE, Math.min(vw - width - EDGE, left));
-        top = Math.max(EDGE, Math.min(vh - height - EDGE, top));
-
-        commitAnchor(
-            rectToFabAnchor({ left, top, width, height }, openRef.current, expand),
-        );
-    }, [commitAnchor]);
+    const onDragPointerMove = useCallback(
+        (e: React.PointerEvent) => {
+            if (!dragState.current.active || dragState.current.pointerId !== e.pointerId) return;
+            e.preventDefault();
+            applyDragMove(e.clientX, e.clientY);
+        },
+        [applyDragMove],
+    );
 
     const endDrag = useCallback(
         (e: React.PointerEvent) => {
             if (!dragState.current.active || dragState.current.pointerId !== e.pointerId) return;
-            dragState.current.active = false;
-            persistAnchor(anchorRef.current);
+            e.preventDefault();
+            endDragSession();
             try {
                 e.currentTarget.releasePointerCapture(e.pointerId);
             } catch {
                 /* ignore */
             }
         },
-        [persistAnchor],
+        [endDragSession],
+    );
+
+    const executeAction = useCallback(
+        async (action: AssistantAction) => {
+            if (action.type === 'navigate' && typeof action.path === 'string') {
+                router.push(action.path);
+                toast.success('Opening page…');
+                return;
+            }
+            if (action.type === 'refresh_page') {
+                toast.success('Refreshing…');
+                await hardRefreshPage(router);
+                return;
+            }
+            if (action.type === 'logout') {
+                logout();
+                toast.success('Signed out');
+                return;
+            }
+            if (action.type === 'ui_action') {
+                const target = action.ui_target || action.target;
+                if (target === 'profile_logout') {
+                    logout();
+                    toast.success('Signed out');
+                } else if (typeof target === 'string') {
+                    dispatchUiAction(target as 'profile_menu' | 'open_settings' | 'profile_logout');
+                    toast.success('Done');
+                }
+                return;
+            }
+            const result = await assistantApi.execute(action);
+            if (result.type === 'navigate' && typeof result.path === 'string') {
+                router.push(result.path);
+                toast.success('Opening page…');
+            } else if (result.type === 'toggle_ai') {
+                toast.success(
+                    result.ai_enabled ? 'AI enabled for conversation' : 'AI disabled — manual mode',
+                );
+                await reloadView(router);
+            } else if (result.type === 'change_user_role') {
+                const name = typeof result.name === 'string' ? result.name : 'User';
+                const role = typeof result.role === 'string' ? result.role : '';
+                toast.success(`${name} is now ${role}`);
+                await reloadView(router);
+            } else if (result.type === 'assign_lead') {
+                const assignee = result.assigned_to ?? 'agent';
+                const status =
+                    typeof result.lead_status === 'string' ? result.lead_status : 'assigned';
+                toast.success(`Lead assigned to ${assignee} · status: ${status}`);
+                await reloadView(router);
+            } else if (result.type === 'update_lead_status') {
+                toast.success(`Status updated to ${result.lead_status ?? 'new status'}`);
+                await reloadView(router);
+            } else if (result.type === 'send_message') {
+                toast.success('Message sent on WhatsApp');
+                await reloadView(router);
+            } else if (result.type === 'toggle_user_status') {
+                const name = typeof result.name === 'string' ? result.name : 'User';
+                toast.success(`${name} ${result.active ? 'enabled' : 'disabled'}`);
+                await reloadView(router);
+            } else if (result.type === 'verify_user') {
+                const name = typeof result.name === 'string' ? result.name : 'User';
+                toast.success(`${name} verified`);
+                await reloadView(router);
+            } else if (result.type === 'delete_user') {
+                toast.success('User deleted');
+                await reloadView(router);
+            } else if (result.type === 'create_user') {
+                toast.success(`User ${result.email ?? 'created'}`);
+                await reloadView(router);
+            } else if (result.type === 'reset_user_password') {
+                const msg =
+                    typeof result.message === 'string'
+                        ? result.message
+                        : 'Password reset. Check User Management for the temporary password.';
+                toast.success(msg);
+                await reloadView(router);
+            } else if (result.type === 'update_user_profile') {
+                toast.success(`Profile updated for ${result.name ?? 'user'}`);
+                await reloadView(router);
+            } else if (result.type === 'update_settings' || result.type === 'switch_ai_provider') {
+                toast.success('Settings updated');
+                await reloadView(router);
+            } else if (result.type === 'get_analytics') {
+                router.push('/dashboard');
+                toast.success('Analytics loaded');
+            } else if (result.type === 'create_task') {
+                toast.success(`Task created: ${result.title ?? 'OK'}`);
+                await reloadView(router);
+            } else if (result.type === 'update_task') {
+                toast.success('Task updated');
+                await reloadView(router);
+            } else if (result.type === 'delete_task') {
+                toast.success('Task deleted');
+                await reloadView(router);
+            } else if (result.type === 'create_customer') {
+                toast.success(`Customer ${result.name ?? 'created'}`);
+                router.push(`/customers/${result.uuid}`);
+            } else if (result.type === 'bulk_delete_users' || result.type === 'bulk_delete_customers') {
+                const n = Array.isArray(result.deleted) ? result.deleted.length : 0;
+                toast.success(`Deleted ${n} item(s)`);
+                await reloadView(router);
+            } else {
+                toast.success('Done');
+            }
+        },
+        [router, logout],
+    );
+
+    const runAction = useCallback(
+        async (action: AssistantAction, index: number) => {
+            const key = `${action.type}-${index}`;
+            setExecutingAction(key);
+            try {
+                await executeAction(action);
+            } catch (err) {
+                toast.error(getErrorMessage(err));
+            } finally {
+                setExecutingAction(null);
+            }
+        },
+        [executeAction],
     );
 
     const sendMessage = useCallback(async () => {
@@ -313,18 +576,60 @@ export function AppAssistant() {
         if (!text || isLoading) return;
 
         const userMsg: AssistantChatMessage = { role: 'user', content: text };
-        const historyForApi = messages.filter((m) => m !== WELCOME);
+        const historyForApi = messages
+            .filter((m) => m !== WELCOME)
+            .map(({ role, content }) => ({ role, content }));
         setMessages((prev) => [...prev, userMsg]);
         setInput('');
         setIsLoading(true);
 
         try {
-            const { reply } = await assistantApi.chat({
+            const { reply, actions } = await assistantApi.chat({
                 message: text,
                 history: historyForApi,
                 pathname: pathname ?? undefined,
             });
-            setMessages((prev) => [...prev, { role: 'assistant', content: reply }]);
+
+            const responseActions = actions ?? [];
+            const executedActions: AssistantAction[] = [];
+
+            const chatHistory = [...messages.filter((m) => m !== WELCOME), userMsg];
+            const autoActions = resolveClientActions(
+                text,
+                responseActions,
+                pathname ?? undefined,
+                chatHistory,
+            );
+            setExecutingAction('auto');
+            try {
+                for (const autoAction of autoActions) {
+                    try {
+                        await executeAction(autoAction);
+                        executedActions.push(autoAction);
+                        if (autoAction.type === 'navigate' && autoActions.length > 1) {
+                            await new Promise((r) => setTimeout(r, 350));
+                        }
+                    } catch (err) {
+                        toast.error(getErrorMessage(err));
+                    }
+                }
+            } finally {
+                setExecutingAction(null);
+            }
+
+            const visibleActions = responseActions.filter(
+                (a) => !actionExecuted(executedActions, a),
+            );
+
+            setMessages((prev) => [
+                ...prev,
+                {
+                    role: 'assistant',
+                    content: reply,
+                    actions: visibleActions.length > 0 ? visibleActions : undefined,
+                    pendingActions: responseActions.length > 0 ? responseActions : undefined,
+                },
+            ]);
         } catch (err) {
             toast.error(getErrorMessage(err));
             setMessages((prev) => prev.slice(0, -1));
@@ -332,7 +637,7 @@ export function AppAssistant() {
         } finally {
             setIsLoading(false);
         }
-    }, [input, isLoading, messages, pathname]);
+    }, [input, isLoading, messages, pathname, executeAction]);
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -349,10 +654,19 @@ export function AppAssistant() {
         setOpen((v) => !v);
     };
 
+    const suppressClickAfterDrag = (e: React.MouseEvent) => {
+        if (dragState.current.moved) {
+            e.preventDefault();
+            e.stopPropagation();
+            dragState.current.moved = false;
+        }
+    };
+
     if (viewport.w === 0 || rect === null) return null;
 
     return (
         <div
+            ref={containerRef}
             className="fixed z-50 flex flex-col items-stretch select-none"
             style={{
                 left: rect.left,
@@ -370,17 +684,18 @@ export function AppAssistant() {
                     data-assistant-drag
                     onPointerDown={onDragPointerDown}
                     onClick={toggleOpen}
+                    onClickCapture={suppressClickAfterDrag}
                     className={cn(
-                        'h-14 w-14 shrink-0 cursor-grab self-start rounded-full shadow-lg active:cursor-grabbing',
+                        'h-14 w-14 shrink-0 cursor-grab self-start rounded-full shadow-lg active:cursor-grabbing touch-none',
                         themeClasses.btnPrimary,
                         'text-white',
                     )}
-                    style={{ width: FAB_SIZE, height: FAB_SIZE }}
+                    style={{ width: FAB_SIZE, height: FAB_SIZE, WebkitTapHighlightColor: 'transparent' }}
                     aria-label={`Open ${ASSISTANT_NAME}`}
                     aria-expanded={false}
-                    title="Drag to move · Click to open"
+                    title="Drag to move · Tap to open"
                 >
-                    <MessageCircle className="h-6 w-6" />
+                    <MessageCircle className="h-6 w-6 pointer-events-none" />
                 </Button>
             )}
 
@@ -398,11 +713,11 @@ export function AppAssistant() {
                     >
                         <div
                             data-assistant-drag
-                            className="flex min-w-0 flex-1 cursor-grab items-center gap-2 active:cursor-grabbing"
+                            className="flex min-w-0 flex-1 cursor-grab items-center gap-2 active:cursor-grabbing touch-none py-1 -my-1"
                             onPointerDown={onDragPointerDown}
                             title="Drag to move"
                         >
-                            <GripVertical className="h-4 w-4 shrink-0 text-white/70" aria-hidden />
+                            <GripVertical className="h-5 w-5 shrink-0 text-white/70 pointer-events-none" aria-hidden />
                             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20">
                                 <Bot className="h-5 w-5" />
                             </div>
@@ -438,6 +753,26 @@ export function AppAssistant() {
                                     )}
                                 >
                                     {msg.content}
+                                    {msg.actions && msg.actions.length > 0 && (
+                                        <div className="mt-2 flex flex-col gap-1.5">
+                                            {msg.actions.map((action, ai) => (
+                                                <Button
+                                                    key={`${action.type}-${ai}`}
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="h-8 text-xs justify-start bg-background"
+                                                    disabled={executingAction !== null}
+                                                    onClick={() => void runAction(action, ai)}
+                                                >
+                                                    {executingAction === `${action.type}-${ai}` ? (
+                                                        <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                                                    ) : null}
+                                                    {action.label || action.type}
+                                                </Button>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                             {isLoading && (

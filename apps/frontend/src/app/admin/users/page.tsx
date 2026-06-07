@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
 import { adminApi, authApi, UserListItem } from "@/lib/api";
 import { toast } from "sonner";
 import {
@@ -39,12 +40,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ListPageSkeleton } from "@/components/data/ListPageSkeleton";
 import { ListPageShell } from "@/components/data/ListPageShell";
-import { ListPageToolbar } from "@/components/data/ListPageToolbar";
+import { ListPageToolbar, ToolbarActionLabel, toolbarInlineActionBtn } from "@/components/data/ListPageToolbar";
 import { TableFilterModal } from "@/components/data/TableFilterModal";
 import { applyTableFilters, type FilterCondition } from "@/lib/table-filter";
 import { adminUserFilterFields } from "@/lib/table-filter-presets";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Plus, MoreVertical, ShieldCheck, UserCheck, UserX, KeyRound, Trash2, Download, ChevronLeft, ChevronRight, User, Loader2 } from "lucide-react";
+import { Plus, MoreVertical, ShieldCheck, ShieldAlert, UserCheck, UserX, KeyRound, Trash2, Download, ChevronLeft, ChevronRight, User, Loader2 } from "lucide-react";
 import { PasswordStrength } from "@/components/auth/PasswordStrength";
 import { cn } from "@/lib/utils";
 
@@ -52,6 +53,7 @@ const ITEMS_PER_PAGE = 10;
 
 export default function AdminUsersPage() {
     const router = useRouter();
+    const { isAdmin, isLoading: authLoading, user: currentUser } = useAuth();
     const [users, setUsers] = useState<UserListItem[]>([]);
     const [totalUsers, setTotalUsers] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
@@ -211,11 +213,22 @@ export default function AdminUsersPage() {
     const handleBulkDelete = async () => {
         if (selectedUsers.size === 0) return;
 
+        const userIds = Array.from(selectedUsers).filter((id) => id !== currentUser?.id);
+        if (userIds.length === 0) {
+            toast.error("You cannot delete your own account");
+            return;
+        }
+
         setIsBulkDeleting(true);
         try {
-            const deletePromises = Array.from(selectedUsers).map(userId => adminApi.deleteUser(userId));
-            await Promise.all(deletePromises);
-            toast.success(`${selectedUsers.size} users deleted successfully`);
+            const result = await adminApi.bulkDeleteUsers(userIds);
+            const deleted = result.deleted.length;
+            const failed = result.errors.length;
+            if (failed > 0) {
+                toast.warning(`Deleted ${deleted} user(s); ${failed} could not be deleted`);
+            } else {
+                toast.success(`${deleted} user(s) deleted successfully`);
+            }
             setSelectedUsers(new Set());
             setShowBulkDeleteConfirm(false);
             fetchUsers(currentPage, debouncedSearch);
@@ -234,7 +247,12 @@ export default function AdminUsersPage() {
         setActionLoading(userId);
         try {
             const response = await adminApi.resetUserPassword(userId);
-            toast.success(response.message);
+            try {
+                await navigator.clipboard.writeText(response.temporary_password);
+                toast.success("Temporary password copied to clipboard");
+            } catch {
+                toast.success("Password reset — copy it from the admin API response");
+            }
             setResetPasswordTarget(null);
         } catch (err: unknown) {
             toast.error(err instanceof Error ? err.message : "Failed to reset password");
@@ -316,9 +334,9 @@ export default function AdminUsersPage() {
         <>
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="h-10 shrink-0 gap-2 px-4">
-                        <Download className="h-4 w-4" />
-                        Export
+                    <Button variant="outline" className={toolbarInlineActionBtn} aria-label="Export">
+                        <Download className="h-4 w-4 shrink-0" />
+                        <ToolbarActionLabel>Export</ToolbarActionLabel>
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -341,13 +359,14 @@ export default function AdminUsersPage() {
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
                     <Button
+                        aria-label="Add User"
                         className={cn(
-                            'h-10 shrink-0 gap-2 px-4',
+                            toolbarInlineActionBtn,
                             'bg-gray-900 hover:bg-gray-800 text-white dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white',
                         )}
                     >
-                        <Plus className="h-4 w-4" />
-                        Add User
+                        <Plus className="h-4 w-4 shrink-0" />
+                        <ToolbarActionLabel>Add User</ToolbarActionLabel>
                     </Button>
                 </DialogTrigger>
                         <DialogContent className="sm:max-w-[425px]">
@@ -411,6 +430,23 @@ export default function AdminUsersPage() {
         </>
     );
 
+    if (authLoading) {
+        return <ListPageSkeleton columns={6} />;
+    }
+
+    if (!isAdmin()) {
+        return (
+            <div className="text-center py-16">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-4">
+                    <ShieldAlert className="w-8 h-8 text-red-500" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-800 mb-2">Access Denied</h2>
+                <p className="text-gray-500 mb-6">Only administrators can manage users.</p>
+                <Button onClick={() => router.push("/dashboard")}>Go to Dashboard</Button>
+            </div>
+        );
+    }
+
     if (isLoading && users.length === 0) {
         return <ListPageSkeleton columns={6} />;
     }
@@ -466,7 +502,7 @@ export default function AdminUsersPage() {
             )}
 
             <div className="flex-1 min-h-0 overflow-auto border-t border-gray-200 dark:border-gray-800">
-                <Table containerClassName="overflow-visible">
+                <Table containerClassName="overflow-x-auto">
                     <TableHeader>
                         <TableRow className="border-b-0 bg-transparent hover:bg-transparent">
                             <TableHead className="sticky top-0 z-10 w-12 bg-gray-50 px-4 shadow-[inset_0_-1px_0_0] shadow-gray-200 dark:bg-gray-900 dark:shadow-gray-800">
@@ -485,10 +521,10 @@ export default function AdminUsersPage() {
                             <TableHead className="sticky top-0 z-10 bg-gray-50 px-4 py-3.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 shadow-[inset_0_-1px_0_0] shadow-gray-200 dark:bg-gray-900 dark:text-gray-400 dark:shadow-gray-800">
                                 Status
                             </TableHead>
-                            <TableHead className="sticky top-0 z-10 bg-gray-50 px-4 py-3.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 shadow-[inset_0_-1px_0_0] shadow-gray-200 dark:bg-gray-900 dark:text-gray-400 dark:shadow-gray-800">
+                            <TableHead className="sticky top-0 z-10 hidden md:table-cell bg-gray-50 px-4 py-3.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 shadow-[inset_0_-1px_0_0] shadow-gray-200 dark:bg-gray-900 dark:text-gray-400 dark:shadow-gray-800">
                                 Verified
                             </TableHead>
-                            <TableHead className="sticky top-0 z-10 bg-gray-50 px-4 py-3.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 shadow-[inset_0_-1px_0_0] shadow-gray-200 dark:bg-gray-900 dark:text-gray-400 dark:shadow-gray-800">
+                            <TableHead className="sticky top-0 z-10 hidden lg:table-cell bg-gray-50 px-4 py-3.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 shadow-[inset_0_-1px_0_0] shadow-gray-200 dark:bg-gray-900 dark:text-gray-400 dark:shadow-gray-800">
                                 Last Login
                             </TableHead>
                             <TableHead className="sticky top-0 z-10 w-16 bg-gray-50 px-4 py-3.5 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-500 shadow-[inset_0_-1px_0_0] shadow-gray-200 dark:bg-gray-900 dark:text-gray-400 dark:shadow-gray-800">
@@ -534,16 +570,18 @@ export default function AdminUsersPage() {
                                     </TableCell>
                                     <TableCell>
                                         {user.isActive ? (
-                                            <Badge className="bg-green-100 text-green-700 hover:bg-green-200 shadow-none border-0">
-                                                Enabled
+                                            <Badge className="bg-green-100 text-green-700 hover:bg-green-200 shadow-none border-0 whitespace-nowrap">
+                                                <span className="sm:hidden">Active</span>
+                                                <span className="hidden sm:inline">Enabled</span>
                                             </Badge>
                                         ) : (
-                                            <Badge className="bg-gray-100 text-gray-600 hover:bg-gray-200 shadow-none border-0">
-                                                Disabled
+                                            <Badge className="bg-gray-100 text-gray-600 hover:bg-gray-200 shadow-none border-0 whitespace-nowrap">
+                                                <span className="sm:hidden">Off</span>
+                                                <span className="hidden sm:inline">Disabled</span>
                                             </Badge>
                                         )}
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden md:table-cell">
                                         {user.emailVerified ? (
                                             <Badge className="bg-green-100 text-green-700 hover:bg-green-200 shadow-none border-0">
                                                 Yes
@@ -554,7 +592,7 @@ export default function AdminUsersPage() {
                                             </Badge>
                                         )}
                                     </TableCell>
-                                    <TableCell className="text-muted-foreground">
+                                    <TableCell className="hidden lg:table-cell text-muted-foreground">
                                         {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : "Never"}
                                     </TableCell>
                                     <TableCell className="text-right">
@@ -711,7 +749,7 @@ export default function AdminUsersPage() {
                         <span className="font-medium text-foreground">
                             {resetPasswordTarget?.name ?? 'this user'}
                         </span>
-                        {' '}and send a temporary password via email. Continue?
+                        . A temporary password will be copied to your clipboard. Continue?
                     </>
                 }
                 confirmLabel="Reset Password"

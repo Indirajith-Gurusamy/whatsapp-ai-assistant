@@ -175,6 +175,16 @@ export interface MessageResponse {
   message: string;
 }
 
+export interface ResetPasswordResponse {
+  message: string;
+  temporary_password: string;
+}
+
+export interface BulkDeleteUsersResponse {
+  deleted: number[];
+  errors: { user_id: number; error: string }[];
+}
+
 const capitalize = (value: string) =>
   value.charAt(0).toUpperCase() + value.slice(1);
 
@@ -308,6 +318,11 @@ class ApiClient {
       return await response.json();
     } catch (error) {
       console.error(`API request failed: ${endpoint}`, error);
+      if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        throw new Error(
+          'Cannot reach the API server. Ensure the backend is running (port 8000) and the database is migrated (python scripts/db.py push local).'
+        );
+      }
       throw error;
     }
   }
@@ -521,12 +536,31 @@ export const fetchCustomerHistoryByUuid = async (uuid: string): Promise<Conversa
   return apiClient.get(`/api/customers/by-uuid/${uuid}/history`);
 };
 
+export const customersApi = {
+  create: (data: { phone: string; name?: string }) =>
+    apiClient.post<{ uuid: string; phone: string; name: string; created: boolean }>(
+      '/api/customers',
+      data,
+    ),
+  delete: (uuid: string) =>
+    apiClient.delete<{ success: boolean; deleted_uuid: string }>(`/api/customers/by-uuid/${uuid}`),
+  bulkDelete: (customer_uuids: string[]) =>
+    apiClient.post<{ deleted: string[]; errors: { uuid: string; error: string }[] }>(
+      '/api/customers/bulk-delete',
+      { customer_uuids },
+    ),
+};
+
 export const toggleConversationAI = async (uuid: string, aiEnabled: boolean) => {
   return apiClient.put(`/api/conversation/by-uuid/${uuid}/ai-toggle`, { enabled: aiEnabled });
 };
 
 export const sendAgentMessage = async (uuid: string, message: string) => {
   return apiClient.post(`/api/conversation/by-uuid/${uuid}/send-message`, { message });
+};
+
+export const suggestAgentReply = async (uuid: string): Promise<{ suggestion: string }> => {
+  return apiClient.post(`/api/conversation/by-uuid/${uuid}/suggest-reply`, {});
 };
 
 // Analytics API
@@ -546,33 +580,121 @@ export interface AssistantChatRequest {
   pathname?: string;
 }
 
+export interface AssistantAction {
+  type: string;
+  label?: string;
+  path?: string;
+  conversation_uuid?: string;
+  customer_uuid?: string;
+  enabled?: boolean;
+  user_id?: number;
+  role?: string;
+  user_email?: string;
+  lead_status?: string;
+  comments?: string;
+  message?: string;
+  active?: boolean;
+  email?: string;
+  password?: string;
+  name?: string;
+  profile_name?: string;
+  bio?: string;
+  phone?: string;
+  settings_category?: string;
+  category?: string;
+  settings?: Record<string, unknown>;
+  settings_json?: string;
+  provider_id?: string;
+  task_uuid?: string;
+  task_title?: string;
+  title?: string;
+  task_description?: string;
+  description?: string;
+  task_status?: string;
+  status?: string;
+  task_priority?: string;
+  priority?: string;
+  assigned_to?: string;
+  customer_name?: string;
+  user_ids?: number[];
+  customer_uuids?: string[];
+  ui_target?: string;
+  target?: string;
+}
+
 export interface AssistantChatResponse {
   reply: string;
   provider_name?: string;
+  actions?: AssistantAction[];
 }
 
 export const assistantApi = {
   async chat(body: AssistantChatRequest): Promise<AssistantChatResponse> {
     return apiClient.post('/api/v1/assistant/chat', body);
   },
+  async execute(action: AssistantAction): Promise<Record<string, unknown>> {
+    return apiClient.post('/api/v1/assistant/execute', { action });
+  },
 };
 
-// Tasks API (no backend module exists - stubs for now)
+export const quickRepliesApi = {
+  list: () => apiClient.get<import('@/types').QuickReply[]>('/api/v1/quick-replies'),
+  listManage: () => apiClient.get<import('@/types').QuickReply[]>('/api/v1/quick-replies/manage'),
+  create: (data: { title: string; body: string; category?: string; sort_order?: number }) =>
+    apiClient.post('/api/v1/quick-replies', data),
+  update: (uuid: string, data: Partial<{ title: string; body: string; category: string; sort_order: number; is_active: boolean }>) =>
+    apiClient.patch(`/api/v1/quick-replies/${uuid}`, data),
+  remove: (uuid: string) => apiClient.delete(`/api/v1/quick-replies/${uuid}`),
+};
+
+export const knowledgeApi = {
+  list: () => apiClient.get<import('@/types').KnowledgeDocument[]>('/api/v1/knowledge'),
+  upload: async (title: string, file: File) => {
+    const form = new FormData();
+    form.append('title', title);
+    form.append('file', file);
+    const token = tokenStorage.getToken();
+    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const res = await fetch(`${base}/api/v1/knowledge/upload`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error((err as { detail?: string }).detail || 'Upload failed');
+    }
+    return res.json();
+  },
+  ingestText: (title: string, text: string) =>
+    apiClient.post('/api/v1/knowledge/text', { title, text }),
+  setActive: (uuid: string, is_active: boolean) =>
+    apiClient.patch(`/api/v1/knowledge/${uuid}/active`, { is_active }),
+  remove: (uuid: string) => apiClient.delete(`/api/v1/knowledge/${uuid}`),
+};
+
 export const tasksApi = {
   async getTasks(): Promise<TaskListResponse> {
-    return { tasks: [], total: 0 };
+    return apiClient.get<TaskListResponse>('/api/v1/tasks');
   },
 
-  async createTask(_data: CreateTaskPayload): Promise<never> {
-    throw new Error('Task creation not yet implemented on backend');
+  async createTask(data: CreateTaskPayload): Promise<Task> {
+    return apiClient.post<Task>('/api/v1/tasks', {
+      title: data.title,
+      description: data.description,
+      status: data.status,
+      priority: data.priority,
+      due_date: data.due_date,
+      assigned_to: data.assigned_to,
+    });
   },
 
-  async updateTask(_uuid: string, _data: UpdateTaskPayload): Promise<never> {
-    throw new Error('Task update not yet implemented on backend');
+  async updateTask(uuid: string, data: UpdateTaskPayload): Promise<Task> {
+    return apiClient.patch<Task>(`/api/v1/tasks/${uuid}`, data);
   },
 
-  async deleteTask(_uuid: string): Promise<never> {
-    throw new Error('Task deletion not yet implemented on backend');
+  async deleteTask(uuid: string): Promise<{ deleted_uuid: string }> {
+    return apiClient.delete(`/api/v1/tasks/${uuid}`);
   },
 };
 
@@ -600,7 +722,7 @@ export const settingsApi = {
     return apiClient.post(`/api/v1/settings/test/ai${query}`);
   },
 
-  async sendTestWhatsApp(data: { account_id?: string; phone_number: string; message: string; is_template?: boolean }): Promise<TestResult> {
+  async sendTestWhatsApp(data: { account_id?: string; phone_number: string; message: string }): Promise<TestResult> {
     return apiClient.post('/api/v1/settings/test/whatsapp/send', data);
   },
 
@@ -624,7 +746,7 @@ export const adminApi = {
   ): Promise<UserListResponse> {
     const params = new URLSearchParams({
       skip: String(skip),
-      limit: String(limit),
+      limit: String(Math.min(limit, 100)),
     });
     if (search?.trim()) {
       params.set('search', search.trim());
@@ -654,6 +776,10 @@ export const adminApi = {
     return apiClient.delete(`/api/v1/admin/users/${id}`);
   },
 
+  async bulkDeleteUsers(user_ids: number[]): Promise<BulkDeleteUsersResponse> {
+    return apiClient.post('/api/v1/admin/users/bulk-delete', { user_ids });
+  },
+
   async toggleUserStatus(userId: number, isActive: boolean): Promise<ToggleStatusResponse> {
     return apiClient.put(`/api/v1/admin/users/${userId}/status`, { is_active: isActive });
   },
@@ -662,7 +788,7 @@ export const adminApi = {
     return apiClient.put(`/api/v1/admin/users/${userId}/verify`, {});
   },
 
-  async resetUserPassword(userId: number): Promise<MessageResponse> {
+  async resetUserPassword(userId: number): Promise<ResetPasswordResponse> {
     return apiClient.post(`/api/v1/admin/users/${userId}/reset-password`);
   },
 

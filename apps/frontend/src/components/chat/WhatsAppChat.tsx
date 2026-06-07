@@ -4,12 +4,14 @@ import { useMemo, useRef, useEffect, useCallback } from 'react';
 import {
     ArrowLeft,
     Bot,
+    Loader2,
     MoreVertical,
-    Paperclip,
     Send,
-    Smile,
+    Sparkles,
     UserRound,
+    Zap,
 } from 'lucide-react';
+import type { QuickReply } from '@/types';
 import { cn } from '@/lib/utils';
 import type { ConversationHistory } from '@/types';
 import { MessageBubble, DateDivider, formatDateDivider } from './MessageBubble';
@@ -32,6 +34,9 @@ interface WhatsAppChatProps {
     pendingMessages?: ConversationHistory[];
     onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
     onBack?: () => void;
+    quickReplies?: QuickReply[];
+    onSuggestReply?: () => void;
+    isSuggesting?: boolean;
 }
 
 function getInitials(name: string): string {
@@ -73,6 +78,9 @@ export function WhatsAppChat({
     pendingMessages = [],
     onKeyDown,
     onBack,
+    quickReplies = [],
+    onSuggestReply,
+    isSuggesting = false,
 }: WhatsAppChatProps) {
     const messagesScrollRef = useRef<HTMLDivElement>(null);
     const displayHistory = useMemo(
@@ -202,21 +210,39 @@ export function WhatsAppChat({
             {/* Footer */}
             <footer className="flex-none bg-[#f0f2f5] px-3 py-2 pb-3 shrink-0 border-t border-[#d1d7db]/80">
                 {!aiEnabled ? (
+                    <div className="space-y-2">
+                        {(quickReplies.length > 0 || onSuggestReply) && (
+                            <div className="flex flex-wrap gap-1.5 items-center">
+                                {onSuggestReply && (
+                                    <button
+                                        type="button"
+                                        onClick={onSuggestReply}
+                                        disabled={isSuggesting || !conversationUuid}
+                                        className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white text-xs text-[#008069] border border-[#d1d7db] hover:bg-[#f0f2f5] disabled:opacity-50"
+                                    >
+                                        {isSuggesting ? (
+                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                        ) : (
+                                            <Sparkles className="w-3 h-3" />
+                                        )}
+                                        Suggest reply
+                                    </button>
+                                )}
+                                {quickReplies.slice(0, 6).map((qr) => (
+                                    <button
+                                        key={qr.uuid}
+                                        type="button"
+                                        onClick={() => onAgentMessageChange(qr.body)}
+                                        className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white text-xs text-[#54656f] border border-[#d1d7db] hover:bg-[#f0f2f5] max-w-[140px] truncate"
+                                        title={qr.body}
+                                    >
+                                        <Zap className="w-3 h-3 shrink-0 text-[#00a884]" />
+                                        {qr.title}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     <div className="flex items-end gap-2">
-                        <button
-                            type="button"
-                            className="p-2 text-[#54656f] shrink-0 hidden sm:block"
-                            aria-hidden
-                        >
-                            <Smile className="w-6 h-6" />
-                        </button>
-                        <button
-                            type="button"
-                            className="p-2 text-[#54656f] shrink-0 hidden sm:block"
-                            aria-hidden
-                        >
-                            <Paperclip className="w-6 h-6" />
-                        </button>
                         <div className="flex-1 flex items-end bg-white rounded-lg shadow-sm min-h-[42px] px-3 py-2">
                             <textarea
                                 value={agentMessage}
@@ -236,6 +262,7 @@ export function WhatsAppChat({
                         >
                             <Send className="w-5 h-5" />
                         </Button>
+                    </div>
                     </div>
                 ) : (
                     <div className="flex items-center justify-center gap-2 py-2 px-3 bg-white/90 rounded-lg border border-[#e9edef]">

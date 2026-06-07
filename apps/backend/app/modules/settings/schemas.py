@@ -43,8 +43,7 @@ class TestMessageRequest(BaseModel):
     """Request body to send a test WhatsApp message."""
     account_id: Optional[str] = None
     phone_number: str = Field(..., description="Recipient phone number with country code")
-    message: str = Field(..., description="Message text (or template parameters) to send")
-    is_template: bool = Field(False, description="Whether to send as a Meta template")
+    message: str = Field(..., description="Message text to send")
 
 
 # ── Audit log ────────────────────────────────────────

@@ -2,6 +2,7 @@ import type { TableFilterField } from '@/lib/table-filter';
 
 const LEAD_STATUS_OPTIONS = [
     'new lead',
+    'assigned',
     'application sent',
     'application in',
     'nurture',
@@ -21,6 +22,7 @@ export const customerFilterFields: TableFilterField[] = [
     { key: 'name', label: 'Name', type: 'text', valueInput: 'select' },
     { key: 'phone', label: 'Phone', type: 'text', valueInput: 'select' },
     { key: 'lead_status', label: 'Status', type: 'text', valueInput: 'select', staticOptions: LEAD_STATUS_OPTIONS },
+    { key: 'assigned_to', label: 'Assigned To', type: 'text', valueInput: 'select', optionsSource: 'team-users' },
     { key: 'message_time', label: 'Last Contact', type: 'date', valueInput: 'date' },
     { key: 'message', label: 'Last Message', type: 'text', valueInput: 'text' },
 ];

@@ -13,6 +13,17 @@ from app.modules.ai.providers_util import (
     parse_ai_providers,
 )
 from app.modules.settings.service import DEFAULT_SETTINGS, SettingsService
+from app.modules.knowledge.service import KnowledgeService
+from app.modules.ai.assistant_tools import (
+    build_actions_prompt_suffix,
+    parse_actions_from_reply,
+)
+from app.modules.ai.assistant_context import (
+    build_live_context,
+    enrich_reply_with_counts,
+    infer_actions,
+    try_deterministic_reply,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +107,12 @@ class AIService:
             f"for conversation {conversation_id}..."
         )
 
-        chat_messages = [{"role": "system", "content": ai_settings["system_prompt"]}]
+        system = ai_settings["system_prompt"]
+        if conversation_id:
+            rag = await KnowledgeService.retrieve_context(message)
+            if rag:
+                system = f"{system}\n\n{rag}"
+        chat_messages = [{"role": "system", "content": system}]
         if conversation_id:
             chat_messages.extend(
                 await AIService._get_conversation_history(conversation_id)
@@ -144,6 +160,7 @@ class AIService:
         history: Optional[List[Dict[str, str]]] = None,
         user_role: str = "USER",
         pathname: Optional[str] = None,
+        current_user=None,
     ) -> Dict[str, str]:
         """In-app help chat using the same active provider as WhatsApp replies."""
         ai_settings = await AIService._get_ai_settings()
@@ -157,11 +174,41 @@ class AIService:
         config = provider.get("config") or {}
         provider_name = provider.get("name") or provider_type
 
-        chat_messages: List[Dict[str, str]] = [
-            {
-                "role": "system",
-                "content": AIService._build_assistant_system_prompt(user_role, pathname),
+        live_ctx = await build_live_context(
+            message, history, user_role, pathname=pathname
+        )
+
+        quick = try_deterministic_reply(message, history, live_ctx)
+        if quick:
+            return {
+                "reply": quick["reply"],
+                "provider_name": provider_name,
+                "actions": quick["actions"],
             }
+
+        if current_user is not None:
+            from app.modules.ai.assistant_context import _wants_analytics
+            from app.modules.ai.assistant_exec_extended import execute_extended_action
+
+            if _wants_analytics(message):
+                analytics_result = await execute_extended_action(
+                    {"type": "get_analytics"}, current_user
+                )
+                if analytics_result.get("success"):
+                    return {
+                        "reply": analytics_result.get("summary", "Analytics loaded."),
+                        "provider_name": provider_name,
+                        "actions": [{"type": "get_analytics", "label": "Dashboard stats"}],
+                    }
+
+        system_content = (
+            AIService._build_assistant_system_prompt(user_role, pathname)
+            + build_actions_prompt_suffix(user_role, pathname)
+            + "\n\n"
+            + live_ctx.prompt_block
+        )
+        chat_messages: List[Dict[str, str]] = [
+            {"role": "system", "content": system_content}
         ]
 
         prior = history or []
@@ -185,4 +232,56 @@ class AIService:
             temperature=min(ai_settings["temperature"], 0.8),
             max_tokens=ASSISTANT_MAX_TOKENS,
         )
-        return {"reply": response_text, "provider_name": provider_name}
+        clean_reply, actions = parse_actions_from_reply(response_text)
+        actions = infer_actions(message, history, actions, live_ctx)
+        clean_reply = enrich_reply_with_counts(message, history, clean_reply, live_ctx)
+
+        quick_after = try_deterministic_reply(message, history, live_ctx)
+        if quick_after:
+            return {
+                "reply": quick_after["reply"],
+                "provider_name": provider_name,
+                "actions": quick_after["actions"],
+            }
+
+        return {
+            "reply": clean_reply,
+            "provider_name": provider_name,
+            "actions": actions,
+        }
+
+    @staticmethod
+    async def suggest_agent_reply(conversation_id: int) -> str:
+        """Draft a reply for a human agent using thread context."""
+        ai_settings = await AIService._get_ai_settings()
+        provider = get_active_provider(ai_settings["providers"])
+        if not provider:
+            raise Exception("No AI provider configured.")
+
+        history = await AIService._get_conversation_history(conversation_id)
+        provider_type = provider.get("provider", "")
+        config = provider.get("config") or {}
+
+        chat_messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You draft short, professional WhatsApp replies for a human agent. "
+                    "Write ONLY the message text to send — no quotes, no preamble. "
+                    "Match the conversation language and tone. Max 3 sentences."
+                ),
+            },
+            *history,
+            {
+                "role": "user",
+                "content": "Draft the next agent reply based on the conversation above.",
+            },
+        ]
+
+        return await complete_chat(
+            provider_type=provider_type,
+            config=config,
+            messages=chat_messages,
+            temperature=min(ai_settings["temperature"], 0.6),
+            max_tokens=min(ai_settings["max_tokens"], 200),
+        )

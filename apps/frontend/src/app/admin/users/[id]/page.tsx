@@ -171,8 +171,13 @@ export default function AdminUserProfilePage() {
     const handleResetPassword = async () => {
         setIsResettingPassword(true);
         try {
-            await adminApi.resetUserPassword(userId);
-            toast.success('Password reset successfully!');
+            const response = await adminApi.resetUserPassword(userId);
+            try {
+                await navigator.clipboard.writeText(response.temporary_password);
+                toast.success('Temporary password copied to clipboard');
+            } catch {
+                toast.success('Password reset successfully');
+            }
             setShowPasswordReset(false);
         } catch (err: unknown) {
             toast.error(getErrorMessage(err, 'Failed to reset password'));

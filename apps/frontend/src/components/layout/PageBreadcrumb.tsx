@@ -8,12 +8,14 @@ interface PageBreadcrumbProps {
     href: string;
     label: string;
     className?: string;
+    onNavigate?: () => void;
 }
 
-export function PageBreadcrumb({ href, label, className }: PageBreadcrumbProps) {
+export function PageBreadcrumb({ href, label, className, onNavigate }: PageBreadcrumbProps) {
     return (
         <Link
             href={href}
+            onClick={onNavigate}
             className={cn(
                 'inline-flex min-w-0 items-center gap-2 text-sm font-medium',
                 'text-orange-600 transition-colors hover:text-orange-700',

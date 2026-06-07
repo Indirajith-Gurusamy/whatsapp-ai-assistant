@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { MessageSquare, Brain, Zap, Users, ClipboardList, ShieldAlert } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -15,10 +15,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { UnsavedChangesModal } from "@/components/ui/unsaved-changes-modal";
 import { settingsContentPad, settingsPadX } from "@/components/settings/settings-layout";
 
+const VALID_SETTINGS_TABS = new Set(["whatsapp", "ai", "automation", "crm", "audit"]);
+
 export default function SettingsPage() {
     const { isAdmin, isLoading: authLoading } = useAuth();
     const router = useRouter();
-    const [activeTab, setActiveTab] = useState("whatsapp");
+    const searchParams = useSearchParams();
+    const initialTab = (() => {
+        const tab = searchParams.get("tab");
+        return tab && VALID_SETTINGS_TABS.has(tab) ? tab : "whatsapp";
+    })();
+
+    const [activeTab, setActiveTab] = useState(initialTab);
     const [pendingTab, setPendingTab] = useState<string | null>(null);
     const [isDirty, setIsDirty] = useState(false);
 
@@ -66,18 +74,24 @@ export default function SettingsPage() {
         );
     }
 
+    const syncTabUrl = (value: string) => {
+        router.replace(`/settings?tab=${value}`, { scroll: false });
+    };
+
     const handleTabChange = (value: string) => {
         if (isDirty) {
             setPendingTab(value);
             setShowUnsavedConfirm(true);
         } else {
             setActiveTab(value);
+            syncTabUrl(value);
         }
     };
 
     const confirmTabChange = () => {
         if (pendingTab) {
             setActiveTab(pendingTab);
+            syncTabUrl(pendingTab);
             setIsDirty(false);
             setPendingTab(null);
         }

@@ -83,7 +83,6 @@ async def send_test_whatsapp(
         account_id=body.account_id,
         phone_number=body.phone_number,
         message_text=body.message,
-        is_template=body.is_template
     )
     return TestResult(**result)
 

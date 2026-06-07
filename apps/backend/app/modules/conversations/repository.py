@@ -88,31 +88,54 @@ class ConversationRepository(BaseRepository):
         whatsapp_id: Optional[str],
         conversation_id: int,
         role: str,
-        status: str
-    ) -> int:
-        """Save a message to the database."""
+        status: str,
+    ) -> Tuple[int, bool]:
+        """Save a message. Returns (message_id, created). created=False for duplicate webhooks."""
         db = await self.get_db()
-        
-        # Check for duplicate
+
         if whatsapp_id:
             existing = await db.message.find_unique(where={"whatsappId": whatsapp_id})
             if existing:
-                logger.info(f"Message {whatsapp_id} already exists")
-                return existing.id
-        
-        # Create message
-        msg = await db.message.create(
-            data={
+                logger.info(f"Message {whatsapp_id} already exists (duplicate webhook)")
+                return existing.id, False
+
+        try:
+            msg = await db.message.create(
+                data={
+                    "conversationId": conversation_id,
+                    "whatsappId": whatsapp_id,
+                    "message": message,
+                    "role": role,
+                    "timestamp": datetime.now(),
+                    "status": status,
+                }
+            )
+            return msg.id, True
+        except Exception as e:
+            err = str(e).lower()
+            if whatsapp_id and ("unique" in err or "p2002" in err):
+                existing = await db.message.find_unique(where={"whatsappId": whatsapp_id})
+                if existing:
+                    logger.info(f"Message {whatsapp_id} race duplicate — skipping")
+                    return existing.id, False
+            raise
+
+    async def has_reply_after_message(self, conversation_id: int, inbound_message_id: int) -> bool:
+        """True if an assistant/agent reply was already saved for this inbound message."""
+        db = await self.get_db()
+        inbound = await db.message.find_unique(where={"id": inbound_message_id})
+        if not inbound:
+            return False
+        reply = await db.message.find_first(
+            where={
                 "conversationId": conversation_id,
-                "whatsappId": whatsapp_id,
-                "message": message,
-                "role": role,
-                "timestamp": datetime.now(),
-                "status": status
-            }
+                "role": {"in": [MESSAGE_ROLE_ASSISTANT, MESSAGE_ROLE_AGENT]},
+                "id": {"not": inbound_message_id},
+                "timestamp": {"gte": inbound.timestamp},
+            },
+            order={"timestamp": "asc"},
         )
-        
-        return msg.id
+        return reply is not None
 
     _STATUS_RANK = {
         "failed": 0,
@@ -159,15 +182,16 @@ class ConversationRepository(BaseRepository):
         )
     
     async def update_assignment(self, conversation_id: int, email: str):
-        """Update conversation assignment."""
+        """Update conversation assignment and set lead status to assigned."""
         db = await self.get_db()
-        
+
         await db.conversation.update(
             where={"id": conversation_id},
             data={
                 "assignedTo": email,
-                "updatedAt": datetime.now()
-            }
+                "leadStatus": LEAD_STATUS_ASSIGNED,
+                "updatedAt": datetime.now(),
+            },
         )
 
     async def get_conversation_detail(self, conversation_id: int) -> Optional[Dict]:
@@ -355,6 +379,8 @@ class ConversationRepository(BaseRepository):
                 "message_time": conv.createdAt.isoformat(),  # OLD API used message_time
                 "lead_status": conv.leadStatus,
                 "comments": conv.comments,
+                "assigned_to": conv.assignedTo,
+                "conversation_uuid": conv.uuid,
                 "status_updated_at": conv.updatedAt.isoformat()  # OLD API used status_updated_at
             }
             for conv in conversations
@@ -523,15 +549,16 @@ class ConversationRepository(BaseRepository):
         return True
 
     async def update_assignment_by_uuid(self, uuid: str, email: str):
-        """Update conversation assignment by UUID."""
+        """Update conversation assignment by UUID and set lead status to assigned."""
         db = await self.get_db()
-        
+
         await db.conversation.update(
             where={"uuid": uuid},
             data={
                 "assignedTo": email,
-                "updatedAt": datetime.now()
-            }
+                "leadStatus": LEAD_STATUS_ASSIGNED,
+                "updatedAt": datetime.now(),
+            },
         )
 
     async def is_ai_enabled(self, conversation_id: int) -> bool:
@@ -565,3 +592,54 @@ class ConversationRepository(BaseRepository):
             where={"uuid": uuid},
             include={"customer": True}
         )
+
+    async def create_customer_manual(self, phone: str, name: Optional[str] = None) -> Dict[str, Any]:
+        """Create customer with generated wa_id from phone."""
+        import re
+        import uuid as uuid_lib
+        db = await self.get_db()
+        clean = re.sub(r"\D", "", phone or "")
+        if len(clean) < 8:
+            raise ValueError("Valid phone number required")
+        wa_id = f"manual_{clean}"
+        display_name = (name or "Customer").strip()
+        existing = await db.customer.find_first(where={"OR": [{"waId": wa_id}, {"phone": phone}]})
+        if existing:
+            return {
+                "uuid": str(existing.uuid),
+                "phone": existing.phone,
+                "name": existing.name,
+                "created": False,
+            }
+        customer = await db.customer.create(
+            data={
+                "waId": wa_id,
+                "phone": phone,
+                "name": display_name,
+                "createdAt": datetime.now(),
+                "updatedAt": datetime.now(),
+            }
+        )
+        await db.conversation.create(
+            data={
+                "customerId": customer.id,
+                "status": CONVERSATION_STATUS_ACTIVE,
+                "leadStatus": LEAD_STATUS_NEW,
+                "createdAt": datetime.now(),
+                "updatedAt": datetime.now(),
+            }
+        )
+        return {
+            "uuid": str(customer.uuid),
+            "phone": customer.phone,
+            "name": customer.name,
+            "created": True,
+        }
+
+    async def delete_customer_by_uuid(self, customer_uuid: str) -> bool:
+        db = await self.get_db()
+        customer = await db.customer.find_first(where={"uuid": customer_uuid})
+        if not customer:
+            return False
+        await db.customer.delete(where={"id": customer.id})
+        return True

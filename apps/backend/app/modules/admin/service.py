@@ -334,10 +334,22 @@ class AdminService:
         
         await self.db.session.delete_many(where={'userId': user_id})
         
-        logger.warning(f"Admin {admin_id} reset password for user {user_id}. Email service not available - temporary password: {temp_password}")
-        
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Email service is not available. Password reset cannot be completed."
+        logger.warning(
+            f"Admin {admin_id} reset password for user {user_id}. "
+            f"Email unavailable — temp password returned to admin."
         )
+
+        return temp_password
+
+    async def bulk_delete_users(self, user_ids: list, admin_id: int) -> dict:
+        """Delete multiple users; collects per-id errors."""
+        deleted = []
+        errors = []
+        for uid in user_ids:
+            try:
+                result = await self.delete_user(int(uid), admin_id)
+                deleted.append(result.get("deleted_user_id", uid))
+            except HTTPException as exc:
+                errors.append({"user_id": uid, "error": exc.detail})
+        return {"deleted": deleted, "errors": errors}
 

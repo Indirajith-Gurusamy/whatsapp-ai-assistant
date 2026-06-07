@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import Dict, Optional
 from app.modules.conversations.service import ConversationService
 from app.modules.whatsapp.sender import WhatsAppService
+from app.modules.ai.service import AIService
 from app.modules.auth.dependencies import get_current_user, get_db
 from app.core.constants import MESSAGE_ROLE_AGENT, MESSAGE_STATUS_SENT, MESSAGE_STATUS_FAILED
 import logging
@@ -43,7 +44,7 @@ async def get_conversations(
 
 
 @router.get("/conversation/{message_id}")
-async def get_conversation_detail(message_id: int):
+async def get_conversation_detail(message_id: int, current_user=Depends(get_current_user)):
     """Get conversation detail (OLD API path - singular 'conversation')."""
     detail = await ConversationService.get_detail(message_id)
     if not detail:
@@ -52,7 +53,9 @@ async def get_conversation_detail(message_id: int):
 
 
 @router.post("/conversation/{message_id}/status")
-async def update_conversation_status(message_id: int, data: Dict):
+async def update_conversation_status(
+    message_id: int, data: Dict, current_user=Depends(get_current_user)
+):
     """Update conversation status (OLD API path - singular 'conversation')."""
     status = data.get("status")
     comments = data.get("comments")
@@ -88,14 +91,14 @@ async def assign_lead(
 
 
 @router.get("/customers")
-async def get_customers(limit: int = 50):
+async def get_customers(limit: int = 50, current_user=Depends(get_current_user)):
     """Get customers (OLD API path - direct under /api)."""
     customers = await ConversationService.get_customers(limit)
     return customers
 
 
 @router.get("/customers/by-uuid/{uuid}")
-async def get_customer_by_uuid(uuid: str):
+async def get_customer_by_uuid(uuid: str, current_user=Depends(get_current_user)):
     """Get customer details by UUID."""
     customer = await ConversationService.get_customer_by_uuid(uuid)
     if not customer:
@@ -104,21 +107,21 @@ async def get_customer_by_uuid(uuid: str):
 
 
 @router.get("/customers/by-uuid/{uuid}/history")
-async def get_customer_history_by_uuid(uuid: str):
+async def get_customer_history_by_uuid(uuid: str, current_user=Depends(get_current_user)):
     """Get customer history by UUID."""
     history = await ConversationService.get_customer_history_by_uuid(uuid)
     return history
 
 
 @router.get("/customers/{phone}/history")
-async def get_customer_history(phone: str):
+async def get_customer_history(phone: str, current_user=Depends(get_current_user)):
     """Get customer history."""
     history = await ConversationService.get_customer_history(phone)
     return history
 
 
 @router.get("/conversation/by-uuid/{uuid}")
-async def get_conversation_detail_by_uuid(uuid: str):
+async def get_conversation_detail_by_uuid(uuid: str, current_user=Depends(get_current_user)):
     """Get conversation detail by UUID."""
     detail = await ConversationService.get_detail_by_uuid(uuid)
     if not detail:
@@ -127,7 +130,9 @@ async def get_conversation_detail_by_uuid(uuid: str):
 
 
 @router.post("/conversation/by-uuid/{uuid}/status")
-async def update_conversation_status_by_uuid(uuid: str, data: Dict):
+async def update_conversation_status_by_uuid(
+    uuid: str, data: Dict, current_user=Depends(get_current_user)
+):
     """Update conversation status by UUID."""
     status = data.get("status")
     comments = data.get("comments")
@@ -162,7 +167,9 @@ async def assign_lead_by_uuid(
 
 
 @router.post("/customer/{customer_id}")
-async def update_customer(customer_id: int, data: Dict):
+async def update_customer(
+    customer_id: int, data: Dict, current_user=Depends(get_current_user)
+):
     """Update customer information (OLD API path - singular 'customer')."""
     name = data.get("name")
     status = data.get("status")
@@ -223,14 +230,14 @@ async def send_agent_message(
     
     # Save as agent message
     status = MESSAGE_STATUS_SENT if send_success else MESSAGE_STATUS_FAILED
-    message_id = await ConversationService.save_message(
+    message_id, _ = await ConversationService.save_message(
         phone=phone,
         message=message_text,
         name=current_user.name,
         whatsapp_id=provider_id,
         conversation_id=conversation.id,
         role=MESSAGE_ROLE_AGENT,
-        status=status
+        status=status,
     )
     
     if not send_success:
@@ -238,3 +245,54 @@ async def send_agent_message(
     
     logger.info(f"Agent {current_user.email} sent message to {phone} in conversation {uuid}")
     return {"success": True, "message_id": message_id}
+
+
+@router.post("/conversation/by-uuid/{uuid}/suggest-reply")
+async def suggest_reply(uuid: str, current_user=Depends(get_current_user)):
+    """AI-draft next agent message from conversation history."""
+    conversation = await ConversationService.get_conversation_by_uuid(uuid)
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    try:
+        suggestion = await AIService.suggest_agent_reply(conversation.id)
+        return {"suggestion": suggestion.strip()}
+    except Exception as e:
+        logger.warning(f"Suggest reply failed: {e}")
+        raise HTTPException(status_code=503, detail=str(e)) from e
+
+
+@router.post("/customers")
+async def create_customer(data: Dict, current_user=Depends(get_current_user)):
+    """Create a CRM customer manually. Admin only."""
+    if current_user.role != "ADMIN":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    phone = (data.get("phone") or "").strip()
+    name = data.get("name")
+    if not phone:
+        raise HTTPException(status_code=400, detail="phone required")
+    try:
+        return await ConversationService.create_customer(phone, name)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.delete("/customers/by-uuid/{uuid}")
+async def delete_customer(uuid: str, current_user=Depends(get_current_user)):
+    """Delete a customer. Admin only."""
+    if current_user.role != "ADMIN":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    ok = await ConversationService.delete_customer_by_uuid(uuid)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    return {"success": True, "deleted_uuid": uuid}
+
+
+@router.post("/customers/bulk-delete")
+async def bulk_delete_customers(data: Dict, current_user=Depends(get_current_user)):
+    """Bulk delete customers by UUID. Admin only."""
+    if current_user.role != "ADMIN":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    uuids = data.get("customer_uuids") or data.get("uuids") or []
+    if not isinstance(uuids, list) or not uuids:
+        raise HTTPException(status_code=400, detail="customer_uuids list required")
+    return await ConversationService.bulk_delete_customers(uuids)

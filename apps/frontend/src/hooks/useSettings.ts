@@ -20,8 +20,8 @@ export function useSettings(category: string) {
             const res = await settingsApi.getSettings(category);
             setSettings(res.settings);
             setOriginalSettings(res.settings);
-        } catch {
-            // apiFetch already shows toast
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Failed to load settings");
         } finally {
             setIsLoading(false);
         }
@@ -100,14 +100,13 @@ export function useSettings(category: string) {
         }
     };
 
-    const sendTestMessage = async (accountId: string, phoneNumber: string, message: string, isTemplate: boolean = false) => {
+    const sendTestMessage = async (accountId: string, phoneNumber: string, message: string) => {
         setIsTesting(true);
         try {
             const res = await settingsApi.sendTestWhatsApp({
                 account_id: accountId,
                 phone_number: phoneNumber,
                 message: message,
-                is_template: isTemplate
             });
             if (res.success) {
                 toast.success(res.message);

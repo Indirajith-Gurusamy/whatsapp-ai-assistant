@@ -21,9 +21,14 @@ import { updateConversationStatusByUuid } from '@/lib/api';
 import type { ConversationDetail, LeadStatus } from '@/types';
 import { toast } from 'sonner';
 import { themeClasses } from '@/lib/theme';
+import { AssigneeCell } from '@/components/data/AssigneeCell';
+import { useTeamUsers } from '@/hooks/useTeamUsers';
+import { useAuth } from '@/contexts/AuthContext';
+import { formatDateTime } from '@/lib/date';
 
 const statusOptions: { value: LeadStatus; label: string }[] = [
     { value: 'new lead', label: 'New Lead' },
+    { value: 'assigned', label: 'Assigned' },
     { value: 'application sent', label: 'Application Sent' },
     { value: 'application in', label: 'Application In' },
     { value: 'nurture', label: 'Nurture' },
@@ -47,6 +52,8 @@ export function DetailModal({
     onOpenChange,
     onUpdate,
 }: DetailModalProps) {
+    const { isAdmin, user } = useAuth();
+    const { emailToName } = useTeamUsers(isAdmin());
     const [status, setStatus] = useState<LeadStatus>(conversation?.lead_status || 'new lead');
     const [comments, setComments] = useState(conversation?.comments || '');
     const [isUpdating, setIsUpdating] = useState(false);
@@ -93,9 +100,9 @@ export function DetailModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col p-0 overflow-hidden">
+            <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[600px] max-h-[90vh] flex flex-col p-0 overflow-hidden">
                 {/* Sticky Header */}
-                <DialogHeader className="sticky top-0 z-10 bg-background border-b px-6 py-4 flex flex-row items-center justify-between space-y-0">
+                <DialogHeader className="sticky top-0 z-10 bg-background border-b px-4 sm:px-6 py-4 flex flex-row items-center justify-between space-y-0">
                     <DialogTitle>Lead Details</DialogTitle>
                     <Button
                         variant="ghost"
@@ -109,19 +116,27 @@ export function DetailModal({
                 </DialogHeader>
 
                 {/* Scrollable Content */}
-                <div className="overflow-y-auto overflow-x-hidden px-6 py-4 space-y-6 flex-1">
+                <div className="overflow-y-auto overflow-x-hidden px-4 sm:px-6 py-4 space-y-6 flex-1">
                     {/* Lead Information */}
                     <section className="space-y-3">
                         <h3 className={`font-semibold text-sm border-b-2 ${themeClasses.borderPrimary} pb-2`}>
                             Lead Information
                         </h3>
-                        <div className="grid grid-cols-[100px_1fr] gap-2 text-sm">
-                            <span className="font-medium text-muted-foreground">Name:</span>
-                            <span>{conversation.name || 'User'}</span>
-                            <span className="font-medium text-muted-foreground">Phone:</span>
-                            <span>+{conversation.phone}</span>
-                            <span className="font-medium text-muted-foreground">Message Date:</span>
-                            <span>{conversation.message_time || '-'}</span>
+                        <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,6.5rem)_1fr] gap-x-3 gap-y-1.5 text-sm">
+                            <span className="font-medium text-muted-foreground shrink-0">Name:</span>
+                            <span className="min-w-0 break-words">{conversation.name || 'User'}</span>
+                            <span className="font-medium text-muted-foreground shrink-0">Phone:</span>
+                            <span className="min-w-0 break-all">+{conversation.phone}</span>
+                            <span className="font-medium text-muted-foreground shrink-0">Message Date:</span>
+                            <span className="min-w-0 break-words">{formatDateTime(conversation.message_time)}</span>
+                            <span className="font-medium text-muted-foreground shrink-0">Assigned To:</span>
+                            <div className="min-w-0">
+                                <AssigneeCell
+                                    email={conversation.assigned_to}
+                                    emailToName={emailToName}
+                                    currentUserEmail={user?.email}
+                                />
+                            </div>
                         </div>
                     </section>
 
@@ -144,11 +159,11 @@ export function DetailModal({
                             <div className="bg-muted/50 p-4 rounded-lg border-l-4 border-purple-500">
                                 <p className="text-sm whitespace-pre-wrap">{conversation.response}</p>
                             </div>
-                            <div className="grid grid-cols-[100px_1fr] gap-2 text-sm">
-                                <span className="font-medium text-muted-foreground">Response Time:</span>
-                                <span>{calculateResponseHours()}</span>
-                                <span className="font-medium text-muted-foreground">Sent At:</span>
-                                <span>{conversation.response_time || '-'}</span>
+                            <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,6.5rem)_1fr] gap-x-3 gap-y-1.5 text-sm">
+                                <span className="font-medium text-muted-foreground shrink-0">Response Time:</span>
+                                <span className="min-w-0">{calculateResponseHours()}</span>
+                                <span className="font-medium text-muted-foreground shrink-0">Sent At:</span>
+                                <span className="min-w-0 break-words">{formatDateTime(conversation.response_time)}</span>
                             </div>
                         </section>
                     )}
@@ -176,8 +191,8 @@ export function DetailModal({
                             className="min-h-[100px]"
                         />
                         {conversation.status_updated_at && (
-                            <p className="text-xs text-muted-foreground">
-                                Last updated: {conversation.status_updated_at}
+                            <p className="text-xs text-muted-foreground break-words">
+                                Last updated: {formatDateTime(conversation.status_updated_at)}
                             </p>
                         )}
                         <Button

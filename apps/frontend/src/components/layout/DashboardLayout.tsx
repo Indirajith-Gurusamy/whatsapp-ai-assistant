@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { pageScrollClass } from './PageScroll';
 import { useIsClient } from '@/hooks/useIsClient';
 import { AppAssistant } from '@/components/assistant/AppAssistant';
+import { PageReadyWatcher } from './PageReadyWatcher';
 
 interface DashboardLayoutProps {
     children: React.ReactNode;
@@ -62,6 +63,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
             />
             <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-white dark:bg-gray-900">
+                <PageReadyWatcher />
                 <TopBar />
                 <main className={cn('relative flex flex-1 flex-col min-h-0', pageScrollClass)}>
                     {children}

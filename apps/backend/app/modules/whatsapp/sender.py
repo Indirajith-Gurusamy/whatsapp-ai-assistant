@@ -23,7 +23,6 @@ class WhatsAppService:
     async def send_message(
         phone_number: str,
         message_text: str,
-        is_template: bool = False,
         incoming_to_number: str = None,
     ) -> Tuple[bool, Optional[str]]:
         """
@@ -35,10 +34,9 @@ class WhatsAppService:
         Args:
             phone_number: Recipient's phone number
             message_text: Message content
-            is_template: Whether to send as template (Meta only)
             incoming_to_number: The Twilio number that received the incoming message (used to route reply from correct number)
         """
-        logger.info(f"Attempting to send WhatsApp message to {phone_number} (template={is_template}), incoming_to={incoming_to_number}")
+        logger.info(f"Attempting to send WhatsApp message to {phone_number}, incoming_to={incoming_to_number}")
 
         try:
             db = await get_db()
@@ -63,7 +61,7 @@ class WhatsAppService:
                         config = acc.get("config", {})
                         logger.info(f"[SEND] Using account matching number: {config_num}")
                         if platform == "meta":
-                            return await WhatsAppService._send_meta(phone_number, message_text, config, is_template)
+                            return await WhatsAppService._send_meta(phone_number, message_text, config)
                         elif platform == "twilio":
                             return await WhatsAppService._send_twilio(phone_number, message_text, config)
 
@@ -75,7 +73,7 @@ class WhatsAppService:
                 config = active_acc.get("config", {})
 
                 if platform == "meta":
-                    return await WhatsAppService._send_meta(phone_number, message_text, config, is_template)
+                    return await WhatsAppService._send_meta(phone_number, message_text, config)
                 elif platform == "twilio":
                     return await WhatsAppService._send_twilio(phone_number, message_text, config)
 
@@ -131,7 +129,7 @@ class WhatsAppService:
 
     @staticmethod
     async def _send_meta(
-        phone_number: str, message_text: str, config: dict, is_template: bool = False
+        phone_number: str, message_text: str, config: dict
     ) -> Tuple[bool, Optional[str]]:
         """Internal helper for Meta (WhatsApp Cloud API) sending."""
         try:
@@ -160,31 +158,15 @@ class WhatsAppService:
                 "Content-Type": "application/json"
             }
             
-            if is_template:
-                # Use template registry for cleaner management
-                from app.modules.whatsapp.templates import WhatsAppTemplates
-                
-                # Default to order_confirmation template
-                # You can make this configurable later
-                payload = WhatsAppTemplates.get_template_payload(
-                    template_key="order_confirmation",
-                    recipient=clean_number,
-                    params=[
-                        message_text or "Test User",  # Customer name
-                        "123456",                      # Order ID
-                        "Feb 17, 2026"                # Delivery date
-                    ]
-                )
-            else:
-                payload = {
-                    "messaging_product": "whatsapp",
-                    "recipient_type": "individual",
-                    "to": clean_number,
-                    "type": "text",
-                    "text": {"body": message_text}
-                }
-            
-            logger.info(f"Meta sending (template={is_template}) to {clean_number} via {phone_id}")
+            payload = {
+                "messaging_product": "whatsapp",
+                "recipient_type": "individual",
+                "to": clean_number,
+                "type": "text",
+                "text": {"body": message_text}
+            }
+
+            logger.info(f"Meta sending to {clean_number} via {phone_id}")
             async with httpx.AsyncClient() as client:
                 response = await client.post(url, headers=headers, json=payload)
                 
@@ -199,3 +181,4 @@ class WhatsAppService:
         except Exception as e:
             logger.error(f"Meta send failed exception: {e}")
             return False, None
+

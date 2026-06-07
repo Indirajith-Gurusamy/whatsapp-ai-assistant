@@ -1,5 +1,6 @@
 export type LeadStatus =
   | 'new lead'
+  | 'assigned'
   | 'application sent'
   | 'application in'
   | 'nurture'
@@ -43,8 +44,36 @@ export interface Customer {
   message_time: string;
   lead_status: LeadStatus;
   comments: string | null;
+  assigned_to?: string | null;
   conversation_uuid?: string | null;
   ai_enabled?: boolean;
+}
+
+export interface PipelineFunnelItem {
+  stage: string;
+  count: number;
+  pct: number;
+}
+
+export interface AgentWorkloadItem {
+  agent: string;
+  count: number;
+}
+
+export interface PipelineAnalytics {
+  funnel: PipelineFunnelItem[];
+  by_status: Record<string, number>;
+  avg_time_in_stage_hours: Record<string, number>;
+  agent_workload: AgentWorkloadItem[];
+  response_time: {
+    median_seconds: number;
+    p95_seconds: number;
+    average_seconds: number;
+    median_display: string;
+    p95_display: string;
+    average_display: string;
+    sample_size: number;
+  };
 }
 
 export interface Analytics {
@@ -52,8 +81,38 @@ export interface Analytics {
   total_responses: number;
   success_rate: number;
   average_response_time: string;
+  average_response_seconds?: number;
   unique_users: number;
   messages_today: number;
+  pipeline?: PipelineAnalytics;
+}
+
+export interface QuickReply {
+  uuid: string;
+  title: string;
+  body: string;
+  category?: string | null;
+  sort_order: number;
+  is_active: boolean;
+}
+
+export interface KnowledgeDocument {
+  uuid: string;
+  title: string;
+  filename?: string | null;
+  mime_type?: string | null;
+  is_active: boolean;
+  chunk_count: number;
+  created_at?: string | null;
+}
+
+export interface AssistantAction {
+  type: string;
+  label?: string;
+  path?: string;
+  conversation_uuid?: string;
+  customer_uuid?: string;
+  enabled?: boolean;
 }
 
 export type MessageDeliveryStatus =
@@ -85,6 +144,7 @@ export interface ConversationDetail {
   response_time: string | null;
   lead_status: LeadStatus;
   comments: string | null;
+  assigned_to?: string | null;
   status_updated_at: string | null;
   ai_enabled?: boolean;
 }

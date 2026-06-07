@@ -32,7 +32,12 @@ def main() -> None:
     env_path = load_env(profile)
     print(f"Using {env_path}")
 
-    prisma_cmd = ["python", "-m", "prisma", command, "--schema=prisma/schema.prisma"]
+    if command == "push":
+        prisma_cmd = ["python", "-m", "prisma", "db", "push", "--schema=prisma/schema.prisma"]
+    elif command == "generate":
+        prisma_cmd = ["python", "-m", "prisma", "generate", "--schema=prisma/schema.prisma"]
+    else:
+        prisma_cmd = ["python", "-m", "prisma", command, "--schema=prisma/schema.prisma"]
     subprocess.run(prisma_cmd, cwd=ROOT, check=True)
 
 

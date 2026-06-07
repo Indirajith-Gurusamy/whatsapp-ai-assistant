@@ -6,6 +6,7 @@ import { AnalyticsCard } from '@/components/analytics/AnalyticsCard';
 import { LeadStatusChart } from '@/components/analytics/LeadStatusChart';
 import { MetricsBarChart } from '@/components/analytics/MetricsBarChart';
 import { SuccessRateRing } from '@/components/analytics/SuccessRateRing';
+import { PipelinePanel } from '@/components/analytics/PipelinePanel';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MessageSquare, Send, Users, Calendar, FileCheck, FileInput, Clock, XCircle } from 'lucide-react';
 import { useMemo } from 'react';
@@ -31,10 +32,10 @@ export default function DashboardPage() {
 
     if (isLoading) {
         return (
-            <div className={pageClassName}>
+            <div className={pageClassName} data-page-loading>
                 <div className="space-y-3">
                     <Skeleton className="h-6 w-48" />
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
                         {Array.from({ length: 6 }).map((_, i) => (
                             <div key={i} className="rounded-lg border bg-card p-4 space-y-2">
                                 <Skeleton className="h-4 w-20" />
@@ -80,7 +81,7 @@ export default function DashboardPage() {
         <div className={pageClassName}>
             <div>
                 <h2 className="text-lg font-semibold mb-3">Conversation Statistics</h2>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
                     <AnalyticsCard title="Total Conversations" value={conversationStats.total} icon={Users} index={0} />
                     <AnalyticsCard title="New Leads" value={conversationStats.newLead} icon={Users} index={1} />
                     <AnalyticsCard title="Application Sent" value={conversationStats.appSent} icon={FileCheck} index={2} />
@@ -94,6 +95,11 @@ export default function DashboardPage() {
                 <LeadStatusChart data={conversationStats} />
                 <MetricsBarChart analytics={analytics} />
                 <SuccessRateRing rate={analytics.success_rate} responseTime={analytics.average_response_time} />
+            </div>
+
+            <div>
+                <h2 className="text-lg font-semibold mb-3">Pipeline & performance</h2>
+                <PipelinePanel pipeline={analytics.pipeline} />
             </div>
 
             <div>

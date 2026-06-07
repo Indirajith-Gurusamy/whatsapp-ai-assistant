@@ -24,7 +24,7 @@ interface WhatsAppAccountModalProps {
     account?: WhatsAppAccount;
 }
 
-const META_API_VERSION = "v21.0";
+const META_API_VERSION = "v23.0";
 
 const META_WEBHOOK_FIELDS = [
     { id: "messages", label: "messages — incoming customer messages" },
@@ -150,11 +150,18 @@ export function WhatsAppAccountModal({ isOpen, onClose, onSave, account }: Whats
         if (!name.trim()) next.name = "Account name is required";
 
         if (platform === "meta") {
+            const phone = config.phone_number_id?.trim();
+            const waba = config.waba_id?.trim();
+            if (phone && waba && phone === waba) {
+                next.waba_id =
+                    "Must be WhatsApp Business Account ID from Business Manager — not the same as Phone Number ID";
+            }
             if (!config.phone_number_id?.trim()) {
                 next.phone_number_id = "Required — from Meta App → WhatsApp → API Setup";
             }
             if (!config.access_token?.trim()) {
-                next.access_token = "Required — permanent or system user token with whatsapp_business_messaging";
+                next.access_token =
+                    "Required — System User token with whatsapp_business_messaging permission";
             }
             if (!config.verify_token?.trim()) {
                 next.verify_token = "Required — must match the token you enter in Meta webhook settings";
@@ -312,14 +319,28 @@ export function WhatsAppAccountModal({ isOpen, onClose, onSave, account }: Whats
                                 </p>
                                 {tokenField("access_token", "Access Token*", "meta_token", "access_token")}
                                 <FloatingInput
-                                    label="WhatsApp Business Account ID (recommended)"
+                                    label="WhatsApp Business Account ID (WABA)"
                                     id="meta_waba"
                                     autoComplete="off"
                                     value={config.waba_id || ""}
-                                    onChange={(e) => handleConfigChange("waba_id", e.target.value)}
+                                    onChange={(e) => {
+                                        handleConfigChange("waba_id", e.target.value);
+                                        if (errors.waba_id) {
+                                            setErrors((p) => {
+                                                const next = { ...p };
+                                                delete next.waba_id;
+                                                return next;
+                                            });
+                                        }
+                                    }}
+                                    error={errors.waba_id}
                                 />
                                 <p className="text-xs text-gray-500 -mt-3">
-                                    Graph API version used by this app:{" "}
+                                    Optional — WhatsApp Business Account ID from Meta Business Manager. Helps
+                                    validate the phone number ID during <strong>Test connection</strong>.
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                    Graph API version:{" "}
                                     <span className="font-mono text-gray-700">{META_API_VERSION}</span>
                                 </p>
 
