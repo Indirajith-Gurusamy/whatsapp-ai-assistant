@@ -13,7 +13,7 @@ import {
     type AssistantChatMessage,
 } from '@/lib/api';
 import { resolveClientActions } from '@/lib/assistant-intents';
-import { dispatchUiAction, closeAssistant, VIVAFY_ASSISTANT_CLOSE_EVENT } from '@/lib/ui-actions';
+import { dispatchUiAction, VIVAFY_ASSISTANT_CLOSE_EVENT } from '@/lib/ui-actions';
 import { hardRefreshPage, reloadView } from '@/lib/refresh-app-data';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -235,6 +235,8 @@ export function AppAssistant() {
         moved: false,
         cleanup: null as (() => void) | null,
     });
+    const tapHandledRef = useRef(false);
+    const skipCloseOnNavRef = useRef(false);
 
     openRef.current = open;
 
@@ -249,7 +251,11 @@ export function AppAssistant() {
     const pathnameRef = useRef(pathname);
     useEffect(() => {
         if (pathnameRef.current !== pathname) {
-            dismiss();
+            if (!skipCloseOnNavRef.current) {
+                dismiss();
+            } else {
+                skipCloseOnNavRef.current = false;
+            }
             pathnameRef.current = pathname;
         }
     }, [pathname, dismiss]);
@@ -350,6 +356,24 @@ export function AppAssistant() {
         ds.cleanup = null;
     }, [persistAnchor]);
 
+    /** Tap on FAB opens panel; drag suppresses click — pointerup handles open when click is blocked. */
+    const finishPointerInteraction = useCallback(
+        (pointerId: number, preventDefault?: () => void) => {
+            const ds = dragState.current;
+            if (!ds.active || ds.pointerId !== pointerId) return;
+            const wasMoved = ds.moved;
+            const shouldOpenFab = !wasMoved && !openRef.current;
+            endDragSession();
+            if (wasMoved) {
+                preventDefault?.();
+            } else if (shouldOpenFab) {
+                tapHandledRef.current = true;
+                setOpen(true);
+            }
+        },
+        [endDragSession],
+    );
+
     useEffect(() => {
         return () => dragState.current.cleanup?.();
     }, []);
@@ -377,9 +401,6 @@ export function AppAssistant() {
                 cleanup: null,
             };
 
-            e.preventDefault();
-            e.stopPropagation();
-
             const captureEl = containerRef.current ?? e.currentTarget;
             if (captureEl instanceof Element && 'setPointerCapture' in captureEl) {
                 try {
@@ -401,9 +422,7 @@ export function AppAssistant() {
             };
 
             const onEnd = (ev: PointerEvent) => {
-                if (!dragState.current.active || dragState.current.pointerId !== ev.pointerId) return;
-                ev.preventDefault();
-                endDragSession();
+                finishPointerInteraction(ev.pointerId, () => ev.preventDefault());
                 try {
                     (captureEl as HTMLElement).releasePointerCapture(ev.pointerId);
                 } catch {
@@ -423,7 +442,7 @@ export function AppAssistant() {
                 document.body.style.overflow = prevOverflow;
             };
         },
-        [applyDragMove, endDragSession],
+        [applyDragMove, finishPointerInteraction],
     );
 
     const onDragPointerMove = useCallback(
@@ -437,22 +456,28 @@ export function AppAssistant() {
 
     const endDrag = useCallback(
         (e: React.PointerEvent) => {
-            if (!dragState.current.active || dragState.current.pointerId !== e.pointerId) return;
-            e.preventDefault();
-            endDragSession();
+            finishPointerInteraction(e.pointerId, () => e.preventDefault());
             try {
                 e.currentTarget.releasePointerCapture(e.pointerId);
             } catch {
                 /* ignore */
             }
         },
-        [endDragSession],
+        [finishPointerInteraction],
+    );
+
+    const navigateFromAssistant = useCallback(
+        (path: string) => {
+            skipCloseOnNavRef.current = true;
+            router.push(path);
+        },
+        [router],
     );
 
     const executeAction = useCallback(
         async (action: AssistantAction) => {
             if (action.type === 'navigate' && typeof action.path === 'string') {
-                router.push(action.path);
+                navigateFromAssistant(action.path);
                 toast.success('Opening page…');
                 return;
             }
@@ -479,7 +504,7 @@ export function AppAssistant() {
             }
             const result = await assistantApi.execute(action);
             if (result.type === 'navigate' && typeof result.path === 'string') {
-                router.push(result.path);
+                navigateFromAssistant(result.path);
                 toast.success('Opening page…');
             } else if (result.type === 'toggle_ai') {
                 toast.success(
@@ -531,7 +556,7 @@ export function AppAssistant() {
                 toast.success('Settings updated');
                 await reloadView(router);
             } else if (result.type === 'get_analytics') {
-                router.push('/dashboard');
+                navigateFromAssistant('/dashboard');
                 toast.success('Analytics loaded');
             } else if (result.type === 'create_task') {
                 toast.success(`Task created: ${result.title ?? 'OK'}`);
@@ -544,7 +569,7 @@ export function AppAssistant() {
                 await reloadView(router);
             } else if (result.type === 'create_customer') {
                 toast.success(`Customer ${result.name ?? 'created'}`);
-                router.push(`/customers/${result.uuid}`);
+                navigateFromAssistant(`/customers/${result.uuid}`);
             } else if (result.type === 'bulk_delete_users' || result.type === 'bulk_delete_customers') {
                 const n = Array.isArray(result.deleted) ? result.deleted.length : 0;
                 toast.success(`Deleted ${n} item(s)`);
@@ -553,7 +578,7 @@ export function AppAssistant() {
                 toast.success('Done');
             }
         },
-        [router, logout],
+        [navigateFromAssistant, router, logout],
     );
 
     const runAction = useCallback(
@@ -647,6 +672,10 @@ export function AppAssistant() {
     };
 
     const toggleOpen = () => {
+        if (tapHandledRef.current) {
+            tapHandledRef.current = false;
+            return;
+        }
         if (dragState.current.moved) {
             dragState.current.moved = false;
             return;
