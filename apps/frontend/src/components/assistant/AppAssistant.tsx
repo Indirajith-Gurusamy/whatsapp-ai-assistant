@@ -12,7 +12,7 @@ import {
     type AssistantAction,
     type AssistantChatMessage,
 } from '@/lib/api';
-import { resolveClientActions } from '@/lib/assistant-intents';
+import { inferAllNavigateActions, resolveClientActions, wantsNavigation } from '@/lib/assistant-intents';
 import { dispatchUiAction, VIVAFY_ASSISTANT_CLOSE_EVENT } from '@/lib/ui-actions';
 import { hardRefreshPage, reloadView } from '@/lib/refresh-app-data';
 import { useAuth } from '@/contexts/AuthContext';
@@ -469,9 +469,15 @@ export function AppAssistant() {
     const navigateFromAssistant = useCallback(
         (path: string) => {
             skipCloseOnNavRef.current = true;
-            router.push(path);
+            const opts = { scroll: false } as const;
+            // Same route, different query (e.g. settings tab) — replace avoids stale tab state
+            if (path.startsWith('/settings') && pathname?.startsWith('/settings')) {
+                router.replace(path, opts);
+            } else {
+                router.push(path, opts);
+            }
         },
-        [router],
+        [router, pathname],
     );
 
     const executeAction = useCallback(
@@ -553,7 +559,13 @@ export function AppAssistant() {
                 toast.success(`Profile updated for ${result.name ?? 'user'}`);
                 await reloadView(router);
             } else if (result.type === 'update_settings' || result.type === 'switch_ai_provider') {
-                toast.success('Settings updated');
+                const category =
+                    typeof result.category === 'string' ? result.category : 'Settings';
+                toast.success(
+                    result.type === 'switch_ai_provider'
+                        ? 'AI provider switched'
+                        : `${category} settings updated`,
+                );
                 await reloadView(router);
             } else if (result.type === 'get_analytics') {
                 navigateFromAssistant('/dashboard');
@@ -625,13 +637,20 @@ export function AppAssistant() {
                 pathname ?? undefined,
                 chatHistory,
             );
+            let toRun = autoActions;
+            if (toRun.length === 0) {
+                const inferred = inferAllNavigateActions(text, pathname ?? undefined);
+                if (inferred.length > 0 && wantsNavigation(text)) {
+                    toRun = inferred;
+                }
+            }
             setExecutingAction('auto');
             try {
-                for (const autoAction of autoActions) {
+                for (const autoAction of toRun) {
                     try {
                         await executeAction(autoAction);
                         executedActions.push(autoAction);
-                        if (autoAction.type === 'navigate' && autoActions.length > 1) {
+                        if (autoAction.type === 'navigate' && toRun.length > 1) {
                             await new Promise((r) => setTimeout(r, 350));
                         }
                     } catch (err) {
@@ -643,7 +662,8 @@ export function AppAssistant() {
             }
 
             const visibleActions = responseActions.filter(
-                (a) => !actionExecuted(executedActions, a),
+                (a) =>
+                    a.type !== 'navigate' && !actionExecuted(executedActions, a),
             );
 
             setMessages((prev) => [

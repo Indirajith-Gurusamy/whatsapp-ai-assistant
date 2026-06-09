@@ -58,6 +58,13 @@ class Settings(BaseSettings):
 
     # Logging Configuration
     LOG_LEVEL: str = "INFO"
+
+    # Gmail IMAP Configuration (seed defaults for EMAIL settings)
+    GMAIL_EMAIL: str = ""
+    GMAIL_APP_PASSWORD: str = ""
+    GMAIL_IMAP_HOST: str = "imap.gmail.com"
+    GMAIL_IMAP_PORT: int = 993
+    GMAIL_POLL_INTERVAL_SECONDS: int = 60
     
     class Config:
         case_sensitive = True

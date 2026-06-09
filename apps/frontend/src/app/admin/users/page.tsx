@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { FloatingInput } from "@/components/ui/floating-input";
+import { PasswordFloatingInput } from "@/components/ui/password-floating-input";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
     Dialog,
@@ -405,9 +406,8 @@ export default function AdminUsersPage() {
                                     </Select>
                                 </div>
                                 <div className="space-y-2">
-                                    <FloatingInput
+                                    <PasswordFloatingInput
                                         label="Password"
-                                        type="password"
                                         value={newUser.password}
                                         onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
                                         autoComplete="new-password"
@@ -431,7 +431,7 @@ export default function AdminUsersPage() {
     );
 
     if (authLoading) {
-        return <ListPageSkeleton columns={6} />;
+        return <ListPageSkeleton variant="users" showAddButton />;
     }
 
     if (!isAdmin()) {
@@ -448,7 +448,7 @@ export default function AdminUsersPage() {
     }
 
     if (isLoading && users.length === 0) {
-        return <ListPageSkeleton columns={6} />;
+        return <ListPageSkeleton variant="users" showAddButton />;
     }
 
     return (

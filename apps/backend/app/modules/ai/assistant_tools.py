@@ -48,10 +48,49 @@ ALLOWED_ACTION_TYPES = frozenset({
 })
 
 _INLINE_ACTION_TYPES = "|".join(sorted(ALLOWED_ACTION_TYPES))
-INLINE_ACTION_JSON_RE = re.compile(
-    rf"\{{[^{{}}]*\"type\"\s*:\s*\"(?:{_INLINE_ACTION_TYPES})\"[^{{}}]*\}}",
+_ACTION_TYPE_IN_JSON_RE = re.compile(
+    rf"\"type\"\s*:\s*\"(?:{_INLINE_ACTION_TYPES})\"",
     re.IGNORECASE,
 )
+
+
+def _extract_balanced_json_chunks(text: str) -> List[str]:
+    """Extract {...} or [...] spans that contain a Vivafy action type (nested objects OK)."""
+    chunks: List[str] = []
+    i = 0
+    while i < len(text):
+        ch = text[i]
+        if ch not in "{[":
+            i += 1
+            continue
+        start = i
+        opener = ch
+        closer = "}" if opener == "{" else "]"
+        depth = 1
+        i += 1
+        in_string = False
+        escape = False
+        while i < len(text) and depth > 0:
+            c = text[i]
+            if in_string:
+                if escape:
+                    escape = False
+                elif c == "\\":
+                    escape = True
+                elif c == '"':
+                    in_string = False
+            elif c == '"':
+                in_string = True
+            elif c == opener:
+                depth += 1
+            elif c == closer:
+                depth -= 1
+            i += 1
+        if depth == 0:
+            chunk = text[start:i]
+            if _ACTION_TYPE_IN_JSON_RE.search(chunk):
+                chunks.append(chunk)
+    return chunks
 
 _REQUIRED_FIELDS: Dict[str, Tuple[str, ...]] = {
     "navigate": ("path",),
@@ -141,9 +180,10 @@ def parse_actions_from_reply(reply: str) -> Tuple[str, List[Dict[str, Any]]]:
         actions.extend(_parse_action_json(match.group(1).strip()))
         text = (text[: match.start()] + text[match.end() :]).strip()
 
-    for inline in INLINE_ACTION_JSON_RE.finditer(text):
-        actions.extend(_parse_action_json(inline.group(0)))
-    text = INLINE_ACTION_JSON_RE.sub("", text).strip()
+    for chunk in _extract_balanced_json_chunks(text):
+        actions.extend(_parse_action_json(chunk))
+        text = text.replace(chunk, "", 1)
+    text = re.sub(r"\s{2,}", " ", text).strip()
     text = re.sub(r"```actions\s*```", "", text, flags=re.I).strip()
 
     seen = set()
@@ -167,14 +207,18 @@ Append a fenced block AFTER your short reply. **All actions run automatically** 
 ```
 
 Allowed types:
-- navigate: {{"type": "navigate", "path": "/admin/users", "label": "..."}} — pages or `/settings?tab=ai`
+- navigate: {{"type": "navigate", "path": "/admin/users", "label": "..."}} — pages: /dashboard, /conversations, /messages, /customers, /tasks, /admin/users, /settings?tab=email|ai|whatsapp|automation|crm|audit, /settings/sessions, /profile
 - open_lead: {{"type": "open_lead", "conversation_uuid": "<uuid>", "label": "Open lead"}}
 - open_customer: {{"type": "open_customer", "customer_uuid": "<uuid>", "label": "Open customer"}}
 - open_user: {{"type": "open_user", "user_id": 2, "label": "Open user profile"}}
 - toggle_ai: {{"type": "toggle_ai", "conversation_uuid": "<uuid>", "enabled": false, "label": "Turn off AI"}}
 - assign_lead: {{"type": "assign_lead", "conversation_uuid": "<uuid>", "user_email": "agent@co.com", "label": "Assign lead"}}
 - update_lead_status: {{"type": "update_lead_status", "conversation_uuid": "<uuid>", "lead_status": "follow up", "comments": "optional"}}
-- send_message: {{"type": "send_message", "conversation_uuid": "<uuid>", "message": "text to send on WhatsApp"}}
+- send_message: {{"type": "send_message", "conversation_uuid": "<uuid>", "message": "text"}} — **WhatsApp only** (not email)
+- update_settings: categories AI | WHATSAPP | EMAIL | AUTOMATION | CRM — boolean toggles use string "true" or "false"
+- EMAIL keys: email_enabled (Gmail polling), email_create_customers, email_assign_to_leads — never imap_enabled
+- AUTOMATION keys: customer_service_window, human_handover, working_hours_start, working_hours_end, auto_followup_delay_minutes
+- CRM keys: auto_assign_lead, default_assignee, followup_reminder_hours, status_workflow
 - change_user_role: {{"type": "change_user_role", "user_id": 2, "role": "ADMIN", "label": "..."}}
 - toggle_user_status: {{"type": "toggle_user_status", "user_id": 2, "active": false, "label": "Disable user"}}
 - verify_user: {{"type": "verify_user", "user_id": 2, "label": "Verify email"}}
@@ -184,7 +228,8 @@ Allowed types:
 - create_user: {{"type": "create_user", "name": "...", "email": "...", "password": "...", "role": "USER"}}
 - reset_user_password: {{"type": "reset_user_password", "user_id": 2}}
 - update_user_profile: {{"type": "update_user_profile", "user_id": 2, "profile_name": "..."}}
-- update_settings: {{"type": "update_settings", "settings_category": "AI", "settings": {{"temperature": "0.5"}}}}
+- update_settings: {{"type": "update_settings", "settings_category": "EMAIL", "settings": {{"email_enabled": "true"}}}}
+- Put actions ONLY inside ```actions``` — never inline JSON in the reply text
 - switch_ai_provider: {{"type": "switch_ai_provider", "provider_id": "groq-default"}}
 - get_analytics: {{"type": "get_analytics", "label": "Dashboard stats"}}
 - create_task: {{"type": "create_task", "task_title": "...", "task_priority": "high"}}
@@ -197,11 +242,13 @@ Allowed types:
 Rules:
 - Reply in **one or two short sentences**. Never repeat your intro every turn.
 - Use UUIDs and user_id **only** from Live CRM / team data — never invent IDs.
-- User role: {user_role}. Admin-only: /settings, /admin/*, /customers, user mutations, send_message.
+- User role: {user_role}. Admin-only: /settings, /admin/*, /customers, /messages, /tasks, user mutations, send_message, CRM mutations.
 - Current path: {pathname or "unknown"}. "Open this page" → navigate to current path.
-- When user says GO, OPEN, ASSIGN, SEND, TOGGLE, MAKE, DISABLE, VERIFY, DELETE — include the action(s).
+- When user says GO, OPEN, SHOW ME, VIEW, ASSIGN, SEND, TOGGLE, MAKE, DISABLE, VERIFY, DELETE — include the action(s); do NOT only describe manual navigation.
 - For counts/questions only, answer from live data — no navigate actions.
-- Lead statuses: new lead, assigned, application sent, application in, nurture, follow up, on hold, lost, duplicate, closed.
+- Lead statuses (workflow): new lead, assigned, application sent, application in, nurture, follow up, on hold, lost, duplicate, closed.
+- Visibility statuses (email routing): inbox, lead only.
+- App tracks **WhatsApp and email** messages — never say email is unsupported.
 """
 
 
@@ -219,7 +266,8 @@ class AssistantActionExecutor:
 
         if t == "navigate":
             path = action.get("path", "/dashboard")
-            if path.startswith("/admin") or path.startswith("/settings") or path.startswith("/customers"):
+            admin_paths = ("/admin", "/settings", "/customers", "/messages", "/tasks")
+            if path.startswith(admin_paths):
                 denied = AssistantActionExecutor._require_admin(role)
                 if denied:
                     return denied
@@ -310,7 +358,16 @@ class AssistantActionExecutor:
             conversation = await ConversationService.get_conversation_by_uuid(uuid)
             if not conversation:
                 return {"success": False, "error": "Conversation not found"}
+            from app.db.prisma.enums import Channel
+
+            if conversation.channel == Channel.EMAIL:
+                return {
+                    "success": False,
+                    "error": "Email conversations cannot be replied to via WhatsApp",
+                }
             phone = conversation.customer.phone
+            if not phone:
+                return {"success": False, "error": "Customer phone number not available"}
             last_received_on = getattr(conversation, "lastReceivedOn", None)
             send_success, provider_id = await WhatsAppService.send_message(
                 phone, message_text, incoming_to_number=last_received_on

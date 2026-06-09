@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import React, { useState, useEffect } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { MessageSquare, Brain, Zap, Users, ClipboardList, ShieldAlert } from "lucide-react";
+import { MessageSquare, Brain, Zap, Users, ClipboardList, ShieldAlert, Mail } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { WhatsAppTab } from "@/components/settings/WhatsAppTab";
+import { EmailTab } from "@/components/settings/EmailTab";
 import { AITab } from "@/components/settings/AITab";
 import { AutomationTab } from "@/components/settings/AutomationTab";
 import { CRMTab } from "@/components/settings/CRMTab";
@@ -15,22 +16,29 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { UnsavedChangesModal } from "@/components/ui/unsaved-changes-modal";
 import { settingsContentPad, settingsPadX } from "@/components/settings/settings-layout";
 
-const VALID_SETTINGS_TABS = new Set(["whatsapp", "ai", "automation", "crm", "audit"]);
+const VALID_SETTINGS_TABS = new Set(["whatsapp", "email", "ai", "automation", "crm", "audit"]);
 
 export default function SettingsPage() {
     const { isAdmin, isLoading: authLoading } = useAuth();
     const router = useRouter();
+    const pathname = usePathname();
     const searchParams = useSearchParams();
-    const initialTab = (() => {
-        const tab = searchParams.get("tab");
-        return tab && VALID_SETTINGS_TABS.has(tab) ? tab : "whatsapp";
-    })();
+    const tabParam = searchParams.get("tab");
+    const tabFromUrl = () => {
+        return tabParam && VALID_SETTINGS_TABS.has(tabParam) ? tabParam : "whatsapp";
+    };
 
-    const [activeTab, setActiveTab] = useState(initialTab);
+    const [activeTab, setActiveTab] = useState(tabFromUrl);
     const [pendingTab, setPendingTab] = useState<string | null>(null);
     const [isDirty, setIsDirty] = useState(false);
 
     const [showUnsavedConfirm, setShowUnsavedConfirm] = useState(false);
+
+    // Sync tab when URL changes (e.g. Vivafy navigate to /settings?tab=email)
+    useEffect(() => {
+        const next = tabFromUrl();
+        setActiveTab((prev) => (prev === next ? prev : next));
+    }, [pathname, tabParam]);
 
     const pageWrap = "w-full min-w-0";
     const cardWrap =
@@ -100,6 +108,7 @@ export default function SettingsPage() {
 
     const tabItems = [
         { value: "whatsapp", label: "WhatsApp", shortLabel: "WA", icon: MessageSquare },
+        { value: "email", label: "Email", shortLabel: "Email", icon: Mail },
         { value: "ai", label: "AI", shortLabel: "AI", icon: Brain },
         { value: "automation", label: "Automation", shortLabel: "Auto", icon: Zap },
         { value: "crm", label: "CRM", shortLabel: "CRM", icon: Users },
@@ -136,6 +145,9 @@ export default function SettingsPage() {
                     <div className={settingsContentPad}>
                         <TabsContent value="whatsapp" className="mt-0">
                             <WhatsAppTab onDirtyChange={setIsDirty} />
+                        </TabsContent>
+                        <TabsContent value="email" className="mt-0">
+                            <EmailTab onDirtyChange={setIsDirty} />
                         </TabsContent>
                         <TabsContent value="ai" className="mt-0">
                             <AITab onDirtyChange={setIsDirty} />

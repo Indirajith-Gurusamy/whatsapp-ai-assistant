@@ -27,6 +27,10 @@ export function signalPageReady(): void {
   window.dispatchEvent(new CustomEvent(VIVAFY_PAGE_READY_EVENT));
 }
 
+/** Route to a settings tab — not the header gear icon. */
+const SETTINGS_TAB_NAV_RE =
+  /\b(?:(?:email|whatsapp|ai|automation|crm|audit)\s+settings?|settings\s+(?:email|whatsapp|ai|automation|crm|audit)|(?:knowledge\s+base|\bkb\b|quick\s+replies?))\b/i;
+
 export function parseUiTargetFromText(text: string): UiActionTarget | null {
   const t = text.toLowerCase();
   if (/\b(?:logout|sign\s*out|log\s*out)\b/.test(t) && /\b(?:profile|dropdown|menu|icon)\b/.test(t)) {
@@ -34,6 +38,9 @@ export function parseUiTargetFromText(text: string): UiActionTarget | null {
   }
   if (/\b(?:profile|dropdown|menu)\b/.test(t) && /\b(?:open|click|show)\b/.test(t)) {
     return 'profile_menu';
+  }
+  if (SETTINGS_TAB_NAV_RE.test(text)) {
+    return null;
   }
   if (/\b(?:settings?\s*(?:icon|button)?|gear)\b/.test(t) && /\b(?:open|click)\b/.test(t)) {
     return 'open_settings';

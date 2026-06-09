@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { tokenStorage, User } from "@/lib/api";
-import { redirectToLogin } from "@/lib/auth-storage";
+import { redirectToLogin, SESSION_EXPIRED_EVENT } from "@/lib/auth-storage";
 
 interface AuthContextType {
     user: User | null;
@@ -69,6 +69,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
 
         initAuth();
+    }, []);
+
+    useEffect(() => {
+        const onSessionExpired = () => setUser(null);
+        window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+        return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
     }, []);
 
     const login = (user: User, accessToken: string, refreshToken: string, rememberMe: boolean = false) => {

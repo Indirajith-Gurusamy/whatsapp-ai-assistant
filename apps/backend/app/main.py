@@ -1,12 +1,57 @@
 """FastAPI application entry point."""
+import logging
+import time
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pathlib import Path
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
 from app.core.logging import setup_logging
+from app.core.auth_activity import (
+    begin_auth_activity,
+    end_auth_activity,
+    is_auth_priority_path,
+)
 from app.lifespan import lifespan
 from app.api import api_router
+
+
+http_logger = logging.getLogger("app.http")
+
+
+class AuthPriorityMiddleware(BaseHTTPMiddleware):
+    """Pause background work (e.g. IMAP poll) while login/auth handlers run."""
+
+    async def dispatch(self, request: Request, call_next):
+        if is_auth_priority_path(request.url.path):
+            await begin_auth_activity()
+            try:
+                return await call_next(request)
+            finally:
+                await end_auth_activity()
+        return await call_next(request)
+
+
+class RequestLogMiddleware(BaseHTTPMiddleware):
+    """Log API requests to the app logger (visible in terminal on Windows + reload)."""
+
+    async def dispatch(self, request: Request, call_next):
+        if request.url.path in ("/docs", "/openapi.json", "/redoc"):
+            return await call_next(request)
+        started = time.perf_counter()
+        response = await call_next(request)
+        elapsed_ms = (time.perf_counter() - started) * 1000
+        http_logger.info(
+            "%s %s -> %s (%.0fms)",
+            request.method,
+            request.url.path,
+            response.status_code,
+            elapsed_ms,
+        )
+        return response
 
 # Setup logging
 setup_logging()
@@ -27,6 +72,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(RequestLogMiddleware)
+app.add_middleware(AuthPriorityMiddleware)
 
 # Include API router
 app.include_router(api_router)

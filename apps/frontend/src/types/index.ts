@@ -12,17 +12,23 @@ export type LeadStatus =
 
 export interface Message {
   id: number;
+  channel?: 'whatsapp' | 'email';
   phone: string;
+  email?: string | null;
   name: string | null;
   message: string;
+  html_body?: string | null;
   timestamp: string;
   customer_uuid?: string;
 }
 
 export interface Conversation {
   message_id: number;
+  latest_message_id?: number;
   uuid: string;
+  channel?: 'whatsapp' | 'email';
   phone: string;
+  email?: string | null;
   name: string | null;
   message: string;
   message_time: string;
@@ -37,8 +43,11 @@ export interface Conversation {
 
 export interface Customer {
   customer_id: number;
+  latest_message_id?: number;
   uuid: string;
+  channel?: 'whatsapp' | 'email';
   phone: string;
+  email?: string | null;
   name: string | null;
   message: string;
   message_time: string;
@@ -129,6 +138,7 @@ export interface ConversationHistory {
   role: 'customer' | 'agent' | 'human_agent';
   name: string;
   content: string;
+  html_body?: string | null;
   timestamp: string;
   status?: MessageDeliveryStatus;
 }
@@ -136,7 +146,9 @@ export interface ConversationHistory {
 export interface ConversationDetail {
   message_id: number;
   uuid: string;
+  channel?: 'whatsapp' | 'email';
   phone: string;
+  email?: string | null;
   name: string | null;
   message: string;
   message_time: string;

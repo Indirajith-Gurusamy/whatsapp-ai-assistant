@@ -16,7 +16,7 @@ from app.modules.settings.service import SettingsService
 
 logger = logging.getLogger(__name__)
 
-VALID_CATEGORIES = {"whatsapp", "ai", "automation", "crm"}
+VALID_CATEGORIES = {"whatsapp", "ai", "automation", "crm", "email"}
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
 
@@ -104,6 +104,21 @@ async def test_ai(
     return TestResult(**result)
 
 
+# ── Test Email ───────────────────────────────────────
+
+@router.post(
+    "/test/email",
+    response_model=TestResult,
+)
+async def test_email(
+    account_id: Optional[str] = Query(None),
+    current_user=Depends(require_role(["ADMIN"])),
+    db: Prisma = Depends(get_db),
+):
+    """Test IMAP connection for a configured email account."""
+    from app.modules.email.service import test_email_connection
+    result = await test_email_connection(account_id)
+    return TestResult(**result)
 
 
 # ── Dynamic /{category} routes LAST ─────────────────

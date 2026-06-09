@@ -20,7 +20,9 @@ const USER_ACTIVE_OPTIONS = ['active', 'disabled'];
 
 export const customerFilterFields: TableFilterField[] = [
     { key: 'name', label: 'Name', type: 'text', valueInput: 'select' },
+    { key: 'channel', label: 'Channel', type: 'text', valueInput: 'select', staticOptions: ['whatsapp', 'email'] },
     { key: 'phone', label: 'Phone', type: 'text', valueInput: 'select' },
+    { key: 'email', label: 'Email', type: 'text', valueInput: 'select' },
     { key: 'lead_status', label: 'Status', type: 'text', valueInput: 'select', staticOptions: LEAD_STATUS_OPTIONS },
     { key: 'assigned_to', label: 'Assigned To', type: 'text', valueInput: 'select', optionsSource: 'team-users' },
     { key: 'message_time', label: 'Last Contact', type: 'date', valueInput: 'date' },
@@ -29,7 +31,9 @@ export const customerFilterFields: TableFilterField[] = [
 
 export const conversationFilterFields: TableFilterField[] = [
     { key: 'name', label: 'Name', type: 'text', valueInput: 'select' },
+    { key: 'channel', label: 'Channel', type: 'text', valueInput: 'select', staticOptions: ['whatsapp', 'email'] },
     { key: 'phone', label: 'Phone', type: 'text', valueInput: 'select' },
+    { key: 'email', label: 'Email', type: 'text', valueInput: 'select' },
     { key: 'lead_status', label: 'Status', type: 'text', valueInput: 'select', staticOptions: LEAD_STATUS_OPTIONS },
     { key: 'message_time', label: 'Last Contact', type: 'date', valueInput: 'date' },
     { key: 'message', label: 'Message', type: 'text', valueInput: 'text' },
@@ -38,7 +42,9 @@ export const conversationFilterFields: TableFilterField[] = [
 
 export const messageFilterFields: TableFilterField[] = [
     { key: 'name', label: 'Name', type: 'text', valueInput: 'select' },
+    { key: 'channel', label: 'Channel', type: 'text', valueInput: 'select', staticOptions: ['whatsapp', 'email'] },
     { key: 'phone', label: 'Phone', type: 'text', valueInput: 'select' },
+    { key: 'email', label: 'Email', type: 'text', valueInput: 'select' },
     { key: 'message', label: 'Message', type: 'text', valueInput: 'text' },
     { key: 'timestamp', label: 'Timestamp', type: 'date', valueInput: 'date' },
 ];

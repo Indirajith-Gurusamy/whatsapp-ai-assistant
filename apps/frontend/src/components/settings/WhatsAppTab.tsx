@@ -19,10 +19,37 @@ import {
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { WhatsAppAccountModal, WhatsAppAccount } from "./WhatsAppAccountModal";
 import { SettingsSectionHeader } from "@/components/settings/SettingsSectionHeader";
 import { SettingsSaveFooter } from "@/components/settings/SettingsSaveFooter";
 import { settingsFormWrap } from "@/components/settings/settings-layout";
+
+const COUNTRY_CODE_OPTIONS = [
+    { value: "+91", label: "IN +91", code: "IN" },
+    { value: "+1", label: "US +1", code: "US" },
+    { value: "+44", label: "GB +44", code: "GB" },
+    { value: "+61", label: "AU +61", code: "AU" },
+    { value: "+86", label: "CN +86", code: "CN" },
+    { value: "+81", label: "JP +81", code: "JP" },
+    { value: "+49", label: "DE +49", code: "DE" },
+    { value: "+33", label: "FR +33", code: "FR" },
+    { value: "+39", label: "IT +39", code: "IT" },
+    { value: "+34", label: "ES +34", code: "ES" },
+    { value: "+55", label: "BR +55", code: "BR" },
+    { value: "+52", label: "MX +52", code: "MX" },
+    { value: "+7", label: "RU +7", code: "RU" },
+    { value: "+82", label: "KR +82", code: "KR" },
+    { value: "+65", label: "SG +65", code: "SG" },
+    { value: "+60", label: "MY +60", code: "MY" },
+    { value: "+62", label: "ID +62", code: "ID" },
+    { value: "+63", label: "PH +63", code: "PH" },
+    { value: "+66", label: "TH +66", code: "TH" },
+    { value: "+84", label: "VN +84", code: "VN" },
+    { value: "+971", label: "AE +971", code: "AE" },
+    { value: "+966", label: "SA +966", code: "SA" },
+    { value: "+27", label: "ZA +27", code: "ZA" },
+];
 
 export function WhatsAppTab({ onDirtyChange }: { onDirtyChange?: (dirty: boolean) => void }) {
     const {
@@ -291,43 +318,23 @@ export function WhatsAppTab({ onDirtyChange }: { onDirtyChange?: (dirty: boolean
                             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">
                                 Phone Number
                             </label>
-                            <div className="flex border rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-orange-500 focus-within:border-orange-500 transition-all">
-                                <select
+                            <div className="flex gap-2">
+                                <SearchableSelect
+                                    options={COUNTRY_CODE_OPTIONS}
                                     value={countryCode}
-                                    onChange={(e) => setCountryCode(e.target.value)}
-                                    className="px-3 py-3 text-sm border-r bg-gray-50 outline-none cursor-pointer hover:bg-gray-100 transition-colors"
-                                >
-                                    <option value="+91">IN +91</option>
-                                    <option value="+1">US +1</option>
-                                    <option value="+44">GB +44</option>
-                                    <option value="+61">AU +61</option>
-                                    <option value="+86">CN +86</option>
-                                    <option value="+81">JP +81</option>
-                                    <option value="+49">DE +49</option>
-                                    <option value="+33">FR +33</option>
-                                    <option value="+39">IT +39</option>
-                                    <option value="+34">ES +34</option>
-                                    <option value="+55">BR +55</option>
-                                    <option value="+52">MX +52</option>
-                                    <option value="+7">RU +7</option>
-                                    <option value="+82">KR +82</option>
-                                    <option value="+65">SG +65</option>
-                                    <option value="+60">MY +60</option>
-                                    <option value="+62">ID +62</option>
-                                    <option value="+63">PH +63</option>
-                                    <option value="+66">TH +66</option>
-                                    <option value="+84">VN +84</option>
-                                    <option value="+971">AE +971</option>
-                                    <option value="+966">SA +966</option>
-                                    <option value="+27">ZA +27</option>
-                                </select>
+                                    onChange={(value) => value && setCountryCode(value)}
+                                    showFlags
+                                    searchPlaceholder="Search country..."
+                                    emptyMessage="No countries found."
+                                    className="w-[150px] shrink-0"
+                                />
                                 <input
                                     type="text"
                                     id="test_recip_nofill"
                                     value={testMsgRecip}
                                     onChange={(e) => setTestMsgRecip(e.target.value)}
                                     placeholder="6382920850"
-                                    className="flex-1 px-3 py-3 text-sm outline-none"
+                                    className="flex-1 h-[52px] px-3 text-sm border border-input rounded-lg outline-none focus:border-orange-500 bg-transparent"
                                 />
                             </div>
                         </div>

@@ -54,6 +54,8 @@ interface DataTableProps<T> {
     isExporting?: boolean;
     /** Renders between toolbar and table (e.g. status filter tabs). */
     belowToolbar?: React.ReactNode;
+    /** Inline controls in the toolbar row (e.g. channel filter). */
+    toolbarExtra?: React.ReactNode;
     showFilterButton?: boolean;
     /** Advanced multi-condition filter fields; enables filter modal when set. */
     filterFields?: TableFilterField[];
@@ -78,6 +80,7 @@ export function DataTable<T extends { id?: number | string }>({
     searchFields,
     isExporting = false,
     belowToolbar,
+    toolbarExtra,
     showFilterButton,
     filterFields,
     layout = 'card',
@@ -195,6 +198,7 @@ export function DataTable<T extends { id?: number | string }>({
                         </Button>
                     ) : undefined
                 }
+                toolbarExtra={toolbarExtra}
             />
 
             {belowToolbar && <ListPageBelowToolbar>{belowToolbar}</ListPageBelowToolbar>}

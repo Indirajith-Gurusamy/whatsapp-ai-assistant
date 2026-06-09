@@ -8,6 +8,7 @@ type SettingsToggleRowProps = {
     description?: string;
     checked: boolean;
     onToggle: () => void;
+    disabled?: boolean;
     className?: string;
 };
 
@@ -16,6 +17,7 @@ export function SettingsToggleRow({
     description,
     checked,
     onToggle,
+    disabled = false,
     className,
 }: SettingsToggleRowProps) {
     return (
@@ -23,6 +25,7 @@ export function SettingsToggleRow({
             className={cn(
                 "flex items-center justify-between gap-3 p-3 sm:p-4",
                 "border border-gray-200 dark:border-gray-700 rounded-lg",
+                disabled && "opacity-50",
                 className
             )}
         >
@@ -36,7 +39,9 @@ export function SettingsToggleRow({
                 type="button"
                 role="switch"
                 aria-checked={checked}
-                onClick={onToggle}
+                aria-disabled={disabled}
+                disabled={disabled}
+                onClick={disabled ? undefined : onToggle}
                 className={cn(
                     "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors",
                     checked ? "bg-orange-500" : "bg-gray-300 dark:bg-gray-600"

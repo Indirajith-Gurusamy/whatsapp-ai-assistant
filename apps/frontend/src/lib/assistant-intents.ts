@@ -33,16 +33,24 @@ const AUTO_EXECUTE = new Set([
 
 const PAGE_RULES: { re: RegExp; path: string; label: string }[] = [
   { re: /user\s*management|usermanagement/i, path: '/admin/users', label: 'User Management' },
-  { re: /ai\s+settings?/i, path: '/settings?tab=ai', label: 'AI Settings' },
-  { re: /whatsapp\s+settings?/i, path: '/settings?tab=whatsapp', label: 'WhatsApp Settings' },
-  { re: /automation\s+settings?/i, path: '/settings?tab=automation', label: 'Automation' },
-  { re: /crm\s+settings?/i, path: '/settings?tab=crm', label: 'CRM Settings' },
-  { re: /audit(?:\s+log)?/i, path: '/settings?tab=audit', label: 'Audit log' },
-  { re: /(?:system\s+)?settings/i, path: '/settings', label: 'Settings' },
+  { re: /ai\s+settings?|settings\s+ai/i, path: '/settings?tab=ai', label: 'AI Settings' },
+  { re: /whatsapp\s+settings?|settings\s+whatsapp/i, path: '/settings?tab=whatsapp', label: 'WhatsApp Settings' },
+  { re: /email\s+settings?|settings\s+email/i, path: '/settings?tab=email', label: 'Email Settings' },
+  { re: /(?:knowledge\s+base|\bkb\b)/i, path: '/settings?tab=ai', label: 'Knowledge Base' },
+  { re: /quick\s+replies?/i, path: '/settings?tab=ai', label: 'Quick Replies' },
+  { re: /automation(?:\s+settings?)?|settings\s+automation/i, path: '/settings?tab=automation', label: 'Automation' },
+  { re: /crm\s+settings?|settings\s+crm/i, path: '/settings?tab=crm', label: 'CRM Settings' },
+  { re: /audit(?:\s+log)?|settings\s+audit/i, path: '/settings?tab=audit', label: 'Audit log' },
+  {
+    re: /(?<!(?:email|whatsapp|ai|crm|automation|audit)\s)(?:system\s+)?settings\b(?!\s+(?:email|whatsapp|ai|crm|automation|audit)\b)/i,
+    path: '/settings',
+    label: 'Settings',
+  },
   { re: /\bdashboard\b/i, path: '/dashboard', label: 'Dashboard' },
   { re: /\b(?:leads?|conversations)\b/i, path: '/conversations', label: 'Leads' },
   { re: /\bmessages?\b/i, path: '/messages', label: 'Messages' },
   { re: /\bcustomers?\b/i, path: '/customers', label: 'Customers' },
+  { re: /\btasks\b/i, path: '/tasks', label: 'Tasks' },
   { re: /\bprofile\b/i, path: '/profile', label: 'Profile' },
   { re: /active\s+sessions/i, path: '/settings/sessions', label: 'Active Sessions' },
 ];
@@ -115,6 +123,7 @@ function allowsDestructiveReplay(text: string): boolean {
 }
 
 function isInformationalOnly(text: string): boolean {
+  if (wantsNavigation(text)) return false;
   if (!isInformationalQuery(text)) return false;
   return !ACTION_VERBS.test(text);
 }
@@ -196,7 +205,9 @@ export function wantsNavigation(text: string): boolean {
   if (wantsCrmMutation(text)) return false;
   const t = normalizeNavText(text);
   if (/\b(this page|that page|current page|here)\b/.test(t)) return true;
-  if (/\b(go|goto|got to|open|take me|navigate|bring me|show me|then|just go)\b/.test(t)) return true;
+  if (/\b(go|goto|got to|open|take me|navigate|bring me|show me|view|see|then|just go)\b/.test(t)) {
+    return PAGE_RULES.some((r) => r.re.test(t));
+  }
   return PAGE_RULES.some((r) => r.re.test(t));
 }
 
@@ -206,6 +217,12 @@ export function isCommandIntent(text: string): boolean {
   if (isAffirmation(t)) return true;
   if (isInformationalOnly(t)) return false;
   return ACTION_VERBS.test(t) || /\b(this page|here|sign out)\b/i.test(t);
+}
+
+function dedupeSettingsNavActions(actions: AssistantAction[]): AssistantAction[] {
+  const hasTab = actions.some((a) => a.path?.startsWith('/settings?tab='));
+  if (!hasTab) return actions;
+  return actions.filter((a) => a.path !== '/settings');
 }
 
 /** All pages mentioned in the message, in order of appearance. */
@@ -231,13 +248,90 @@ export function inferAllNavigateActions(text: string, pathname?: string): Assist
     seen.add(hit.path);
     actions.push({ type: 'navigate', path: hit.path, label: `Open ${hit.label}` });
   }
-  if (actions.length > 0) return actions;
+  if (actions.length > 0) return dedupeSettingsNavActions(actions);
   if (wantsNavigation(text)) return [];
   return [];
 }
 
 const EXPLICIT_PATH_RE =
-  /\/(?:dashboard|admin\/users(?:\/\d+)?|settings(?:\/sessions)?(?:\?[^\s)>]+)?|conversations|messages|customers(?:\/[^\s)>]+)?|profile)/gi;
+  /\/(?:dashboard|admin\/users(?:\/\d+)?|settings(?:\/sessions)?(?:\?[^\s)>]+)?|conversations|messages|customers(?:\/[^\s)>]+)?|tasks|profile)/gi;
+
+const ACTION_TYPE_IN_JSON_RE =
+  /"type"\s*:\s*"(navigate|open_lead|toggle_ai|open_customer|change_user_role|refresh_page|assign_lead|update_lead_status|send_message|toggle_user_status|verify_user|delete_user|open_user|logout|create_user|reset_user_password|update_user_profile|update_settings|switch_ai_provider|get_analytics|create_task|update_task|delete_task|create_customer|bulk_delete_users|bulk_delete_customers|ui_action)"/i;
+
+function extractBalancedJsonActionChunks(text: string): string[] {
+  const chunks: string[] = [];
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    if (ch !== '{' && ch !== '[') {
+      i += 1;
+      continue;
+    }
+    const start = i;
+    const opener = ch;
+    const closer = opener === '{' ? '}' : ']';
+    let depth = 1;
+    i += 1;
+    let inString = false;
+    let escape = false;
+    while (i < text.length && depth > 0) {
+      const c = text[i];
+      if (inString) {
+        if (escape) escape = false;
+        else if (c === '\\') escape = true;
+        else if (c === '"') inString = false;
+      } else if (c === '"') inString = true;
+      else if (c === opener) depth += 1;
+      else if (c === closer) depth -= 1;
+      i += 1;
+    }
+    if (depth === 0) {
+      const chunk = text.slice(start, i);
+      if (ACTION_TYPE_IN_JSON_RE.test(chunk)) chunks.push(chunk);
+    }
+  }
+  return chunks;
+}
+
+function parseActionJson(raw: string): AssistantAction[] {
+  try {
+    const data = JSON.parse(raw) as unknown;
+    const items = Array.isArray(data)
+      ? data
+      : data && typeof data === 'object' && 'actions' in data
+        ? (data as { actions: unknown }).actions
+        : [data];
+    if (!Array.isArray(items)) return [];
+    return items.filter(
+      (item): item is AssistantAction =>
+        !!item &&
+        typeof item === 'object' &&
+        actionHasRequiredFields(item as AssistantAction),
+    );
+  } catch {
+    return [];
+  }
+}
+
+function parseActionsFromAssistantText(content: string): AssistantAction[] {
+  const actions: AssistantAction[] = [];
+  const blockRe = /```actions\s*([\s\S]*?)```/gi;
+  let blockMatch: RegExpExecArray | null;
+  while ((blockMatch = blockRe.exec(content)) !== null) {
+    actions.push(...parseActionJson(blockMatch[1].trim()));
+  }
+  for (const chunk of extractBalancedJsonActionChunks(content)) {
+    actions.push(...parseActionJson(chunk));
+  }
+  const seen = new Set<string>();
+  return actions.filter((a) => {
+    const key = JSON.stringify(a);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
 
 type HistoryEntry = AssistantChatMessage & {
   actions?: AssistantAction[];
@@ -256,7 +350,7 @@ function pendingNavFromAssistantText(content: string): AssistantAction[] {
     const label = inferAllNavigateActions(path).find((a) => a.path === path)?.label ?? `Open ${path}`;
     actions.push({ type: 'navigate', path, label });
   }
-  if (actions.length > 0) return actions;
+  if (actions.length > 0) return dedupeSettingsNavActions(actions);
   return inferAllNavigateActions(content);
 }
 
@@ -277,8 +371,10 @@ function pendingActionsFromHistory(
           (allowDestructive || !DESTRUCTIVE_ACTIONS.has(a.type)),
       );
     }
-    const fromText = pendingNavFromAssistantText(msg.content);
+    const fromText = parseActionsFromAssistantText(msg.content);
     if (fromText.length > 0) return fromText;
+    const navOnly = pendingNavFromAssistantText(msg.content);
+    if (navOnly.length > 0) return navOnly;
   }
   return [];
 }
@@ -289,13 +385,6 @@ export function resolveClientActions(
   pathname?: string,
   history?: HistoryEntry[],
 ): AssistantAction[] {
-  const uiTarget = parseUiTargetFromText(text);
-  if (uiTarget === 'profile_logout') {
-    return [{ type: 'logout', label: 'Sign out' }];
-  }
-  if (uiTarget) {
-    return [{ type: 'ui_action', ui_target: uiTarget, label: `UI: ${uiTarget}` }];
-  }
   if (wantsLogout(text)) {
     return [{ type: 'logout', label: 'Sign out' }];
   }
@@ -323,13 +412,31 @@ export function resolveClientActions(
     return crmActions;
   }
 
+  const commandLike =
+    wantsNavigation(text) || isCommandIntent(text) || ACTION_VERBS.test(text);
+
+  // Tab/page navigation beats generic UI targets (e.g. "open settings ai" ≠ gear icon).
   const clientNav = inferAllNavigateActions(text, pathname);
   if (clientNav.length > 0 && wantsNavigation(text)) {
     return clientNav;
   }
 
-  const serverNav = serverActions.filter((a) => a.type === 'navigate');
-  if (serverNav.length > 0 && (wantsNavigation(text) || isAffirmation(text) || isCommandIntent(text))) {
+  const uiTarget = parseUiTargetFromText(text);
+  if (uiTarget === 'profile_logout') {
+    return [{ type: 'logout', label: 'Sign out' }];
+  }
+  if (uiTarget) {
+    return [{ type: 'ui_action', ui_target: uiTarget, label: `UI: ${uiTarget}` }];
+  }
+
+  const serverNav = dedupeSettingsNavActions(
+    serverActions.filter((a) => a.type === 'navigate' && actionHasRequiredFields(a)),
+  );
+  if (serverNav.length > 0 && commandLike) {
+    return serverNav;
+  }
+
+  if (serverNav.length > 0) {
     return serverNav;
   }
 

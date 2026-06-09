@@ -12,6 +12,7 @@ apps/env/production.env
 *.db
 messages.db
 app.log
+.email_poll.lock
 
 # Python
 __pycache__/

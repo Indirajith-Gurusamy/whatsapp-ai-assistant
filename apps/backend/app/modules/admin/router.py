@@ -81,7 +81,8 @@ async def admin_signup(
         # Create user with admin role
         from app.db.prisma.enums import UserRole
         from app.modules.auth.utils import hash_password, generate_otp
-        from datetime import datetime, timedelta
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
         
         # Check if email already exists
         existing_user = await db.user.find_unique(where={"email": data.email})
@@ -96,7 +97,7 @@ async def admin_signup(
         
         # Generate verification OTP
         verification_otp = generate_otp()
-        verification_otp_exp = datetime.utcnow() + timedelta(
+        verification_otp_exp = utc_now() + timedelta(
             minutes=settings.VERIFICATION_OTP_EXPIRE_MINUTES
         )
         

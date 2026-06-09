@@ -15,7 +15,7 @@ import type {
   UserProfile,
 } from '@/types';
 
-import { redirectToLogin } from '@/lib/auth-storage';
+import { notifySessionExpired, redirectToLogin } from '@/lib/auth-storage';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -290,8 +290,11 @@ class ApiClient {
       },
     };
 
-    // Add auth token if available
-    const token = tokenStorage.getToken();
+    const isLoginRequest =
+      endpoint.includes('/auth/login') || endpoint.includes('/admin/login');
+
+    // Never attach a stale token to login — user may be logged out
+    const token = isLoginRequest ? null : tokenStorage.getToken();
     if (token) {
       config.headers = {
         ...config.headers,
@@ -299,12 +302,25 @@ class ApiClient {
       };
     }
 
+    const controller = new AbortController();
+    const timeoutMs = isLoginRequest ? 20000 : 30000;
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
     try {
-      const response = await fetch(url, config);
+      const response = await fetch(url, { ...config, signal: controller.signal });
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
-        if (response.status === 401 && token) {
+        const isAuthFlow =
+          isLoginRequest ||
+          endpoint.includes('/auth/refresh') ||
+          endpoint.includes('/auth/signup') ||
+          endpoint.includes('/auth/forgot-password') ||
+          endpoint.includes('/auth/reset-password');
+
+        if (response.status === 401 && token && !isAuthFlow) {
           tokenStorage.clearTokens();
+          notifySessionExpired();
           redirectToLogin();
         }
         const errorData = await response.json().catch(() => ({}));
@@ -317,7 +333,13 @@ class ApiClient {
 
       return await response.json();
     } catch (error) {
+      clearTimeout(timeoutId);
       console.error(`API request failed: ${endpoint}`, error);
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error(
+          'API request timed out. The backend may be busy — try again, or disable email ingestion in Settings → Email if IMAP polling is overloading the server.'
+        );
+      }
       if (error instanceof TypeError && error.message === 'Failed to fetch') {
         throw new Error(
           'Cannot reach the API server. Ensure the backend is running (port 8000) and the database is migrated (python scripts/db.py push local).'
@@ -506,8 +528,13 @@ export const profileApi = {
 };
 
 // Conversations API
-export const fetchConversations = async (limit = 50): Promise<ConversationListItem[]> => {
-  return apiClient.get(`/api/conversations?limit=${limit}`);
+export const fetchConversations = async (
+  limit = 50,
+  channel?: string,
+): Promise<ConversationListItem[]> => {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (channel) params.set('channel', channel);
+  return apiClient.get(`/api/conversations?${params.toString()}`);
 };
 
 export const fetchConversationDetailByUuid = async (uuid: string): Promise<ConversationDetail> => {
@@ -519,13 +546,29 @@ export const updateConversationStatusByUuid = async (uuid: string, status: strin
 };
 
 // Messages API
-export const fetchMessages = async (limit = 50): Promise<MessageListItem[]> => {
-  return apiClient.get(`/api/messages?limit=${limit}`);
+export const fetchMessages = async (
+  limit = 50,
+  channel?: string,
+): Promise<MessageListItem[]> => {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (channel) params.set('channel', channel);
+  return apiClient.get(`/api/messages?${params.toString()}`);
+};
+
+export const markEmailAsRead = async (
+  messageId: number,
+): Promise<{ success: boolean; reason?: string }> => {
+  return apiClient.post(`/api/messages/${messageId}/mark-read`, {});
 };
 
 // Customers API
-export const fetchCustomers = async (limit = 50): Promise<CrmCustomer[]> => {
-  return apiClient.get(`/api/customers?limit=${limit}`);
+export const fetchCustomers = async (
+  limit = 50,
+  channel?: string,
+): Promise<CrmCustomer[]> => {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (channel) params.set('channel', channel);
+  return apiClient.get(`/api/customers?${params.toString()}`);
 };
 
 export const fetchCustomerByUuid = async (uuid: string): Promise<CrmCustomer> => {
@@ -720,6 +763,11 @@ export const settingsApi = {
   async testAI(providerId?: string): Promise<TestResult> {
     const query = providerId ? `?provider_id=${encodeURIComponent(providerId)}` : '';
     return apiClient.post(`/api/v1/settings/test/ai${query}`);
+  },
+
+  async testEmail(accountId?: string): Promise<TestResult> {
+    const query = accountId ? `?account_id=${encodeURIComponent(accountId)}` : '';
+    return apiClient.post(`/api/v1/settings/test/email${query}`);
   },
 
   async sendTestWhatsApp(data: { account_id?: string; phone_number: string; message: string }): Promise<TestResult> {
