@@ -96,6 +96,8 @@ _PAGE_NAV_RE = re.compile(
     r"\b(?:"
     r"user\s*management|admin\s+users?|system\s+settings|settings|"
     r"dashboard|leads?|conversations|messages?|customers?(?:\s+(?:list|page))?|"
+    r"tasks?|task\s+(?:page|list|board)|"
+    r"email\s+settings?|settings\s+email|knowledge\s+base|quick\s+replies?|"
     r"profile|audit(?:\s+log)?|automation|crm|active\s+sessions"
     r")\b",
     re.IGNORECASE,
@@ -104,18 +106,21 @@ _PAGE_NAV_RE = re.compile(
 _PAGE_PATH_RULES: List[tuple] = [
     (re.compile(r"\buser\s*management\b", re.I), "/admin/users", "User Management"),
     (re.compile(r"\badmin\s+users?\b", re.I), "/admin/users", "User Management"),
-    (re.compile(r"\bai\s+settings?\b", re.I), "/settings?tab=ai", "AI Settings"),
-    (re.compile(r"\bwhatsapp\s+settings?\b", re.I), "/settings?tab=whatsapp", "WhatsApp Settings"),
-    (re.compile(r"\bautomation\s+settings?\b", re.I), "/settings?tab=automation", "Automation"),
-    (re.compile(r"\bcrm\s+settings?\b", re.I), "/settings?tab=crm", "CRM Settings"),
-    (re.compile(r"\baudit(?:\s+log)?\b", re.I), "/settings?tab=audit", "Audit log"),
+    (re.compile(r"\b(?:ai\s+settings?|settings\s+ai)\b", re.I), "/settings?tab=ai", "AI Settings"),
+    (re.compile(r"\b(?:whatsapp\s+settings?|settings\s+whatsapp)\b", re.I), "/settings?tab=whatsapp", "WhatsApp Settings"),
+    (re.compile(r"\b(?:email\s+settings?|settings\s+email)\b", re.I), "/settings?tab=email", "Email Settings"),
+    (re.compile(r"\b(?:knowledge\s+base|kb)\b", re.I), "/settings?tab=ai", "Knowledge Base"),
+    (re.compile(r"\bquick\s+replies?\b", re.I), "/settings?tab=ai", "Quick Replies"),
+    (re.compile(r"\b(?:automation(?:\s+settings?)?|settings\s+automation)\b", re.I), "/settings?tab=automation", "Automation"),
+    (re.compile(r"\b(?:crm\s+settings?|settings\s+crm)\b", re.I), "/settings?tab=crm", "CRM Settings"),
+    (re.compile(r"\b(?:audit(?:\s+log)?|settings\s+audit)\b", re.I), "/settings?tab=audit", "Audit log"),
     (re.compile(r"\b(?:system\s+)?settings\b", re.I), "/settings", "Settings"),
     (re.compile(r"\bdashboard\b", re.I), "/dashboard", "Dashboard"),
     (re.compile(r"\b(?:leads?|conversations)\b", re.I), "/conversations", "Leads"),
     (re.compile(r"\bmessages?\b", re.I), "/messages", "Messages"),
     (re.compile(r"\bcustomers?\b", re.I), "/customers", "Customers"),
+    (re.compile(r"\btasks\b", re.I), "/tasks", "Tasks"),
     (re.compile(r"\bprofile\b", re.I), "/profile", "Profile"),
-    (re.compile(r"\bautomation\b", re.I), "/settings?tab=automation", "Automation"),
     (re.compile(r"\bactive\s+sessions\b", re.I), "/settings/sessions", "Active Sessions"),
 ]
 
@@ -143,6 +148,7 @@ _USER_DELETE_RE = re.compile(r"\bdelete\b.*\buser\b", re.I)
 _LEAD_STATUSES = [
     "application sent", "application in", "new lead", "assigned", "follow up",
     "on hold", "nurture", "duplicate", "closed", "lost",
+    "inbox", "lead only",
 ]
 
 _FIRST_PERSON_RE = re.compile(
@@ -201,6 +207,13 @@ def _combined_user_text(
 
 
 def _is_informational_query(message: str) -> bool:
+    """Count/list questions — not open/go/show navigation to an app page."""
+    if _wants_count(message):
+        return True
+    if (_is_page_navigation(message) or _wants_go_command(message)) and not _wants_team_query(
+        message, None, None
+    ):
+        return False
     return bool(_INFO_QUERY_RE.search(message or ""))
 
 
@@ -371,7 +384,7 @@ def _is_affirmation(message: str) -> bool:
 
 _EXPLICIT_PATH_RE = re.compile(
     r"/(?:dashboard|admin/users(?:/\d+)?|settings(?:/sessions)?(?:\?[^\s)>]+)?|"
-    r"conversations|messages|customers(?:/[^\s)>]+)?|profile)",
+    r"conversations|messages|customers(?:/[^\s)>]+)?|tasks|profile)",
     re.I,
 )
 
@@ -383,6 +396,7 @@ _PATH_LABELS: Dict[str, str] = {
     "/conversations": "Leads",
     "/messages": "Messages",
     "/customers": "Customers",
+    "/tasks": "Tasks",
     "/profile": "Profile",
 }
 
@@ -400,14 +414,89 @@ def _label_for_path(path: str) -> str:
     return path
 
 
-def _pending_nav_from_history(history: Optional[List[Dict[str, str]]]) -> List[Dict[str, Any]]:
-    """Recover navigate actions from the last assistant turn (history has no action payloads)."""
+_ENABLE_SETTING_RE = re.compile(
+    r"\b(?:enable|turn on|switch on|activate)\b", re.I
+)
+_DISABLE_SETTING_RE = re.compile(
+    r"\b(?:disable|turn off|switch off|deactivate)\b", re.I
+)
+
+# (pattern, category, setting_key, human label)
+_SETTINGS_TOGGLE_RULES: List[tuple] = [
+    (
+        re.compile(
+            r"\b(?:email\s+ingestion|email\s+polling|gmail\s+(?:inbox|polling)|imap(?:\s+polling)?)\b",
+            re.I,
+        ),
+        "EMAIL",
+        "email_enabled",
+        "email ingestion",
+    ),
+    (
+        re.compile(r"\b(?:create\s+customers?\s+from\s+emails?|email\s+customers?)\b", re.I),
+        "EMAIL",
+        "email_create_customers",
+        "create customers from email",
+    ),
+    (
+        re.compile(r"\b(?:assign\s+emails?\s+to\s+leads?|email\s+leads?)\b", re.I),
+        "EMAIL",
+        "email_assign_to_leads",
+        "assign emails to leads",
+    ),
+    (
+        re.compile(r"\b(?:auto[\-\s]?assign\s+leads?|automatic\s+lead\s+assign)\b", re.I),
+        "CRM",
+        "auto_assign_lead",
+        "auto-assign leads",
+    ),
+    (
+        re.compile(r"\b(?:human\s+handover|agent\s+handover)\b", re.I),
+        "AUTOMATION",
+        "human_handover",
+        "human handover",
+    ),
+    (
+        re.compile(r"\b(?:customer\s+service\s+window|service\s+window)\b", re.I),
+        "AUTOMATION",
+        "customer_service_window",
+        "customer service window",
+    ),
+]
+
+
+def _parse_settings_update_command(message: str) -> Optional[Dict[str, Any]]:
+    """Deterministic enable/disable for known Settings toggles."""
+    text = message or ""
+    enable = bool(_ENABLE_SETTING_RE.search(text))
+    disable = bool(_DISABLE_SETTING_RE.search(text))
+    if enable == disable:
+        return None
+    value = "true" if enable else "false"
+    for pattern, category, key, label in _SETTINGS_TOGGLE_RULES:
+        if pattern.search(text):
+            return {
+                "type": "update_settings",
+                "settings_category": category,
+                "settings": {key: value},
+                "label": f"{'Enable' if enable else 'Disable'} {label}",
+            }
+    return None
+
+
+def _pending_actions_from_history(history: Optional[List[Dict[str, str]]]) -> List[Dict[str, Any]]:
+    """Recover executable actions from the last assistant turn (content-only history)."""
+    from app.modules.ai.assistant_tools import parse_actions_from_reply
+
     if not history:
         return []
     for msg in reversed(history):
         if msg.get("role") != "assistant":
             continue
         content = msg.get("content") or ""
+        _, parsed = parse_actions_from_reply(content)
+        if parsed:
+            return parsed
         seen: set = set()
         actions: List[Dict[str, Any]] = []
         for match in _EXPLICIT_PATH_RE.finditer(content):
@@ -428,6 +517,11 @@ def _pending_nav_from_history(history: Optional[List[Dict[str, str]]]) -> List[D
     return []
 
 
+def _pending_nav_from_history(history: Optional[List[Dict[str, str]]]) -> List[Dict[str, Any]]:
+    """Backward-compatible alias — returns any pending actions from assistant history."""
+    return _pending_actions_from_history(history)
+
+
 def _resolve_all_page_paths(message: str) -> List[tuple]:
     """All pages mentioned in message, in order of appearance."""
     normalized = _normalize_nav_text(message)
@@ -442,7 +536,15 @@ def _resolve_all_page_paths(message: str) -> List[tuple]:
         if path not in seen:
             seen.add(path)
             out.append((path, label))
-    return out
+    return _dedupe_settings_nav_paths(out)
+
+
+def _dedupe_settings_nav_paths(paths: List[tuple]) -> List[tuple]:
+    """Bare /settings after a tab URL would reset the tab — keep the specific tab only."""
+    has_tab = any(p.startswith("/settings?tab=") for p, _ in paths)
+    if not has_tab:
+        return paths
+    return [(p, l) for p, l in paths if p != "/settings"]
 
 
 def _is_page_navigation(text: str) -> bool:
@@ -556,11 +658,8 @@ def _user_active_from_message(message: str) -> bool:
 
 def _resolve_page_path(message: str) -> Optional[tuple]:
     """Return (path, label) for a known app page mention."""
-    normalized = _normalize_nav_text(message)
-    for pattern, path, label in _PAGE_PATH_RULES:
-        if pattern.search(normalized):
-            return path, label
-    return None
+    pages = _resolve_all_page_paths(message)
+    return pages[0] if pages else None
 
 
 def _clean_token(text: str) -> str:
@@ -770,9 +869,9 @@ async def build_live_context(
     ):
         resolved = _resolve_page_path(message)
         page_hint = (
-            f"User wants app page **{resolved[1]}** → navigate to `{resolved[0]}`."
+            f"User wants app page **{resolved[1]}** → use `navigate` to `{resolved[0]}` immediately."
             if resolved
-            else "User wants an app page — use `navigate`, not `open_customer`."
+            else "User wants an app page — use `navigate`, not `open_customer`. Do not give manual click instructions."
         )
         blocks.append(f"## Navigation\n{page_hint}")
 
@@ -991,6 +1090,15 @@ def infer_actions(
     if _wants_refresh(message):
         return [{"type": "refresh_page", "label": "Refresh page"}]
 
+    if _is_affirmation(message) and history:
+        pending = _pending_actions_from_history(history)
+        if pending:
+            return pending
+
+    settings_action = _parse_settings_update_command(message)
+    if settings_action and not _is_informational_query(message):
+        return [settings_action]
+
     if _THIS_PAGE_RE.search(message) and ctx.pathname:
         return [{"type": "navigate", "path": ctx.pathname, "label": "Open this page"}]
 
@@ -1202,7 +1310,7 @@ def try_deterministic_reply(
         }
 
     if _is_affirmation(message):
-        pending = _pending_nav_from_history(history)
+        pending = _pending_actions_from_history(history)
         if pending:
             if all(a.get("type") == "navigate" for a in pending):
                 labels = " → ".join(
@@ -1347,6 +1455,15 @@ def try_deterministic_reply(
                     "label": "Send message",
                 }],
             }
+
+    settings_action = _parse_settings_update_command(message)
+    if settings_action and not _is_informational_query(message):
+        label = (settings_action.get("label") or "settings").replace("Enable ", "").replace("Disable ", "")
+        enabled = next(iter(settings_action["settings"].values())) == "true"
+        return {
+            "reply": f"{'Enabling' if enabled else 'Disabling'} **{label}**.",
+            "actions": [settings_action],
+        }
 
     all_pages = _resolve_all_page_paths(message)
     if all_pages and (

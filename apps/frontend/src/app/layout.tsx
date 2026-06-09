@@ -10,8 +10,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "WhatsApp AI Dashboard",
-  description: "WhatsApp Messages & AI Responses Dashboard",
+  title: "Vivafy",
+  description: "Vivafy - WhatsApp Messages & AI Responses Dashboard",
 };
 
 export default function RootLayout({

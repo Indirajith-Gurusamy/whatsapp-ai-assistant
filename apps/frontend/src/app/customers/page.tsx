@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useCustomers } from '@/hooks/useCustomers';
+import { ChannelBadge } from '@/components/data/ChannelBadge';
+import { ChannelFilterDropdown, type ChannelFilter } from '@/components/data/ChannelFilterDropdown';
 import { useTeamUsers } from '@/hooks/useTeamUsers';
 import { useAuth } from '@/contexts/AuthContext';
 import { customersApi } from '@/lib/api';
@@ -34,6 +36,7 @@ import { ListPageShell } from '@/components/data/ListPageShell';
 import { customerFilterFields } from '@/lib/table-filter-presets';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { formatDateParts } from '@/lib/date';
 
 const categoryKeywords: Record<string, string[]> = {
     'Loan': ['loan', 'credit', 'borrow', 'finance', 'lending'],
@@ -71,17 +74,16 @@ function categorizeCustomer(message: string | null): string {
     return 'General';
 }
 
-function formatDate(dateString: string | null | undefined): { date: string; time: string } {
-    if (!dateString) return { date: '-', time: '' };
-    const date = new Date(dateString);
-    return {
-        date: date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
-        time: date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
-    };
+function formatCustomerContact(customer: Customer): string {
+    if (customer.channel === 'email') {
+        return customer.email || customer.phone || '';
+    }
+    return customer.phone ? `+${customer.phone}` : '';
 }
 
 export default function CustomersPage() {
-    const { customers, isLoading, refresh } = useCustomers();
+    const [channelFilter, setChannelFilter] = useState<ChannelFilter>('all');
+    const { customers, isLoading, refresh } = useCustomers(500, channelFilter);
     const { isAdmin, isLoading: authLoading, user } = useAuth();
     const { emailToName } = useTeamUsers(isAdmin());
     const router = useRouter();
@@ -91,7 +93,8 @@ export default function CustomersPage() {
     const [isCreating, setIsCreating] = useState(false);
 
     const handleViewDetails = (customer: Customer) => {
-        router.push(`/customers/${customer.uuid}`);
+        const channel = customer.channel || 'whatsapp';
+        router.push(`/customers/${customer.uuid}?channel=${channel}`);
     };
 
     const handleAdd = () => {
@@ -129,13 +132,15 @@ export default function CustomersPage() {
             toast.error('No customers to export');
             return;
         }
-        const header = 'Name,Phone,Category,Lead Status,Assigned To,Last Message Time\n';
+        const header = 'Name,Channel,Contact,Category,Lead Status,Assigned To,Last Message Time\n';
         const rows = customers
             .map((c) => {
                 const category = categorizeCustomer(c.message);
                 const name = (c.name || 'Unnamed').replace(/"/g, '""');
                 const assignee = formatAssigneeLabel(c.assigned_to, emailToName, user?.email);
-                return `"${name}","${c.phone}","${category}","${c.lead_status}","${assignee}","${c.message_time}"`;
+                const channel = c.channel || 'whatsapp';
+                const contact = formatCustomerContact(c).replace(/"/g, '""');
+                return `"${name}","${channel}","${contact}","${category}","${c.lead_status}","${assignee}","${c.message_time}"`;
             })
             .join('\n');
         const blob = new Blob([header + rows], { type: 'text/csv' });
@@ -148,7 +153,16 @@ export default function CustomersPage() {
         toast.success('Customers exported');
     };
 
-    const columns = [
+    const columns = useMemo(() => [
+        ...(channelFilter === 'all'
+            ? [
+                  {
+                      key: 'channel',
+                      header: 'CHANNEL',
+                      cell: (item: Customer) => <ChannelBadge channel={item.channel} />,
+                  },
+              ]
+            : []),
         {
             key: 'name',
             header: 'NAME',
@@ -159,13 +173,32 @@ export default function CustomersPage() {
             ),
         },
         {
-            key: 'phone',
-            header: 'PHONE',
-            cell: (item: Customer) => (
-                <span className="text-gray-600 dark:text-gray-400 tabular-nums">
-                    +{item.phone}
-                </span>
-            ),
+            key: 'contact',
+            header: 'CONTACT',
+            cell: (item: Customer) => {
+                if (item.channel === 'email') {
+                    return (
+                        <span className="text-gray-600 dark:text-gray-400 break-all">
+                            {item.email || item.phone || '-'}
+                        </span>
+                    );
+                }
+                if (!item.phone?.trim()) {
+                    return (
+                        <Badge
+                            variant="outline"
+                            className="font-medium text-xs uppercase tracking-wide border bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"
+                        >
+                            NA
+                        </Badge>
+                    );
+                }
+                return (
+                    <span className="text-gray-600 dark:text-gray-400 tabular-nums">
+                        +{item.phone}
+                    </span>
+                );
+            },
         },
         {
             key: 'category',
@@ -206,7 +239,7 @@ export default function CustomersPage() {
             key: 'created',
             header: 'LAST CONTACT',
             cell: (item: Customer) => {
-                const { date, time } = formatDate(item.message_time);
+                const { date, time } = formatDateParts(item.message_time);
                 return (
                     <div>
                         <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{date}</div>
@@ -248,10 +281,10 @@ export default function CustomersPage() {
             ),
             className: 'w-[72px] text-right',
         },
-    ];
+    ], [channelFilter, emailToName, user?.email, router]);
 
     if (authLoading || isLoading) {
-        return <ListPageSkeleton columns={7} />;
+        return <ListPageSkeleton variant="customers" showChannelFilter />;
     }
 
     if (!isAdmin()) {
@@ -278,9 +311,12 @@ export default function CustomersPage() {
                 addLabel="Add"
                 onAdd={handleAdd}
                 onExport={handleExport}
-                searchFields={['name', 'phone', 'assigned_to'] as (keyof Customer)[]}
+                searchFields={['name', 'phone', 'email', 'assigned_to'] as (keyof Customer)[]}
                 emptyMessage="No customers found"
                 filterFields={customerFilterFields}
+                toolbarExtra={
+                    <ChannelFilterDropdown value={channelFilter} onChange={setChannelFilter} />
+                }
             />
             <Dialog open={addOpen} onOpenChange={setAddOpen}>
                 <DialogContent>

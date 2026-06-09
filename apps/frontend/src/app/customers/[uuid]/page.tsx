@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -15,14 +15,19 @@ import {
 } from '@/lib/api';
 import type { QuickReply } from '@/types';
 import { WhatsAppChat } from '@/components/chat/WhatsAppChat';
+import { EmailInboxView } from '@/components/email/EmailInboxView';
 import { PageBreadcrumb } from '@/components/layout/PageBreadcrumb';
 import { getPageBreadcrumb } from '@/lib/page-titles';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { User, Tag, MessageCircle, Info } from 'lucide-react';
+import { User, Tag, MessageCircle, Info, Mail, Inbox, Loader2 } from 'lucide-react';
 import type { Customer, ConversationHistory, MessageDeliveryStatus } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { formatDateTimeLong, parseAppDate } from '@/lib/date';
+import { useCustomerHistoryEvents } from '@/hooks/useCustomerHistoryEvents';
+import { parseEmailContent } from '@/lib/email-content';
+import { EmailMessageBody } from '@/components/email/EmailMessageBody';
 
 const categoryKeywords: Record<string, string[]> = {
     'Loan': ['loan', 'credit', 'borrow', 'finance'],
@@ -44,21 +49,31 @@ function categorizeMessage(message: string | null): string {
     return 'General';
 }
 
-function formatEnquiryDate(dateString: string | null | undefined): string {
-    if (!dateString) return '-';
-    try {
-        const d = new Date(dateString);
-        if (Number.isNaN(d.getTime())) return dateString;
-        return d.toLocaleString(undefined, {
-            dateStyle: 'medium',
-            timeStyle: 'short',
-        });
-    } catch {
-        return dateString;
-    }
-}
+import { cn } from '@/lib/utils';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+type CustomerChannel = 'whatsapp' | 'email';
+
+function parseChannelHint(value: string | null): CustomerChannel | null {
+    if (value === 'email' || value === 'whatsapp') return value;
+    return null;
+}
+
+function CustomerChannelLoader({ channel }: { channel: CustomerChannel | null }) {
+    const bg =
+        channel === 'email'
+            ? 'bg-[#f6f8fc]'
+            : channel === 'whatsapp'
+              ? 'bg-[#efeae2]'
+              : 'bg-background';
+
+    return (
+        <div className={cn('flex flex-1 items-center justify-center min-h-0', bg)}>
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+    );
+}
 
 function CustomerDetailContent() {
     const { isAdmin, isLoading: authLoading } = useAuth();
@@ -72,6 +87,7 @@ function CustomerDetailContent() {
 
     const customerUuid = params.uuid as string;
     const isValidUuid = UUID_REGEX.test(customerUuid);
+    const channelHint = parseChannelHint(searchParams.get('channel'));
 
     const [customer, setCustomer] = useState<Customer | null>(null);
     const [history, setHistory] = useState<ConversationHistory[]>([]);
@@ -94,6 +110,12 @@ function CustomerDetailContent() {
             router.replace('/customers');
             return;
         }
+
+        setCustomer(null);
+        setHistory([]);
+        setConversationUuid(null);
+        setPendingMessages([]);
+        setIsLoading(true);
 
         async function loadData() {
             try {
@@ -130,37 +152,45 @@ function CustomerDetailContent() {
         }
     };
 
-    // Poll for delivery/read ticks and new AI replies
+    const refreshHistory = useCallback(async () => {
+        try {
+            const historyData = await fetchCustomerHistoryByUuid(customerUuid);
+            const next = Array.isArray(historyData) ? historyData : [];
+            setHistory(next);
+            setPendingMessages((prev) =>
+                prev.filter(
+                    (p) =>
+                        !next.some(
+                            (m) =>
+                                m.content === p.content &&
+                                m.role === p.role &&
+                                Math.abs(
+                                    (parseAppDate(m.timestamp)?.getTime() ?? 0) -
+                                        (parseAppDate(p.timestamp)?.getTime() ?? 0)
+                                ) < 60000
+                        )
+                )
+            );
+        } catch {
+            /* ignore refresh errors */
+        }
+    }, [customerUuid]);
+
+    const [pageVisible, setPageVisible] = useState(
+        () => typeof document !== 'undefined' && !document.hidden
+    );
+
     useEffect(() => {
-        if (!isValidUuid || isLoading) return;
+        const onVisibilityChange = () => setPageVisible(!document.hidden);
+        document.addEventListener('visibilitychange', onVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+    }, []);
 
-        const refreshHistory = async () => {
-            try {
-                const historyData = await fetchCustomerHistoryByUuid(customerUuid);
-                const next = Array.isArray(historyData) ? historyData : [];
-                setHistory(next);
-                setPendingMessages((prev) =>
-                    prev.filter(
-                        (p) =>
-                            !next.some(
-                                (m) =>
-                                    m.content === p.content &&
-                                    m.role === p.role &&
-                                    Math.abs(
-                                        new Date(m.timestamp).getTime() -
-                                            new Date(p.timestamp).getTime()
-                                    ) < 60000
-                            )
-                    )
-                );
-            } catch {
-                /* ignore poll errors */
-            }
-        };
-
-        const interval = setInterval(refreshHistory, 3000);
-        return () => clearInterval(interval);
-    }, [customerUuid, isValidUuid, isLoading]);
+    useCustomerHistoryEvents(
+        customerUuid,
+        isValidUuid && !isLoading && activeTab === 'chat' && pageVisible,
+        refreshHistory
+    );
 
     const customerEnquiries = useMemo(
         () => history.filter((m) => m.role === 'customer'),
@@ -223,8 +253,7 @@ function CustomerDetailContent() {
                 )
             );
 
-            const historyData = await fetchCustomerHistoryByUuid(customerUuid);
-            setHistory(Array.isArray(historyData) ? historyData : []);
+            await refreshHistory();
             setPendingMessages([]);
         } catch {
             setPendingMessages((prev) =>
@@ -284,6 +313,12 @@ function CustomerDetailContent() {
     }
 
     const category = categorizeMessage(latestEnquiry);
+    const resolvedChannel: CustomerChannel | null =
+        customer?.channel === 'email' || customer?.channel === 'whatsapp'
+            ? customer.channel
+            : channelHint;
+    const isEmailChannel = resolvedChannel === 'email';
+    const channelReady = resolvedChannel !== null;
 
     return (
         <div className="flex flex-col flex-1 min-h-0 h-full w-full max-w-none overflow-hidden">
@@ -293,10 +328,31 @@ function CustomerDetailContent() {
                     <TabsList className="h-9 max-w-xs flex-1 bg-[#f0f2f5] p-0.5">
                         <TabsTrigger
                             value="chat"
-                            className="flex-1 gap-1.5 text-xs sm:text-sm data-[state=active]:bg-white data-[state=active]:text-[#008069] data-[state=active]:shadow-sm"
+                            className={cn(
+                                'flex-1 gap-1.5 text-xs sm:text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm',
+                                !channelReady
+                                    ? 'data-[state=active]:text-muted-foreground'
+                                    : isEmailChannel
+                                      ? 'data-[state=active]:text-blue-700'
+                                      : 'data-[state=active]:text-[#008069]'
+                            )}
                         >
-                            <MessageCircle className="w-3.5 h-3.5" />
-                            Chat
+                            {!channelReady ? (
+                                <>
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    Loading
+                                </>
+                            ) : isEmailChannel ? (
+                                <>
+                                    <Inbox className="w-3.5 h-3.5" />
+                                    Inbox
+                                </>
+                            ) : (
+                                <>
+                                    <MessageCircle className="w-3.5 h-3.5" />
+                                    Chat
+                                </>
+                            )}
                         </TabsTrigger>
                         <TabsTrigger
                             value="details"
@@ -310,28 +366,47 @@ function CustomerDetailContent() {
 
                 <TabsContent
                     value="chat"
-                    className="flex-1 flex flex-col min-h-0 h-0 m-0 p-0 w-full max-w-none outline-none data-[state=inactive]:hidden overflow-hidden bg-[#efeae2]"
+                    className={cn(
+                        'flex-1 flex flex-col min-h-0 h-0 m-0 p-0 w-full max-w-none outline-none data-[state=inactive]:hidden overflow-hidden',
+                        !channelReady
+                            ? 'bg-background'
+                            : isEmailChannel
+                              ? 'bg-[#f6f8fc]'
+                              : 'bg-[#efeae2]'
+                    )}
                 >
-                    <WhatsAppChat
-                        customerName={customer?.name || 'User'}
-                        customerPhone={customer?.phone || ''}
-                        history={history}
-                        isLoading={isLoading}
-                        aiEnabled={aiEnabled}
-                        isTogglingAI={isTogglingAI}
-                        conversationUuid={conversationUuid}
-                        onToggleAI={handleToggleAI}
-                        agentMessage={agentMessage}
-                        onAgentMessageChange={setAgentMessage}
-                        onSendMessage={handleSendMessage}
-                        isSending={isSending}
-                        pendingMessages={pendingMessages}
-                        onKeyDown={handleKeyDown}
-                        onBack={() => router.back()}
-                        quickReplies={quickReplies}
-                        onSuggestReply={handleSuggestReply}
-                        isSuggesting={isSuggesting}
-                    />
+                    {!channelReady ? (
+                        <CustomerChannelLoader channel={channelHint} />
+                    ) : isEmailChannel ? (
+                        <EmailInboxView
+                            customerName={customer?.name || 'User'}
+                            customerEmail={customer?.email || customer?.phone || ''}
+                            history={history}
+                            isLoading={isLoading}
+                            onBack={() => router.back()}
+                        />
+                    ) : (
+                        <WhatsAppChat
+                            customerName={customer?.name || 'User'}
+                            customerPhone={customer?.phone || ''}
+                            history={history}
+                            isLoading={isLoading}
+                            aiEnabled={aiEnabled}
+                            isTogglingAI={isTogglingAI}
+                            conversationUuid={conversationUuid}
+                            onToggleAI={handleToggleAI}
+                            agentMessage={agentMessage}
+                            onAgentMessageChange={setAgentMessage}
+                            onSendMessage={handleSendMessage}
+                            isSending={isSending}
+                            pendingMessages={pendingMessages}
+                            onKeyDown={handleKeyDown}
+                            onBack={() => router.back()}
+                            quickReplies={quickReplies}
+                            onSuggestReply={handleSuggestReply}
+                            isSuggesting={isSuggesting}
+                        />
+                    )}
                 </TabsContent>
 
                 <TabsContent
@@ -339,10 +414,17 @@ function CustomerDetailContent() {
                     className="flex-1 min-h-0 h-0 m-0 w-full max-w-none overflow-y-auto overscroll-contain p-3 md:p-4 space-y-4 outline-none data-[state=inactive]:hidden bg-background"
                 >
                     <div className="grid gap-4 md:grid-cols-2">
-                        <Card className="border-[#e9edef] shadow-sm">
+                        <Card className="border-gray-200 shadow-sm">
                             <CardHeader className="py-3 pb-2">
-                                <CardTitle className="text-sm flex items-center gap-2 text-[#008069]">
-                                    <User className="w-4 h-4" />
+                                <CardTitle className={cn(
+                                    'text-sm flex items-center gap-2',
+                                    isEmailChannel ? 'text-blue-700' : 'text-[#008069]'
+                                )}>
+                                    {isEmailChannel ? (
+                                        <Mail className="w-4 h-4" />
+                                    ) : (
+                                        <User className="w-4 h-4" />
+                                    )}
                                     Customer
                                 </CardTitle>
                             </CardHeader>
@@ -352,13 +434,24 @@ function CustomerDetailContent() {
                                     <p className="font-semibold text-[#111b21]">{customer?.name || 'User'}</p>
                                 </div>
                                 <div>
-                                    <p className="text-[10px] uppercase tracking-wider text-[#667781] font-medium">Phone</p>
-                                    <p className="font-semibold text-[#008069]">+{customer?.phone}</p>
+                                    <p className="text-[10px] uppercase tracking-wider text-[#667781] font-medium">
+                                        {customer?.channel === 'email' ? 'Email' : 'Phone'}
+                                    </p>
+                                    <p className={cn(
+                                        'font-semibold',
+                                        isEmailChannel ? 'text-blue-700' : 'text-[#008069]'
+                                    )}>
+                                        {customer?.channel === 'email'
+                                            ? customer?.email || customer?.phone
+                                            : customer?.phone
+                                              ? `+${customer.phone}`
+                                              : '-'}
+                                    </p>
                                 </div>
                                 <div>
                                     <p className="text-[10px] uppercase tracking-wider text-[#667781] font-medium">First enquiry</p>
                                     <p className="font-medium text-[#111b21]">
-                                        {formatEnquiryDate(firstEnquiryTime)}
+                                        {formatDateTimeLong(firstEnquiryTime)}
                                     </p>
                                 </div>
                             </CardContent>
@@ -379,15 +472,33 @@ function CustomerDetailContent() {
                         </Card>
                     </div>
 
-                    <Card className="border-[#e9edef] shadow-sm">
+                    <Card className="border-gray-200 shadow-sm">
                         <CardHeader className="py-3 pb-2">
-                            <CardTitle className="text-sm text-[#111b21]">Latest enquiry</CardTitle>
+                            <CardTitle className="text-sm text-gray-900">
+                                {isEmailChannel ? 'Latest email' : 'Latest enquiry'}
+                            </CardTitle>
                         </CardHeader>
                         <CardContent className="pb-4">
-                            <div className="bg-[#efeae2] p-4 rounded-lg border border-[#e9edef]">
-                                <p className="text-sm leading-relaxed text-[#111b21] whitespace-pre-wrap">
-                                    {latestEnquiry || '—'}
-                                </p>
+                            <div className={cn(
+                                'p-4 rounded-lg border',
+                                isEmailChannel
+                                    ? 'bg-white border-gray-200'
+                                    : 'bg-[#efeae2] border-[#e9edef]'
+                            )}>
+                                {isEmailChannel && latestEnquiry ? (
+                                    <div className="space-y-2 text-sm leading-relaxed text-[#111b21]">
+                                        <p className="font-medium">
+                                            {parseEmailContent(latestEnquiry).subject}
+                                        </p>
+                                        <EmailMessageBody
+                                            body={parseEmailContent(latestEnquiry).body}
+                                        />
+                                    </div>
+                                ) : (
+                                    <p className="text-sm leading-relaxed text-[#111b21] whitespace-pre-wrap">
+                                        {latestEnquiry || '—'}
+                                    </p>
+                                )}
                             </div>
                         </CardContent>
                     </Card>

@@ -51,6 +51,12 @@ enum SettingCategory {
   AI
   AUTOMATION
   CRM
+  EMAIL
+}
+
+enum Channel {
+  WHATSAPP
+  EMAIL
 }
 
 model UserProfile {
@@ -99,20 +105,25 @@ model AuditLog {
   @@map("audit_logs")
 }
 
-// Customer model - represents WhatsApp customers (formerly User model)
+// Customer model - represents WhatsApp and email customers
 model Customer {
   id            Int            @id @default(autoincrement())
   uuid          String         @unique @default(uuid()) @map("uuid") @db.Uuid
-  waId          String         @unique @map("wa_id") @db.VarChar(255)
-  phone         String         @db.VarChar(50)
+  channel       Channel        @default(WHATSAPP)
+  email         String?        @db.VarChar(255)
+  waId          String?        @unique @map("wa_id") @db.VarChar(255)
+  phone         String?        @db.VarChar(50)
   name          String?        @db.VarChar(255)
   createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz()
   conversations Conversation[]
 
+  @@unique([channel, email])
   @@index([uuid])
   @@index([waId])
   @@index([phone])
+  @@index([channel])
+  @@index([email])
   @@map("customers")
 }
 
@@ -121,6 +132,7 @@ model Conversation {
   id             Int       @id @default(autoincrement())
   uuid           String    @unique @default(uuid()) @map("uuid") @db.Uuid
   customerId     Int       @map("customer_id")
+  channel        Channel   @default(WHATSAPP)
   status         String    @default("active") @db.VarChar(50)
   leadStatus     String    @default("new lead") @map("lead_status") @db.VarChar(100)
   aiEnabled      Boolean   @default(true) @map("ai_enabled")
@@ -135,6 +147,7 @@ model Conversation {
 
   @@index([uuid])
   @@index([customerId])
+  @@index([channel])
   @@index([status])
   @@index([leadStatus])
   @@index([updatedAt])
@@ -145,15 +158,20 @@ model Conversation {
 model Message {
   id             Int          @id @default(autoincrement())
   conversationId Int          @map("conversation_id")
+  channel        Channel      @default(WHATSAPP)
   whatsappId     String?      @unique @map("whatsapp_id") @db.VarChar(255)
+  externalId     String?      @unique @map("external_id") @db.VarChar(512)
   message        String       @db.Text
+  htmlBody       String?      @map("html_body") @db.Text
   role           String       @db.VarChar(20)
   timestamp      DateTime     @default(now()) @db.Timestamptz()
   status         String       @default("received") @db.VarChar(50)
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId])
+  @@index([channel])
   @@index([whatsappId])
+  @@index([externalId])
   @@index([timestamp])
   @@index([role])
   @@map("messages")

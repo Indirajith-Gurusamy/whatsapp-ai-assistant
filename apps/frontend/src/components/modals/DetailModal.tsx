@@ -25,6 +25,8 @@ import { AssigneeCell } from '@/components/data/AssigneeCell';
 import { useTeamUsers } from '@/hooks/useTeamUsers';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDateTime } from '@/lib/date';
+import { parseEmailContent } from '@/lib/email-content';
+import { EmailMessageBody } from '@/components/email/EmailMessageBody';
 
 const statusOptions: { value: LeadStatus; label: string }[] = [
     { value: 'new lead', label: 'New Lead' },
@@ -125,8 +127,16 @@ export function DetailModal({
                         <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,6.5rem)_1fr] gap-x-3 gap-y-1.5 text-sm">
                             <span className="font-medium text-muted-foreground shrink-0">Name:</span>
                             <span className="min-w-0 break-words">{conversation.name || 'User'}</span>
-                            <span className="font-medium text-muted-foreground shrink-0">Phone:</span>
-                            <span className="min-w-0 break-all">+{conversation.phone}</span>
+                            <span className="font-medium text-muted-foreground shrink-0">
+                                {conversation.channel === 'email' ? 'Email:' : 'Phone:'}
+                            </span>
+                            <span className="min-w-0 break-all">
+                                {conversation.channel === 'email'
+                                    ? conversation.email || conversation.phone || '-'
+                                    : conversation.phone
+                                      ? `+${conversation.phone}`
+                                      : '-'}
+                            </span>
                             <span className="font-medium text-muted-foreground shrink-0">Message Date:</span>
                             <span className="min-w-0 break-words">{formatDateTime(conversation.message_time)}</span>
                             <span className="font-medium text-muted-foreground shrink-0">Assigned To:</span>
@@ -143,10 +153,21 @@ export function DetailModal({
                     {/* Enquiry */}
                     <section className="space-y-3">
                         <h3 className={`font-semibold text-sm border-b-2 ${themeClasses.borderPrimary} pb-2`}>
-                            Enquiry
+                            {conversation.channel === 'email' ? 'Email' : 'Enquiry'}
                         </h3>
                         <div className={`bg-muted/50 p-4 rounded-lg border-l-4 ${themeClasses.borderPrimary}`}>
-                            <p className="text-sm whitespace-pre-wrap">{conversation.message}</p>
+                            {conversation.channel === 'email' ? (
+                                <div className="space-y-2 text-sm">
+                                    <p className="font-medium">
+                                        {parseEmailContent(conversation.message).subject}
+                                    </p>
+                                    <EmailMessageBody
+                                        body={parseEmailContent(conversation.message).body}
+                                    />
+                                </div>
+                            ) : (
+                                <p className="text-sm whitespace-pre-wrap">{conversation.message}</p>
+                            )}
                         </div>
                     </section>
 

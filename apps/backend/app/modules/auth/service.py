@@ -8,6 +8,7 @@ from app.db.prisma.enums import UserRole
 from app.modules.auth.utils import (
     hash_password,
     verify_password,
+    verify_login_password,
     generate_otp,
     create_access_token,
     create_refresh_token,
@@ -29,6 +30,7 @@ from app.modules.auth.schemas import (
 )
 from app.core.email import EmailService
 from app.core.config import settings
+from app.core.datetime_utils import utc_now
 from fastapi import HTTPException, status
 
 logger = logging.getLogger(__name__)
@@ -67,7 +69,7 @@ class AuthService:
         
         # Generate verification OTP
         verification_otp = generate_otp()
-        verification_otp_exp = datetime.utcnow() + timedelta(
+        verification_otp_exp = utc_now() + timedelta(
             minutes=settings.VERIFICATION_OTP_EXPIRE_MINUTES
         )
         
@@ -116,9 +118,21 @@ class AuthService:
         Raises:
             HTTPException: If credentials are invalid or email not verified
         """
-        # Find user
+        import asyncio
+        from functools import partial
+
+        # Find user — always run bcrypt verify (dummy hash if missing) to avoid timing leaks
         user = await self.db.user.find_unique(where={"email": data.email})
-        if not user or not verify_password(data.password, user.password):
+        loop = asyncio.get_running_loop()
+        password_ok = await loop.run_in_executor(
+            None,
+            partial(
+                verify_login_password,
+                data.password,
+                user.password if user else None,
+            ),
+        )
+        if not user or not password_ok:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password"
@@ -141,7 +155,7 @@ class AuthService:
         # Update last login
         await self.db.user.update(
             where={"id": user.id},
-            data={"lastLogin": datetime.utcnow()}
+            data={"lastLogin": utc_now()}
         )
         
         # Create tokens
@@ -207,8 +221,8 @@ class AuthService:
             )
         
         # Check if OTP is expired
-        is_expired = user.verificationOtpExp and user.verificationOtpExp.replace(tzinfo=None) < datetime.utcnow()
-        logger.info(f"Checking verification code for {email}: Current={datetime.utcnow()}, Expiry={user.verificationOtpExp}, Expired={is_expired}")
+        is_expired = user.verificationOtpExp and user.verificationOtpExp.replace(tzinfo=None) < utc_now()
+        logger.info(f"Checking verification code for {email}: Current={utc_now()}, Expiry={user.verificationOtpExp}, Expired={is_expired}")
         
         if is_expired:
             raise HTTPException(
@@ -217,8 +231,8 @@ class AuthService:
             )
 
         # Check if OTP matches
-        logger.info(f"Comparing verification code for {email}: Stored='{user.verificationOtp}', Provided='{otp}'")
         if not user.verificationOtp or user.verificationOtp != otp:
+            logger.info(f"Verification code mismatch for {email}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid code"
@@ -279,7 +293,7 @@ class AuthService:
         # Simple approach: check if OTP exists and is recent
         if user.verificationOtp and user.verificationOtpExp:
             # If OTP hasn't expired yet, check if it was generated recently
-            time_until_expiry = user.verificationOtpExp.replace(tzinfo=None) - datetime.utcnow()
+            time_until_expiry = user.verificationOtpExp.replace(tzinfo=None) - utc_now()
             time_since_generation_seconds = (settings.VERIFICATION_OTP_EXPIRE_MINUTES * 60) - time_until_expiry.total_seconds()
             
             if time_since_generation_seconds < 30:
@@ -291,7 +305,7 @@ class AuthService:
         
         # Generate new OTP (invalidates old one)
         new_otp = generate_otp()
-        new_otp_exp = datetime.utcnow() + timedelta(
+        new_otp_exp = utc_now() + timedelta(
             minutes=settings.VERIFICATION_OTP_EXPIRE_MINUTES
         )
         
@@ -358,11 +372,10 @@ class AuthService:
         user = await self.db.user.find_unique(where={"email": email})
         
         if not user:
-            # For security, don't reveal if email exists
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="If this email is registered, you will receive a password reset code"
-            )
+            logger.info("Password reset requested for unknown email")
+            return {
+                "message": "If this email is registered, you will receive a password reset code"
+            }
         
         # Check if email is verified
         if not user.emailVerified:
@@ -373,7 +386,7 @@ class AuthService:
         
         # Check cooldown (30 seconds since last OTP)
         if user.resetToken and user.resetTokenExp:
-            time_until_expiry = user.resetTokenExp.replace(tzinfo=None) - datetime.utcnow()
+            time_until_expiry = user.resetTokenExp.replace(tzinfo=None) - utc_now()
             time_since_generation_seconds = (10 * 60) - time_until_expiry.total_seconds()
             
             if time_since_generation_seconds < 30:
@@ -385,7 +398,7 @@ class AuthService:
         
         # Generate new OTP
         reset_otp = generate_otp()
-        reset_otp_exp = datetime.utcnow() + timedelta(minutes=10)
+        reset_otp_exp = utc_now() + timedelta(minutes=10)
         
         # Update user with reset OTP
         await self.db.user.update(
@@ -438,8 +451,8 @@ class AuthService:
             )
         
         # Check if OTP is expired
-        is_expired = user.resetTokenExp and user.resetTokenExp.replace(tzinfo=None) < datetime.utcnow()
-        logger.info(f"Checking reset code for {email}: Current={datetime.utcnow()}, Expiry={user.resetTokenExp}, Expired={is_expired}")
+        is_expired = user.resetTokenExp and user.resetTokenExp.replace(tzinfo=None) < utc_now()
+        logger.info(f"Checking reset code for {email}: Current={utc_now()}, Expiry={user.resetTokenExp}, Expired={is_expired}")
         
         if is_expired:
             raise HTTPException(
@@ -448,8 +461,8 @@ class AuthService:
             )
 
         # Check if OTP matches
-        logger.info(f"Comparing reset code for {email}: Stored='{user.resetToken}', Provided='{otp}'")
         if not user.resetToken or user.resetToken != otp:
+            logger.info(f"Password reset code mismatch for {email}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid code"
@@ -527,6 +540,17 @@ class AuthService:
         }
         new_access_token = create_access_token(token_data)
         new_refresh_token = create_refresh_token(token_data)
+
+        new_token_hash = hash_token(new_access_token)
+        recent_session = await self.db.session.find_first(
+            where={"userId": user.id, "expiresAt": {"gt": utc_now()}},
+            order={"lastActivity": "desc"},
+        )
+        if recent_session:
+            await self.db.session.update(
+                where={"id": recent_session.id},
+                data={"tokenHash": new_token_hash, "lastActivity": utc_now()},
+            )
         
         return TokenResponse(
             access_token=new_access_token,
@@ -565,7 +589,7 @@ class AuthService:
             location = await get_location_from_ip(ip_address)
         
         # Calculate expiry (use refresh token expiry)
-        expires_at = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+        expires_at = utc_now() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
         
         # Create session
         try:
@@ -579,7 +603,7 @@ class AuthService:
                     "os": device_info.get("os"),
                     "ipAddress": ip_address,
                     "location": location,
-                    "lastActivity": datetime.utcnow(),
+                    "lastActivity": utc_now(),
                     "expiresAt": expires_at
                 }
             )
@@ -705,7 +729,7 @@ class AuthService:
         try:
             await self.db.session.update(
                 where={"tokenHash": token_hash},
-                data={"lastActivity": datetime.utcnow()}
+                data={"lastActivity": utc_now()}
             )
         except Exception as e:
             # Don't fail request if activity update fails

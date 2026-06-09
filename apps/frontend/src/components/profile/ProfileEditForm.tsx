@@ -6,6 +6,22 @@ import { profileApi } from '@/lib/api';
 import { themeClasses } from '@/lib/theme';
 import { getErrorMessage } from '@/lib/utils';
 import AvatarUpload from './AvatarUpload';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+
+const SOCIAL_PLATFORMS = [
+    { value: 'twitter', label: 'Twitter' },
+    { value: 'linkedin', label: 'LinkedIn' },
+    { value: 'github', label: 'GitHub' },
+    { value: 'facebook', label: 'Facebook' },
+    { value: 'instagram', label: 'Instagram' },
+    { value: 'website', label: 'Website' },
+] as const;
 
 interface ProfileEditFormProps {
     initialProfile: UserProfile;
@@ -262,18 +278,21 @@ export default function ProfileEditForm({ initialProfile, onSave, onCancel }: Pr
                         <div className="space-y-3">
                             {formData.socialLinks?.map((link, index) => (
                                 <div key={index} className="flex gap-2">
-                                    <select
+                                    <Select
                                         value={link.platform}
-                                        onChange={(e) => handleSocialLinkChange(index, 'platform', e.target.value)}
-                                        className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        onValueChange={(value) => handleSocialLinkChange(index, 'platform', value)}
                                     >
-                                        <option value="twitter">Twitter</option>
-                                        <option value="linkedin">LinkedIn</option>
-                                        <option value="github">GitHub</option>
-                                        <option value="facebook">Facebook</option>
-                                        <option value="instagram">Instagram</option>
-                                        <option value="website">Website</option>
-                                    </select>
+                                        <SelectTrigger className="w-[140px] shrink-0 rounded-lg border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-700">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {SOCIAL_PLATFORMS.map((platform) => (
+                                                <SelectItem key={platform.value} value={platform.value}>
+                                                    {platform.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                     <input
                                         type="url"
                                         value={link.url}

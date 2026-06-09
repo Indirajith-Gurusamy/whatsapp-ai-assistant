@@ -1,19 +1,8 @@
 import { cn } from '@/lib/utils';
 import { Check, CheckCheck, Clock } from 'lucide-react';
+import { formatTime, formatDateDivider } from '@/lib/date';
 
-function formatMessageTime(timestamp: string): string {
-    if (!timestamp) return '';
-    try {
-        const date = new Date(timestamp);
-        if (Number.isNaN(date.getTime())) return timestamp;
-        return date.toLocaleTimeString(undefined, {
-            hour: 'numeric',
-            minute: '2-digit',
-        });
-    } catch {
-        return timestamp;
-    }
-}
+export { formatDateDivider };
 
 export type MessageBubbleRole = 'customer' | 'agent' | 'human_agent';
 export type MessageDeliveryStatus =
@@ -137,7 +126,7 @@ export function MessageBubble({
                     </p>
                     <div className="flex items-center justify-end gap-0.5 mt-0.5 float-right ml-4 clear-both">
                         <span className="text-[11px] text-[#667781] leading-none tabular-nums">
-                            {formatMessageTime(timestamp)}
+                            {formatTime(timestamp)}
                         </span>
                         {isOutgoing && <MessageTicks status={outboundStatus} />}
                     </div>
@@ -145,27 +134,6 @@ export function MessageBubble({
             </div>
         </div>
     );
-}
-
-export function formatDateDivider(timestamp: string): string {
-    try {
-        const date = new Date(timestamp);
-        if (Number.isNaN(date.getTime())) return 'Earlier';
-        const today = new Date();
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
-
-        if (date.toDateString() === today.toDateString()) return 'Today';
-        if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
-        return date.toLocaleDateString(undefined, {
-            weekday: 'long',
-            month: 'long',
-            day: 'numeric',
-            year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
-        });
-    } catch {
-        return 'Earlier';
-    }
 }
 
 export function DateDivider({ label }: { label: string }) {

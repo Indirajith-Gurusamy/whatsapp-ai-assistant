@@ -3,7 +3,7 @@ import logging
 from typing import Dict, List, Optional, Any
 
 from app.db.prisma import Prisma, Json
-from app.core.encryption import encrypt_value, decrypt_value, SENSITIVE_KEYS
+from app.core.encryption import encrypt_value, decrypt_setting_value, SENSITIVE_KEYS
 from app.core.config import settings as app_settings
 
 logger = logging.getLogger(__name__)
@@ -18,6 +18,22 @@ from app.modules.ai.providers_util import build_default_ai_providers, normalize_
 
 def _ai_default_providers() -> str:
     return build_default_ai_providers()
+
+
+def _default_email_accounts_from_env() -> list:
+    if not app_settings.GMAIL_EMAIL or not app_settings.GMAIL_APP_PASSWORD:
+        return []
+    return [
+        {
+            "id": "gmail-default",
+            "name": "Gmail Default",
+            "email": app_settings.GMAIL_EMAIL,
+            "app_password": app_settings.GMAIL_APP_PASSWORD,
+            "imap_host": app_settings.GMAIL_IMAP_HOST or "imap.gmail.com",
+            "imap_port": str(app_settings.GMAIL_IMAP_PORT or 993),
+            "active": True,
+        }
+    ]
 
 
 def _build_defaults() -> Dict[str, Dict[str, str]]:
@@ -69,10 +85,94 @@ def _build_defaults() -> Dict[str, Dict[str, str]]:
             "followup_reminder_hours": "24",
             "status_workflow": "new lead,assigned,application sent,application in,nurture,follow up,on hold,lost,duplicate,closed",
         },
+        "EMAIL": {
+            "email_enabled": "false",
+            "email_create_customers": "false",
+            "email_assign_to_leads": "false",
+            "email_keyword_rules": "[]",
+            "email_accounts": json.dumps(_default_email_accounts_from_env()),
+            "poll_interval_seconds": str(app_settings.GMAIL_POLL_INTERVAL_SECONDS or 60),
+        },
     }
 
 
 DEFAULT_SETTINGS: Dict[str, Dict[str, str]] = _build_defaults()
+
+
+def _is_masked_secret(value: str) -> bool:
+    return "•" in value
+
+
+def _merge_email_accounts_payload(old_json: str, new_json: str) -> str:
+    """Preserve stored app passwords when the UI submits masked placeholders."""
+    try:
+        old_accounts = json.loads(old_json or "[]")
+        new_accounts = json.loads(new_json or "[]")
+    except json.JSONDecodeError:
+        return new_json
+    if not isinstance(old_accounts, list) or not isinstance(new_accounts, list):
+        return new_json
+
+    old_by_id = {
+        acc.get("id"): acc
+        for acc in old_accounts
+        if isinstance(acc, dict) and acc.get("id")
+    }
+    merged: List[Dict[str, Any]] = []
+    for acc in new_accounts:
+        if not isinstance(acc, dict):
+            continue
+        prev = old_by_id.get(acc.get("id"))
+        pwd = str(acc.get("app_password", ""))
+        if prev and _is_masked_secret(pwd):
+            acc = {**acc, "app_password": prev.get("app_password", pwd)}
+        merged.append(acc)
+    return json.dumps(merged)
+
+
+def _merge_json_accounts_payload(
+    old_json: str,
+    new_json: str,
+    *,
+    secret_fields: tuple,
+    nested_config: bool = False,
+) -> str:
+    """Preserve stored secrets when the UI submits masked placeholders."""
+    try:
+        old_accounts = json.loads(old_json or "[]")
+        new_accounts = json.loads(new_json or "[]")
+    except json.JSONDecodeError:
+        return new_json
+    if not isinstance(old_accounts, list) or not isinstance(new_accounts, list):
+        return new_json
+
+    old_by_id = {
+        acc.get("id"): acc
+        for acc in old_accounts
+        if isinstance(acc, dict) and acc.get("id")
+    }
+    merged: List[Dict[str, Any]] = []
+    for acc in new_accounts:
+        if not isinstance(acc, dict):
+            continue
+        prev = old_by_id.get(acc.get("id"))
+        if prev:
+            if nested_config:
+                prev_cfg = prev.get("config") if isinstance(prev.get("config"), dict) else {}
+                new_cfg = acc.get("config") if isinstance(acc.get("config"), dict) else {}
+                merged_cfg = dict(new_cfg)
+                for field in secret_fields:
+                    val = str(merged_cfg.get(field, ""))
+                    if _is_masked_secret(val):
+                        merged_cfg[field] = prev_cfg.get(field, val)
+                acc = {**acc, "config": merged_cfg}
+            else:
+                for field in secret_fields:
+                    val = str(acc.get(field, ""))
+                    if _is_masked_secret(val):
+                        acc = {**acc, field: prev.get(field, val)}
+        merged.append(acc)
+    return json.dumps(merged)
 
 
 class SettingsService:
@@ -107,7 +207,7 @@ class SettingsService:
             )
 
         for row in rows:
-            val = decrypt_value(row.value) if row.isEncrypted else row.value
+            val = decrypt_setting_value(row.value) if row.isEncrypted else row.value
             result[row.key] = val
 
         if cat == "AI":
@@ -150,7 +250,7 @@ class SettingsService:
         known_keys = set(DEFAULT_SETTINGS.get(cat, {}).keys())
         # For WhatsApp, we might add new platforms later, so let's be more flexible
         filtered_data = {
-            k: v for k, v in data.items() if k in known_keys or cat in ("WHATSAPP", "AI")
+            k: v for k, v in data.items() if k in known_keys or cat in ("WHATSAPP", "AI", "EMAIL")
         }
         if cat == "AI":
             for legacy_key in ("groq_api_key", "groq_model"):
@@ -158,6 +258,26 @@ class SettingsService:
 
         # Capture old values for audit
         old_values = await self.get_settings(cat)
+
+        if cat == "EMAIL" and "email_accounts" in filtered_data:
+            filtered_data["email_accounts"] = _merge_email_accounts_payload(
+                old_values.get("email_accounts", "[]"),
+                filtered_data["email_accounts"],
+            )
+        if cat == "WHATSAPP" and "whatsapp_accounts" in filtered_data:
+            filtered_data["whatsapp_accounts"] = _merge_json_accounts_payload(
+                old_values.get("whatsapp_accounts", "[]"),
+                filtered_data["whatsapp_accounts"],
+                secret_fields=("auth_token", "verify_token"),
+                nested_config=True,
+            )
+        if cat == "AI" and "ai_providers" in filtered_data:
+            filtered_data["ai_providers"] = _merge_json_accounts_payload(
+                old_values.get("ai_providers", "[]"),
+                filtered_data["ai_providers"],
+                secret_fields=("api_key",),
+                nested_config=True,
+            )
 
         for key, raw_value in filtered_data.items():
             should_encrypt = key in SENSITIVE_KEYS
@@ -195,6 +315,13 @@ class SettingsService:
             category=cat,
             old_value=audit_old,
             new_value=audit_new,
+        )
+
+        logger.info(
+            "Settings saved: category=%s keys=%s (admin user_id=%s)",
+            cat,
+            sorted(filtered_data.keys()),
+            admin_user_id,
         )
 
         return await self.get_settings(cat)
@@ -534,7 +661,7 @@ class SettingsService:
                 masked[k] = v
                 continue
 
-            if k in ("whatsapp_accounts", "ai_providers"):
+            if k in ("whatsapp_accounts", "ai_providers", "email_accounts"):
                 try:
                     import json
                     accounts = json.loads(v)

@@ -31,19 +31,21 @@ async def health_check():
     Health check endpoint for deployment monitoring.
     Returns server status and database connectivity.
     """
+    import asyncio
     from app.db.client import _prisma_client
-    
+
     db_status = "disconnected"
     if _prisma_client is not None:
         try:
-            # Simple query to verify database connection
-            await _prisma_client.customer.count()
+            await asyncio.wait_for(_prisma_client.customer.count(), timeout=3.0)
             db_status = "connected"
+        except asyncio.TimeoutError:
+            db_status = "timeout"
         except Exception:
             db_status = "error"
-    
+
     return {
-        "status": "healthy",
+        "status": "healthy" if db_status == "connected" else "unhealthy",
         "database": db_status,
         "message": "WhatsApp AI Assistant Backend"
     }

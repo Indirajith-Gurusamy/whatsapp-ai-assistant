@@ -15,11 +15,50 @@ from app.modules.auth.profile_service import ProfileService
 from app.modules.auth.schemas import SignupRequest
 from app.modules.auth.service import AuthService
 from app.modules.conversations.service import ConversationService
-from app.modules.settings.service import SettingsService
+from app.modules.settings.service import SettingsService, DEFAULT_SETTINGS
 from app.modules.tasks.service import TaskService
 from app.modules.ai.providers_util import parse_ai_providers, normalize_ai_settings
 
 logger = logging.getLogger(__name__)
+
+# LLMs often invent aliases — map to real SystemSetting keys.
+SETTINGS_KEY_ALIASES: Dict[str, str] = {
+    "imap_enabled": "email_enabled",
+    "email_ingestion": "email_enabled",
+    "email_ingestion_enabled": "email_enabled",
+    "enable_email": "email_enabled",
+    "gmail_enabled": "email_enabled",
+    "create_customers_from_email": "email_create_customers",
+    "email_customers": "email_create_customers",
+    "assign_to_leads": "email_assign_to_leads",
+    "email_leads": "email_assign_to_leads",
+    "auto_assign": "auto_assign_lead",
+    "human_handover_enabled": "human_handover",
+    "service_window": "customer_service_window",
+}
+
+
+def _coerce_setting_value(value: Any) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if value is None:
+        return ""
+    if isinstance(value, (dict, list)):
+        return json.dumps(value)
+    return str(value)
+
+
+def normalize_settings_payload(category: str, raw: Dict[str, Any]) -> Dict[str, str]:
+    """Map aliases and coerce values; drop keys not in DEFAULT_SETTINGS for the category."""
+    cat = category.upper()
+    known = set(DEFAULT_SETTINGS.get(cat, {}).keys())
+    out: Dict[str, str] = {}
+    for key, value in raw.items():
+        normalized_key = SETTINGS_KEY_ALIASES.get(str(key).lower(), str(key))
+        if known and normalized_key not in known:
+            continue
+        out[normalized_key] = _coerce_setting_value(value)
+    return out
 
 
 async def execute_extended_action(action: Dict[str, Any], user) -> Optional[Dict[str, Any]]:
@@ -119,20 +158,21 @@ async def execute_extended_action(action: Dict[str, Any], user) -> Optional[Dict
         raw = action.get("settings") or action.get("settings_json")
         if isinstance(raw, str):
             try:
-                settings_map = json.loads(raw)
+                parsed = json.loads(raw)
             except json.JSONDecodeError:
                 return {"success": False, "error": "Invalid settings JSON"}
+            if not isinstance(parsed, dict):
+                return {"success": False, "error": "settings must be a JSON object"}
+            settings_map = normalize_settings_payload(category, parsed)
         elif isinstance(raw, dict):
-            settings_map = {}
-            for k, v in raw.items():
-                if isinstance(v, (dict, list)):
-                    settings_map[str(k)] = json.dumps(v)
-                elif v is None:
-                    settings_map[str(k)] = ""
-                else:
-                    settings_map[str(k)] = str(v)
+            settings_map = normalize_settings_payload(category, raw)
         else:
             return {"success": False, "error": "settings dict or settings_json required"}
+        if not settings_map:
+            return {
+                "success": False,
+                "error": "No valid settings keys — use keys from Settings (e.g. email_enabled, not imap_enabled)",
+            }
         svc = SettingsService(db)
         await svc.update_settings(category, settings_map, admin_user_id=user.id)
         return {"success": True, "type": "update_settings", "category": category}

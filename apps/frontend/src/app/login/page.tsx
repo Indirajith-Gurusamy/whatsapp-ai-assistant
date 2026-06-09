@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { authApi } from "@/lib/api";
+import { authApi, tokenStorage } from "@/lib/api";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,7 +19,7 @@ import {
 
 export default function LoginPage() {
     const router = useRouter();
-    const { login, isAuthenticated, user } = useAuth();
+    const { login, isAuthenticated, isLoading: authLoading, user } = useAuth();
     const [formData, setFormData] = useState({
         email: "",
         password: "",
@@ -32,6 +32,12 @@ export default function LoginPage() {
     useEffect(() => {
         migrateLegacyAuthQueryParams();
     }, []);
+
+    useEffect(() => {
+        if (!authLoading && !isAuthenticated) {
+            tokenStorage.clearTokens();
+        }
+    }, [authLoading, isAuthenticated]);
 
     useEffect(() => {
         if (isAuthenticated && user) {

@@ -5,6 +5,7 @@ import re
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 import httpx
+from app.core.datetime_utils import utc_now
 from user_agents import parse
 
 logger = logging.getLogger(__name__)
@@ -98,7 +99,7 @@ async def get_location_from_ip(ip_address: str) -> Optional[str]:
         return None
     
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
+        async with httpx.AsyncClient(timeout=2.0) as client:
             response = await client.get(
                 f"http://ip-api.com/json/{ip_address}",
                 params={"fields": "status,city,country"}
@@ -132,7 +133,7 @@ async def cleanup_expired_sessions(db) -> int:
         Number of sessions deleted
     """
     try:
-        now = datetime.utcnow()
+        now = utc_now()
         
         # Delete sessions that have expired
         result = await db.session.delete_many(

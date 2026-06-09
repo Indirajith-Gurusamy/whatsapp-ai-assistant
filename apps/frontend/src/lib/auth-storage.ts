@@ -102,6 +102,14 @@ export function isPublicAuthRoute(pathname: string | null | undefined): boolean 
     return PUBLIC_AUTH_PATHS.some((route) => pathname.startsWith(route));
 }
 
+export const SESSION_EXPIRED_EVENT = 'crm:session-expired';
+
+/** Notify React auth state that tokens were cleared (e.g. 401). */
+export function notifySessionExpired(): void {
+    if (!isBrowser()) return;
+    window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+}
+
 /** Hard navigation to login — use after logout or 401. */
 export function redirectToLogin(): void {
     if (!isBrowser()) return;

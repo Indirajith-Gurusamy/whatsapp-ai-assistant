@@ -3,11 +3,13 @@
 import useSWR from 'swr';
 import { fetchMessages } from '@/lib/api';
 import type { Message } from '@/types';
+import { channelQueryParam, type ChannelFilter } from '@/lib/channel-filter';
 
-export function useMessages(limit = 500) {
+export function useMessages(limit = 500, channelFilter: ChannelFilter = 'all') {
+    const channel = channelQueryParam(channelFilter);
     const { data, error, isLoading, mutate } = useSWR<Message[]>(
-        ['messages', limit],
-        () => fetchMessages(limit),
+        ['messages', limit, channelFilter],
+        () => fetchMessages(limit, channel),
         {
             revalidateOnFocus: false,
             revalidateOnReconnect: false,
@@ -18,8 +20,10 @@ export function useMessages(limit = 500) {
         }
     );
 
+    const messages = [...(data ?? [])].sort((a, b) => b.id - a.id);
+
     return {
-        messages: data ?? [],
+        messages,
         error,
         isLoading,
         refresh: mutate,

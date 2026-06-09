@@ -3,6 +3,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
+from app.core.constants import LEAD_STATUS_INBOX
 from app.db.client import get_db
 
 
@@ -30,6 +31,8 @@ async def compute_pipeline_analytics() -> Dict[str, Any]:
     now = datetime.now(timezone.utc)
 
     for conv in conversations:
+        if conv.leadStatus == LEAD_STATUS_INBOX:
+            continue
         status = (conv.leadStatus or "unknown").strip()
         by_status[status] += 1
         updated = _parse_ts(conv.updatedAt)

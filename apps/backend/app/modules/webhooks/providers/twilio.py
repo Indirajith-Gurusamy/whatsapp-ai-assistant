@@ -1,14 +1,22 @@
 """Twilio webhook provider."""
 import json
 import logging
-from datetime import datetime
 from typing import Dict, Any
+from app.core.datetime_utils import utc_now
 from urllib.parse import parse_qs
 from app.modules.conversations.service import ConversationService
 from app.modules.ai.service import AIService
 from app.modules.whatsapp.sender import WhatsAppService
 from app.modules.webhooks.dedup import conversation_lock_key, inbound_processing_lock
-from app.core.constants import MESSAGE_ROLE_USER, MESSAGE_ROLE_ASSISTANT, MESSAGE_STATUS_RECEIVED, MESSAGE_STATUS_SENT, MESSAGE_STATUS_FAILED
+from app.core.constants import (
+    MESSAGE_ROLE_USER,
+    MESSAGE_ROLE_ASSISTANT,
+    MESSAGE_STATUS_RECEIVED,
+    MESSAGE_STATUS_SENT,
+    MESSAGE_STATUS_FAILED,
+    MESSAGE_STATUS_DELIVERED,
+    MESSAGE_STATUS_READ,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +77,22 @@ class TwilioWebhookProvider:
                 # This is an incoming message
                 await TwilioWebhookProvider._process_message(body)
             elif body.get("SmsStatus"):
-                # This is a status update (delivery receipt)
-                logger.info(f"[STATUS] Message {body.get('MessageSid')} - {body.get('SmsStatus')}")
+                msg_sid = body.get("MessageSid", "")
+                twilio_status = (body.get("SmsStatus") or "").lower()
+                logger.info(f"[STATUS] Message {msg_sid} - {twilio_status}")
+                status_map = {
+                    "queued": MESSAGE_STATUS_SENT,
+                    "sent": MESSAGE_STATUS_SENT,
+                    "delivered": MESSAGE_STATUS_DELIVERED,
+                    "read": MESSAGE_STATUS_READ,
+                    "failed": MESSAGE_STATUS_FAILED,
+                    "undelivered": MESSAGE_STATUS_FAILED,
+                }
+                mapped = status_map.get(twilio_status)
+                if msg_sid and mapped:
+                    await ConversationService.update_message_status_by_whatsapp_id(
+                        msg_sid, mapped
+                    )
             else:
                 logger.warning(f"[WARN] Unknown webhook type - Available fields: {list(body.keys())}")
             
@@ -121,7 +143,7 @@ class TwilioWebhookProvider:
                 return
 
             # Get timestamp
-            formatted_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            formatted_timestamp = utc_now().strftime("%Y-%m-%d %H:%M:%S")
             
             logger.info(f"[MESSAGE] From: {sender_name} ({phone})")
             logger.info(f"[MESSAGE] Text: {text[:100]}.")

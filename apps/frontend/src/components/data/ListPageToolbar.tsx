@@ -21,6 +21,8 @@ export interface ListPageToolbarProps {
     actions?: React.ReactNode;
     /** Extra controls after default action buttons (e.g. table settings). */
     trailingActions?: React.ReactNode;
+    /** Inline controls between search and action buttons (e.g. channel filter). */
+    toolbarExtra?: React.ReactNode;
     className?: string;
 }
 
@@ -64,6 +66,7 @@ export function ListPageToolbar({
     showFilterButton = false,
     actions,
     trailingActions,
+    toolbarExtra,
     className,
 }: ListPageToolbarProps) {
     const showSearch = onSearchChange !== undefined;
@@ -112,31 +115,35 @@ export function ListPageToolbar({
         <div className={cn('shrink-0 px-3 pt-3 pb-1 md:px-5 md:pt-4', className)}>
             <div
                 className={cn(
-                    'flex min-w-0 items-center gap-2 rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5 shadow-sm',
+                    'flex min-w-0 flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5 shadow-sm',
                     'dark:border-border/40 dark:bg-muted/15 sm:gap-3 sm:px-4 sm:py-3 md:px-5 md:py-3.5',
                 )}
             >
-                {showSearch ? (
-                    <div className="relative min-w-0 flex-1">
-                        <Search
-                            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/80"
-                            aria-hidden
-                        />
-                        <Input
-                            type="search"
-                            placeholder={searchPlaceholder}
-                            value={searchValue}
-                            onChange={(e) => onSearchChange(e.target.value)}
-                            className={cn(
-                                toolbarBtnHeight,
-                                'w-full min-w-0 rounded-full border-border/80 bg-background pl-9 pr-2 text-sm shadow-none sm:pl-10 sm:pr-4',
-                                'placeholder:text-muted-foreground/60',
-                            )}
-                        />
-                    </div>
-                ) : (
-                    <div className="min-w-0 flex-1" aria-hidden />
-                )}
+                <div className="flex min-w-0 flex-1 basis-[min(100%,12rem)] items-center gap-2">
+                    {showSearch ? (
+                        <div className="relative min-w-0 flex-1">
+                            <Search
+                                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/80"
+                                aria-hidden
+                            />
+                            <Input
+                                type="search"
+                                placeholder={searchPlaceholder}
+                                value={searchValue}
+                                onChange={(e) => onSearchChange(e.target.value)}
+                                className={cn(
+                                    toolbarBtnHeight,
+                                    'w-full min-w-0 rounded-full border-border/80 bg-background pl-9 pr-2 text-sm shadow-none sm:pl-10 sm:pr-4',
+                                    'placeholder:text-muted-foreground/60',
+                                )}
+                            />
+                        </div>
+                    ) : (
+                        <div className="min-w-0 flex-1" aria-hidden />
+                    )}
+
+                    {toolbarExtra}
+                </div>
 
                 {hasActions && (
                     <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">

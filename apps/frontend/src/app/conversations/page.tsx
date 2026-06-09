@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useConversations } from '@/hooks/useConversations';
+import { ChannelBadge } from '@/components/data/ChannelBadge';
+import { ChannelFilterDropdown, type ChannelFilter } from '@/components/data/ChannelFilterDropdown';
 import { useTeamUsers } from '@/hooks/useTeamUsers';
 import { useAuth } from '@/contexts/AuthContext';
 import { AssigneeCell } from '@/components/data/AssigneeCell';
@@ -17,6 +19,7 @@ import { DetailModal } from '@/components/modals/DetailModal';
 import { Button } from '@/components/ui/button';
 import { MoreVertical, UserPlus, Eye } from 'lucide-react';
 import type { Conversation, ConversationDetail } from '@/types';
+import { formatDateTime } from '@/lib/date';
 import { conversationFilterFields } from '@/lib/table-filter-presets';
 import { AssignLeadModal } from '@/components/modals/AssignLeadModal';
 import {
@@ -27,7 +30,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 export default function ConversationsPage() {
     const searchParams = useSearchParams();
-    const { conversations, isLoading, refresh } = useConversations();
+    const [channelFilter, setChannelFilter] = useState<ChannelFilter>('all');
+    const { conversations, isLoading, refresh } = useConversations(500, channelFilter);
     const { isAdmin, user } = useAuth();
     const { emailToName } = useTeamUsers(isAdmin());
     const [selectedConversation, setSelectedConversation] = useState<ConversationDetail | null>(null);
@@ -52,28 +56,28 @@ export default function ConversationsPage() {
             // Define CSV headers
             const headers = [
                 'ID',
-                'Phone',
+                'Channel',
+                'Contact',
                 'Name',
                 'Assigned To',
                 'Time',
                 'Message',
                 'Status',
-                'Response',
-                'Response Time',
                 'Comments'
             ];
 
             // Convert data to CSV rows
             const rows = conversations.map(conv => [
                 conv.message_id,
-                `="${conv.phone}"`, // Force Excel to treat phone as string
+                conv.channel || 'whatsapp',
+                conv.channel === 'email'
+                    ? `"${(conv.email || conv.phone || '').replace(/"/g, '""')}"`
+                    : `="${conv.phone}"`,
                 conv.name || 'Unknown',
                 formatAssigneeLabel(conv.assigned_to, emailToName, user?.email),
                 conv.message_time,
                 `"${(conv.message || '').replace(/"/g, '""')}"`, // Escape quotes and wrap in quotes
                 conv.lead_status,
-                `"${(conv.response || '').replace(/"/g, '""')}"`,
-                conv.response_time || '',
                 `"${(conv.comments || '').replace(/"/g, '""')}"`
             ]);
 
@@ -152,20 +156,18 @@ export default function ConversationsPage() {
         setAssignModalOpen(true);
     };
 
-    const calculateResponseHours = (messageTime: string | null, responseTime: string | null) => {
-        if (!messageTime || !responseTime) return '-';
-        try {
-            const msgDate = new Date(messageTime);
-            const respDate = new Date(responseTime);
-            const diffMs = respDate.getTime() - msgDate.getTime();
-            const diffHours = (diffMs / (1000 * 60 * 60)).toFixed(2);
-            return `${diffHours}h`;
-        } catch {
-            return '-';
-        }
-    };
-
-    const columns = [
+    const columns = useMemo(() => [
+        ...(channelFilter === 'all'
+            ? [
+                  {
+                      key: 'channel',
+                      header: 'Channel',
+                      cell: (item: Conversation) => (
+                          <ChannelBadge channel={item.channel} />
+                      ),
+                  },
+              ]
+            : []),
         {
             key: 'name',
             header: 'Name',
@@ -174,10 +176,16 @@ export default function ConversationsPage() {
             ),
         },
         {
-            key: 'phone',
-            header: 'Phone',
+            key: 'contact',
+            header: 'Contact',
             cell: (item: Conversation) => (
-                <span className="text-muted-foreground">+{item.phone}</span>
+                <span className="text-muted-foreground">
+                    {item.channel === 'email'
+                        ? item.email || item.phone
+                        : item.phone
+                          ? `+${item.phone}`
+                          : '-'}
+                </span>
             ),
         },
         {
@@ -195,17 +203,7 @@ export default function ConversationsPage() {
             header: 'Message Time',
             cell: (item: Conversation) => (
                 <span className="text-xs text-muted-foreground">
-                    {item.message_time ? new Date(item.message_time).toLocaleString() : '-'}
-                </span>
-            ),
-            className: 'hidden lg:table-cell',
-        },
-        {
-            key: 'response_time',
-            header: 'Response',
-            cell: (item: Conversation) => (
-                <span className="text-xs text-muted-foreground">
-                    {calculateResponseHours(item.message_time, item.response_time)}
+                    {item.message_time ? formatDateTime(item.message_time) : '-'}
                 </span>
             ),
             className: 'hidden lg:table-cell',
@@ -278,10 +276,10 @@ export default function ConversationsPage() {
             ),
             className: 'w-[72px] text-right',
         },
-    ];
+    ], [channelFilter, emailToName, user?.email, isAdmin]);
 
     if (isLoading) {
-        return <ListPageSkeleton columns={8} />;
+        return <ListPageSkeleton variant="leads" showChannelFilter />;
     }
 
     return (
@@ -295,8 +293,11 @@ export default function ConversationsPage() {
                 searchPlaceholder="Search..."
                 onExport={handleExport}
                 isExporting={isExporting}
-                searchFields={['name', 'phone', 'message', 'assigned_to'] as (keyof Conversation)[]}
+                searchFields={['name', 'phone', 'email', 'message', 'assigned_to'] as (keyof Conversation)[]}
                 filterFields={conversationFilterFields}
+                toolbarExtra={
+                    <ChannelFilterDropdown value={channelFilter} onChange={setChannelFilter} />
+                }
             />
 
             <DetailModal

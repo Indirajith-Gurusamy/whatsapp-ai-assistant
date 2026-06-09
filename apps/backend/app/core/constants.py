@@ -11,6 +11,9 @@ LEAD_STATUS_FOLLOW_UP = "follow up"
 LEAD_STATUS_ON_HOLD = "on hold"
 LEAD_STATUS_LOST = "lost"
 LEAD_STATUS_DUPLICATE = "duplicate"
+# Email visibility markers (not part of the sales workflow)
+LEAD_STATUS_INBOX = "inbox"  # Customers/Messages only
+LEAD_STATUS_LEADS_ONLY = "lead only"  # Conversations (Leads) only
 
 LEAD_STATUSES = [
     LEAD_STATUS_NEW,

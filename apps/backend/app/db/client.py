@@ -28,7 +28,7 @@ async def get_db() -> Prisma:
         logger.info("Initializing Prisma client...")
         _prisma_client = Prisma()
         await _prisma_client.connect()
-        logger.info("✓ Connected to PostgreSQL via Prisma")
+        logger.info("Connected to PostgreSQL via Prisma")
     
     return _prisma_client
 
@@ -45,4 +45,4 @@ async def disconnect_db():
     if _prisma_client is not None:
         await _prisma_client.disconnect()
         _prisma_client = None
-        logger.info("✓ Disconnected from PostgreSQL")
+        logger.info("Disconnected from PostgreSQL")

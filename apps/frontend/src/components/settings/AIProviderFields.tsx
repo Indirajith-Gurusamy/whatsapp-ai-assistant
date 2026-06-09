@@ -2,6 +2,14 @@
 
 import React from "react";
 import { FloatingInput } from "@/components/ui/floating-input";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Brain, Eye, EyeOff, Loader2, Trash2, CheckCircle2, XCircle } from "lucide-react";
 import type { TestResult } from "@/lib/api";
 import {
@@ -68,15 +76,18 @@ export function AIProviderFields({
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                         Provider
                     </label>
-                    <select
+                    <Select
                         value={providerType}
-                        onChange={(e) => handleProviderTypeChange(e.target.value as AIProviderType)}
-                        className="w-full h-[52px] px-3 py-2 border border-input rounded-lg text-sm focus:border-orange-500 bg-transparent outline-none"
-                        autoComplete="off"
+                        onValueChange={(value) => handleProviderTypeChange(value as AIProviderType)}
                     >
-                        <option value="groq">Groq</option>
-                        <option value="gemini">Gemini</option>
-                    </select>
+                        <SelectTrigger className="h-[52px] w-full rounded-lg border-input bg-transparent">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="groq">Groq</SelectItem>
+                            <SelectItem value="gemini">Gemini</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
             ) : (
                 <p className="text-xs text-gray-500">
@@ -108,17 +119,13 @@ export function AIProviderFields({
 
             <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Model</label>
-                <select
+                <SearchableSelect
+                    options={modelOptions.map((m) => ({ value: m, label: m }))}
                     value={provider.config.model}
-                    onChange={(e) => patch({ config: { model: e.target.value } })}
-                    className="w-full h-[52px] px-3 py-2 border border-input rounded-lg text-sm focus:border-orange-500 bg-transparent outline-none"
-                >
-                    {modelOptions.map((m) => (
-                        <option key={m} value={m}>
-                            {m}
-                        </option>
-                    ))}
-                </select>
+                    onChange={(value) => value && patch({ config: { model: value } })}
+                    searchPlaceholder="Search models..."
+                    emptyMessage="No models found."
+                />
                 {providerType === "gemini" && (
                     <p className="text-xs text-gray-400 leading-relaxed">
                         Keys starting with AQ. are valid. If Test fails with 429 on a new key, Google may

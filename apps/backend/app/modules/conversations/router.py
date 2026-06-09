@@ -1,10 +1,20 @@
 """Conversation API router matching old API paths."""
+import json
+
 from fastapi import APIRouter, HTTPException, Depends
+from starlette.responses import StreamingResponse
 from typing import Dict, Optional
 from app.modules.conversations.service import ConversationService
+from app.modules.conversations.events import get_customer_event_hub
+from app.modules.conversations.access import (
+    require_admin,
+    require_conversation_by_id,
+    require_conversation_by_uuid,
+)
 from app.modules.whatsapp.sender import WhatsAppService
 from app.modules.ai.service import AIService
 from app.modules.auth.dependencies import get_current_user, get_db
+from app.db.prisma.enums import Channel
 from app.core.constants import MESSAGE_ROLE_AGENT, MESSAGE_STATUS_SENT, MESSAGE_STATUS_FAILED
 import logging
 
@@ -16,36 +26,65 @@ router = APIRouter(tags=["conversations"])
 @router.get("/messages")
 async def get_messages(
     limit: int = 50,
+    channel: Optional[str] = None,
     current_user = Depends(get_current_user)
 ):
     """Get recent messages."""
-    messages = await ConversationService.get_messages(limit, current_user)
+    messages = await ConversationService.get_messages(limit, current_user, channel)
     return messages
+
+
+@router.post("/messages/{message_id}/mark-read")
+async def mark_email_message_read(message_id: int, current_user=Depends(get_current_user)):
+    """Mark the Gmail message as read when opened in the CRM."""
+    from app.modules.email.service import mark_crm_message_read_in_gmail
+
+    db = await get_db()
+    msg = await db.message.find_unique(
+        where={"id": message_id},
+        include={"conversation": True},
+    )
+    if not msg:
+        raise HTTPException(status_code=404, detail="Message not found")
+    if msg.channel != Channel.EMAIL:
+        raise HTTPException(status_code=400, detail="Not an email message")
+    if current_user.role != "ADMIN":
+        assignee = msg.conversation.assignedTo
+        if not assignee or assignee != current_user.email:
+            raise HTTPException(status_code=403, detail="Not authorized to mark this message")
+
+    result = await mark_crm_message_read_in_gmail(message_id)
+    if result.get("reason") == "not_found":
+        raise HTTPException(status_code=404, detail="Message not found")
+    return result
 
 
 @router.get("/responses")
 async def get_responses(
     limit: int = 50,
+    channel: Optional[str] = None,
     current_user = Depends(get_current_user)
 ):
     """Get recent responses."""
-    responses = await ConversationService.get_responses(limit, current_user)
+    responses = await ConversationService.get_responses(limit, current_user, channel)
     return responses
 
 
 @router.get("/conversations")
 async def get_conversations(
     limit: int = 50,
+    channel: Optional[str] = None,
     current_user = Depends(get_current_user)
 ):
     """Get conversations."""
-    conversations = await ConversationService.get_conversations(limit, current_user)
+    conversations = await ConversationService.get_conversations(limit, current_user, channel)
     return conversations
 
 
 @router.get("/conversation/{message_id}")
 async def get_conversation_detail(message_id: int, current_user=Depends(get_current_user)):
     """Get conversation detail (OLD API path - singular 'conversation')."""
+    await require_conversation_by_id(message_id, current_user)
     detail = await ConversationService.get_detail(message_id)
     if not detail:
         raise HTTPException(status_code=404, detail="Conversation not found")
@@ -62,7 +101,8 @@ async def update_conversation_status(
     
     if not status:
         raise HTTPException(status_code=400, detail="Status required")
-    
+
+    await require_conversation_by_id(message_id, current_user)
     await ConversationService.update_status(message_id, status, comments)
     logger.info(f"Updated conversation {message_id} status to {status}")
     
@@ -91,15 +131,21 @@ async def assign_lead(
 
 
 @router.get("/customers")
-async def get_customers(limit: int = 50, current_user=Depends(get_current_user)):
+async def get_customers(
+    limit: int = 50,
+    channel: Optional[str] = None,
+    current_user=Depends(get_current_user),
+):
     """Get customers (OLD API path - direct under /api)."""
-    customers = await ConversationService.get_customers(limit)
+    require_admin(current_user)
+    customers = await ConversationService.get_customers(limit, channel)
     return customers
 
 
 @router.get("/customers/by-uuid/{uuid}")
 async def get_customer_by_uuid(uuid: str, current_user=Depends(get_current_user)):
     """Get customer details by UUID."""
+    require_admin(current_user)
     customer = await ConversationService.get_customer_by_uuid(uuid)
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
@@ -109,13 +155,41 @@ async def get_customer_by_uuid(uuid: str, current_user=Depends(get_current_user)
 @router.get("/customers/by-uuid/{uuid}/history")
 async def get_customer_history_by_uuid(uuid: str, current_user=Depends(get_current_user)):
     """Get customer history by UUID."""
+    require_admin(current_user)
     history = await ConversationService.get_customer_history_by_uuid(uuid)
     return history
+
+
+@router.get("/customers/by-uuid/{uuid}/events")
+async def stream_customer_events(uuid: str, current_user=Depends(get_current_user)):
+    """SSE stream — notifies when this customer's conversation history changes."""
+    require_admin(current_user)
+    customer = await ConversationService.get_customer_by_uuid(uuid)
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    async def event_generator():
+        async for event in get_customer_event_hub().subscribe(uuid):
+            if event.get("type") == "heartbeat":
+                yield ": heartbeat\n\n"
+            else:
+                yield f"data: {json.dumps(event)}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/customers/{phone}/history")
 async def get_customer_history(phone: str, current_user=Depends(get_current_user)):
     """Get customer history."""
+    require_admin(current_user)
     history = await ConversationService.get_customer_history(phone)
     return history
 
@@ -123,6 +197,7 @@ async def get_customer_history(phone: str, current_user=Depends(get_current_user
 @router.get("/conversation/by-uuid/{uuid}")
 async def get_conversation_detail_by_uuid(uuid: str, current_user=Depends(get_current_user)):
     """Get conversation detail by UUID."""
+    await require_conversation_by_uuid(uuid, current_user)
     detail = await ConversationService.get_detail_by_uuid(uuid)
     if not detail:
         raise HTTPException(status_code=404, detail="Conversation not found")
@@ -139,7 +214,8 @@ async def update_conversation_status_by_uuid(
     
     if not status:
         raise HTTPException(status_code=400, detail="Status required")
-    
+
+    await require_conversation_by_uuid(uuid, current_user)
     success = await ConversationService.update_status_by_uuid(uuid, status, comments)
     if not success:
         raise HTTPException(status_code=404, detail="Conversation not found")
@@ -175,7 +251,7 @@ async def update_customer(
     status = data.get("status")
     comments = data.get("comments")
     
-    # Update conversation status (customer_id is actually conversation_id)
+    await require_conversation_by_id(customer_id, current_user)
     if status:
         await ConversationService.update_status(customer_id, status, comments)
     
@@ -193,7 +269,8 @@ async def toggle_ai(
     enabled = data.get("enabled")
     if enabled is None:
         raise HTTPException(status_code=400, detail="'enabled' field required")
-    
+
+    await require_conversation_by_uuid(uuid, current_user)
     result = await ConversationService.toggle_ai_by_uuid(uuid, bool(enabled))
     if result is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
@@ -213,11 +290,17 @@ async def send_agent_message(
     if not message_text:
         raise HTTPException(status_code=400, detail="Message text required")
     
-    conversation = await ConversationService.get_conversation_by_uuid(uuid)
-    if not conversation:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-    
+    conversation = await require_conversation_by_uuid(uuid, current_user)
+
+    if conversation.channel == Channel.EMAIL:
+        raise HTTPException(
+            status_code=400,
+            detail="Email conversations cannot be replied to via WhatsApp from this endpoint",
+        )
+
     phone = conversation.customer.phone
+    if not phone:
+        raise HTTPException(status_code=400, detail="Customer phone number not available")
     # Use the number that last received a message for this conversation
     last_received_on = getattr(conversation, 'lastReceivedOn', None)
     
@@ -250,9 +333,7 @@ async def send_agent_message(
 @router.post("/conversation/by-uuid/{uuid}/suggest-reply")
 async def suggest_reply(uuid: str, current_user=Depends(get_current_user)):
     """AI-draft next agent message from conversation history."""
-    conversation = await ConversationService.get_conversation_by_uuid(uuid)
-    if not conversation:
-        raise HTTPException(status_code=404, detail="Conversation not found")
+    conversation = await require_conversation_by_uuid(uuid, current_user)
     try:
         suggestion = await AIService.suggest_agent_reply(conversation.id)
         return {"suggestion": suggestion.strip()}
