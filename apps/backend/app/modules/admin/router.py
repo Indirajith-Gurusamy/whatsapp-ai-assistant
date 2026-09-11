@@ -193,7 +193,7 @@ async def get_all_users(
     search: Optional[str] = Query(None, description="Filter by name or email"),
     role: Optional[str] = Query(None, description="Filter by role (USER or ADMIN)"),
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
-    current_user = Depends(require_role(['ADMIN'])),
+    current_user = Depends(require_role(['ADMIN', 'HR'])),
     db: Prisma = Depends(get_db)
 ):
     """
@@ -247,11 +247,23 @@ async def get_all_users(
         )
 
 
+@router.get("/hr-dashboard")
+async def hr_dashboard(
+    current_user=Depends(require_role(['ADMIN', 'HR'])),
+    db: Prisma = Depends(get_db)
+):
+    """
+    Recruitment-focused dashboard stats for HR users.
+    """
+    service = AdminService(db)
+    return await service.hr_dashboard()
+
+
 @router.put("/users/{user_id}/role", response_model=RoleChangeResponse)
 async def change_user_role(
     user_id: int,
     data: RoleChangeRequest,
-    current_user = Depends(require_role(['ADMIN'])),
+    current_user = Depends(require_role(['ADMIN', 'HR'])),
     db: Prisma = Depends(get_db)
 ):
     """
@@ -300,7 +312,7 @@ async def change_user_role(
 @router.delete("/users/{user_id}", response_model=UserDeleteResponse)
 async def delete_user(
     user_id: int,
-    current_user = Depends(require_role(['ADMIN'])),
+    current_user = Depends(require_role(['ADMIN', 'HR'])),
     db: Prisma = Depends(get_db)
 ):
     """
@@ -339,7 +351,7 @@ async def delete_user(
 @router.post("/users/bulk-delete")
 async def bulk_delete_users(
     body: BulkDeleteUsersRequest,
-    current_user=Depends(require_role(["ADMIN"])),
+    current_user=Depends(require_role(['ADMIN', 'HR'])),
     db: Prisma = Depends(get_db),
 ):
     """Delete multiple users. Admin only."""
@@ -349,7 +361,7 @@ async def bulk_delete_users(
 
 @router.get("/stats", response_model=AdminStatsResponse)
 async def get_admin_stats(
-    current_user = Depends(require_role(['ADMIN'])),
+    current_user = Depends(require_role(['ADMIN', 'HR'])),
     db: Prisma = Depends(get_db)
 ):
     """
@@ -379,7 +391,7 @@ async def get_admin_stats(
 async def toggle_user_status(
     user_id: int,
     data: ToggleStatusRequest,
-    current_user = Depends(require_role(['ADMIN'])),
+    current_user = Depends(require_role(['ADMIN', 'HR'])),
     db: Prisma = Depends(get_db)
 ):
     """
@@ -427,7 +439,7 @@ async def toggle_user_status(
 @router.put("/users/{user_id}/verify", response_model=VerifyUserResponse)
 async def verify_user_manually(
     user_id: int,
-    current_user = Depends(require_role(['ADMIN'])),
+    current_user = Depends(require_role(['ADMIN', 'HR'])),
     db: Prisma = Depends(get_db)
 ):
     """
@@ -472,7 +484,7 @@ async def verify_user_manually(
 @router.post("/users/{user_id}/reset-password", response_model=ResetPasswordResponse)
 async def reset_user_password(
     user_id: int,
-    current_user = Depends(require_role(['ADMIN'])),
+    current_user = Depends(require_role(['ADMIN', 'HR'])),
     db: Prisma = Depends(get_db)
 ):
     """
@@ -504,7 +516,7 @@ async def reset_user_password(
 @router.get("/users/{user_id}/profile")
 async def get_user_profile(
     user_id: int,
-    current_user = Depends(require_role(['ADMIN'])),
+    current_user = Depends(require_role(['ADMIN', 'HR'])),
     db: Prisma = Depends(get_db)
 ):
     """Get a user's complete profile. Admin only."""
@@ -526,7 +538,7 @@ async def get_user_profile(
 async def update_user_profile(
     user_id: int,
     data: UpdateProfileRequest,
-    current_user = Depends(require_role(['ADMIN'])),
+    current_user = Depends(require_role(['ADMIN', 'HR'])),
     db: Prisma = Depends(get_db)
 ):
     """Update a user's profile. Admin only."""
@@ -548,7 +560,7 @@ async def update_user_profile(
 async def update_user_avatar(
     user_id: int,
     file: UploadFile = File(..., description="Avatar image file"),
-    current_user = Depends(require_role(['ADMIN'])),
+    current_user = Depends(require_role(['ADMIN', 'HR'])),
     db: Prisma = Depends(get_db)
 ):
     """Upload and update a user's avatar. Admin only."""

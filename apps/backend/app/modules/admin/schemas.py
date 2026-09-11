@@ -36,9 +36,9 @@ class RoleChangeRequest(BaseModel):
     @field_validator('role')
     @classmethod
     def validate_role(cls, v: str) -> str:
-        """Validate role is either USER or ADMIN."""
-        if v not in ['USER', 'ADMIN']:
-            raise ValueError('Role must be either USER or ADMIN')
+        """Validate role is either USER, HR or ADMIN."""
+        if v not in ['USER', 'HR', 'ADMIN']:
+            raise ValueError('Role must be USER, HR or ADMIN')
         return v
 
 

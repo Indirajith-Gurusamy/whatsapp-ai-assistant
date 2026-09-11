@@ -8,7 +8,7 @@ import { ListPageShell } from '@/components/data/ListPageShell';
 import { TaskDetailModal } from '@/components/modals/TaskDetailModal';
 import { CreateTaskModal } from '@/components/modals/CreateTaskModal';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Calendar, User } from 'lucide-react';
+import { MoreVertical, Calendar, User } from 'lucide-react';
 import type { Task, TaskDetail, TaskStatus, CreateTaskPayload, UpdateTaskPayload } from '@/types';
 import { taskFilterFields } from '@/lib/table-filter-presets';
 import { toast } from 'sonner';
@@ -235,7 +235,7 @@ export default function TasksPage() {
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
-                                <MoreHorizontal className="h-4 w-4" />
+                                <MoreVertical className="h-4 w-4" />
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">

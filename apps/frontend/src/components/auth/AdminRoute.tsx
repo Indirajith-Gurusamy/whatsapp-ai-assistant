@@ -8,7 +8,7 @@ interface AdminRouteProps {
 
 export function AdminRoute({ children }: AdminRouteProps) {
     return (
-        <ProtectedRoute requiredRole="ADMIN">
+        <ProtectedRoute requiredRole={['ADMIN', 'HR']}>
             {children}
         </ProtectedRoute>
     );

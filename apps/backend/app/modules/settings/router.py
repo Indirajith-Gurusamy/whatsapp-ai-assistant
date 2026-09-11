@@ -16,7 +16,7 @@ from app.modules.settings.service import SettingsService
 
 logger = logging.getLogger(__name__)
 
-VALID_CATEGORIES = {"whatsapp", "ai", "automation", "crm", "email"}
+VALID_CATEGORIES = {"whatsapp", "ai", "automation", "crm", "email", "recruitment"}
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
 
@@ -43,7 +43,7 @@ def _validate_category(category: str) -> str:
 async def get_audit_logs(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
-    current_user=Depends(require_role(["ADMIN"])),
+    current_user=Depends(require_role(['ADMIN', 'HR'])),
     db: Prisma = Depends(get_db),
 ):
     """Paginated list of admin audit logs."""
@@ -59,7 +59,7 @@ async def get_audit_logs(
 )
 async def test_whatsapp(
     account_id: Optional[str] = Query(None),
-    current_user=Depends(require_role(["ADMIN"])),
+    current_user=Depends(require_role(['ADMIN', 'HR'])),
     db: Prisma = Depends(get_db),
 ):
     """Send a test request to Twilio to validate WhatsApp credentials."""
@@ -74,7 +74,7 @@ async def test_whatsapp(
 )
 async def send_test_whatsapp(
     body: TestMessageRequest,
-    current_user=Depends(require_role(["ADMIN"])),
+    current_user=Depends(require_role(['ADMIN', 'HR'])),
     db: Prisma = Depends(get_db),
 ):
     """Send a real test WhatsApp message to a specific number."""
@@ -95,7 +95,7 @@ async def send_test_whatsapp(
 )
 async def test_ai(
     provider_id: Optional[str] = Query(None),
-    current_user=Depends(require_role(["ADMIN"])),
+    current_user=Depends(require_role(['ADMIN', 'HR'])),
     db: Prisma = Depends(get_db),
 ):
     """Send a test prompt via the active or selected AI provider."""
@@ -112,7 +112,7 @@ async def test_ai(
 )
 async def test_email(
     account_id: Optional[str] = Query(None),
-    current_user=Depends(require_role(["ADMIN"])),
+    current_user=Depends(require_role(['ADMIN', 'HR'])),
     db: Prisma = Depends(get_db),
 ):
     """Test IMAP connection for a configured email account."""
@@ -131,7 +131,7 @@ async def test_email(
 )
 async def get_settings(
     category: str,
-    current_user=Depends(require_role(["ADMIN"])),
+    current_user=Depends(require_role(['ADMIN', 'HR'])),
     db: Prisma = Depends(get_db),
 ):
     """Get all settings for a category (admin only)."""
@@ -150,7 +150,7 @@ async def get_settings(
 async def update_settings(
     category: str,
     body: CategorySettingsUpdate,
-    current_user=Depends(require_role(["ADMIN"])),
+    current_user=Depends(require_role(['ADMIN', 'HR'])),
     db: Prisma = Depends(get_db),
 ):
     """Update settings for a category (admin only). Logs to audit."""

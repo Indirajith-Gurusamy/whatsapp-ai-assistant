@@ -12,6 +12,8 @@ interface AuthContextType {
     login: (user: User, accessToken: string, refreshToken: string, rememberMe?: boolean) => void;
     logout: () => void;
     isAdmin: () => boolean;
+    hasHRRole: () => boolean;
+    isAdminOrHR: () => boolean;
     hasRole: (role: string) => boolean;
     hasAnyRole: (roles: string[]) => boolean;
     clearMustChangePassword: () => void;
@@ -92,6 +94,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return user?.role === "ADMIN";
     };
 
+    const hasHRRole = () => {
+        return user?.role === "HR";
+    };
+
+    const isAdminOrHR = () => {
+        return user?.role === "ADMIN" || user?.role === "HR";
+    };
+
     const hasRole = (role: string) => {
         return user?.role === role;
     };
@@ -116,6 +126,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 login,
                 logout,
                 isAdmin,
+                hasHRRole,
+                isAdminOrHR,
                 hasRole,
                 hasAnyRole,
                 clearMustChangePassword,

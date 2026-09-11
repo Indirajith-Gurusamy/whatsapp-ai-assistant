@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     
     # Database Configuration (Supabase PostgreSQL URI — direct connection, port 5432)
     DATABASE_URL: str = "postgresql://postgres:password@localhost:5432/whatsapp_ai"
+
+    # Supabase (Storage + auth for resumes bucket)
+    SUPABASE_URL: str = ""
+    SUPABASE_SERVICE_ROLE_KEY: str = ""
+    SUPABASE_RESUME_BUCKET: str = "resume"
     
     # Twilio WhatsApp Configuration
     VERIFY_TOKEN: str = "VERIFY_TOKEN"

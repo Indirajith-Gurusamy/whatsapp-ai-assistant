@@ -182,7 +182,7 @@ function actionHasRequiredFields(action: AssistantAction): boolean {
       return (
         action.user_id != null &&
         !!action.role &&
-        ['USER', 'ADMIN'].includes(String(action.role).toUpperCase())
+        ['USER', 'HR', 'ADMIN'].includes(String(action.role).toUpperCase())
       );
     default:
       return true;

@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 import { VIVAFY_UI_EVENT, closeAssistant, type UiActionTarget } from '@/lib/ui-actions';
 
 export function TopBar() {
-    const { logout, isAdmin } = useAuth();
+    const { logout, isAdmin, isAdminOrHR } = useAuth();
     const { user } = useCurrentUser();
     const router = useRouter();
     const pathname = usePathname();
@@ -75,8 +75,8 @@ export function TopBar() {
 
             {/* Actions */}
             <div className="flex items-center gap-2">
-                {/* Settings — admin only */}
-                {isAdmin() && (
+                {/* Settings — admin/HR only */}
+                {isAdminOrHR() && (
                     <Button
                         variant="ghost"
                         size="icon"
