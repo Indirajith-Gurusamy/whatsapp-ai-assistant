@@ -15,6 +15,7 @@ from app.core.encryption import require_stable_encryption_key
 
 from app.core.cleanup_job import session_cleanup_job
 
+import json
 import logging
 
 
@@ -110,6 +111,65 @@ async def _shutdown_resources() -> None:
     await disconnect_db()
 
 
+async def _migrate_legacy_apply_fields() -> None:
+    """One-time migration of the old apply_form_fields checkbox list.
+
+    The standard fields selected there become `showInApply` flags on the
+    matching CANDIDATE built-in field definitions. Afterwards the setting
+    only carries the optional "resume" marker (its own file control).
+    """
+    db = await get_db()
+    try:
+        from app.modules.settings.service import SettingsService
+        from app.modules.recruitment_fields.service import BUILTIN_DEFS
+
+        s = await SettingsService(db).get_settings("RECRUITMENT")
+        try:
+            legacy = json.loads(s.get("apply_form_fields") or "[]")
+            legacy = [str(k) for k in legacy] if isinstance(legacy, list) else []
+        except (TypeError, ValueError):
+            legacy = []
+
+        pending = [k for k in legacy if k != "resume"]
+        if not pending:
+            return
+
+        known = {d["key"] for d in BUILTIN_DEFS.get("CANDIDATE", [])}
+        changed = 0
+        for key in pending:
+            if key not in known:
+                continue
+            row = await db.recruitmentfield.find_first(
+                where={"entity": "CANDIDATE", "key": key}
+            )
+            if row and not row.showInApply:
+                await db.recruitmentfield.update(
+                    where={"id": row.id}, data={"showInApply": True}
+                )
+                changed += 1
+
+        next_list = ["resume"] if "resume" in legacy else []
+        await db.systemsetting.upsert(
+            where={"category_key": {"category": "RECRUITMENT", "key": "apply_form_fields"}},
+            data={
+                "create": {
+                    "category": "RECRUITMENT",
+                    "key": "apply_form_fields",
+                    "value": json.dumps(next_list),
+                    "isEncrypted": False,
+                },
+                "update": {"value": json.dumps(next_list), "isEncrypted": False},
+            },
+        )
+        logger.info(
+            "Migrated legacy apply form fields -> %s CANDIDATE flags (remaining list: %s)",
+            changed,
+            next_list,
+        )
+    except Exception as e:
+        logger.warning("Could not migrate legacy apply form fields: %s", e)
+
+
 @asynccontextmanager
 
 async def lifespan(app: FastAPI):
@@ -147,6 +207,26 @@ async def lifespan(app: FastAPI):
     try:
 
         await connect_db_with_retry()
+
+        try:
+
+            from app.modules.recruitment_fields.service import RecruitmentFieldsService
+
+            await RecruitmentFieldsService.seed_builtin_fields(await get_db())
+
+            logger.info("Recruitment field definitions ready")
+
+        except Exception as e:
+
+            logger.warning("Could not seed recruitment field definitions: %s", e)
+
+        try:
+
+            await _migrate_legacy_apply_fields()
+
+        except Exception as e:
+
+            logger.warning("Could not migrate legacy apply form fields: %s", e)
 
 
 

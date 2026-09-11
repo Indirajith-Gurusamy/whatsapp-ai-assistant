@@ -18,6 +18,11 @@ import {
     Users,
     AlignLeft,
     Menu,
+    Building2,
+    Briefcase,
+    UserRound,
+    CalendarCheck,
+    Globe,
 } from 'lucide-react';
 
 const commonNavItems = [
@@ -29,6 +34,11 @@ const adminNavItems = [
     { href: '/messages', label: 'Messages', icon: Mail },
     { href: '/customers', label: 'Customers', icon: Users },
     { href: '/admin/users', label: 'User Management', icon: Users },
+    { href: '/admin/jobs', label: 'Jobs', icon: Briefcase },
+    { href: '/admin/clients', label: 'Clients', icon: Building2 },
+    { href: '/admin/candidates', label: 'Candidates', icon: UserRound },
+    { href: '/admin/activities', label: 'Activities', icon: CalendarCheck },
+    { href: '/careers', label: 'Careers Page', icon: Globe },
 ];
 
 /** Match SheetContent close animation duration (ms). */
@@ -64,12 +74,23 @@ function SidebarContent({
     pendingNavHref?: string | null;
 }) {
     const pathname = usePathname();
-    const { isAdmin, isLoading } = useAuth();
+    const { isAdmin, hasHRRole, isLoading } = useAuth();
     const mounted = useIsClient();
+
+    // HR sees only the recruitment pages from the admin set, and drops Leads from common
+    const isHr = !isAdmin() && hasHRRole();
+    const adminNavItemsForRole = isHr
+        ? adminNavItems.filter((i) =>
+            ['/admin/jobs', '/admin/clients', '/admin/candidates', '/admin/activities'].includes(i.href)
+        )
+        : adminNavItems;
+    const commonNavItemsForRole = isHr
+        ? commonNavItems.filter((i) => i.href !== '/conversations')
+        : commonNavItems;
 
     // Only show common items until mounted and auth is loaded to prevent hydration mismatch
     const navItems = mounted && !isLoading
-        ? [...commonNavItems, ...(isAdmin() ? adminNavItems : [])]
+        ? [...commonNavItemsForRole, ...(isAdmin() || hasHRRole() ? adminNavItemsForRole : [])]
         : commonNavItems;
 
     return (

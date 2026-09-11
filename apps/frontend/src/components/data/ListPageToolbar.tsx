@@ -23,6 +23,8 @@ export interface ListPageToolbarProps {
     trailingActions?: React.ReactNode;
     /** Inline controls between search and action buttons (e.g. channel filter). */
     toolbarExtra?: React.ReactNode;
+    /** Extra classes for the search input (e.g. larger height). */
+    searchClassName?: string;
     className?: string;
 }
 
@@ -67,6 +69,7 @@ export function ListPageToolbar({
     actions,
     trailingActions,
     toolbarExtra,
+    searchClassName,
     className,
 }: ListPageToolbarProps) {
     const showSearch = onSearchChange !== undefined;
@@ -135,6 +138,7 @@ export function ListPageToolbar({
                                     toolbarBtnHeight,
                                     'w-full min-w-0 rounded-full border-border/80 bg-background pl-9 pr-2 text-sm shadow-none sm:pl-10 sm:pr-4',
                                     'placeholder:text-muted-foreground/60',
+                                    searchClassName,
                                 )}
                             />
                         </div>

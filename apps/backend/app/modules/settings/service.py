@@ -93,6 +93,44 @@ def _build_defaults() -> Dict[str, Dict[str, str]]:
             "email_accounts": json.dumps(_default_email_accounts_from_env()),
             "poll_interval_seconds": str(app_settings.GMAIL_POLL_INTERVAL_SECONDS or 60),
         },
+        "RECRUITMENT": {
+            "careers_page_enabled": "true",
+            "company_name": "Our Company",
+            "company_logo_url": "",
+            "careers_url": "/careers",
+            "about_message": "",
+            "notification_email": "",
+            "apply_form_fields": json.dumps([
+                "full_name",
+                "email",
+                "phone",
+                "resume",
+                "linkedin_url",
+                "current_position",
+                "current_company",
+                "location",
+                "experience",
+                "expected_salary",
+                "description",
+            ]),
+            "require_consent": "false",
+            "consent_message": "I agree to be contacted about my application and to my details being stored for recruitment purposes.",
+            "privacy_policy_url": "",
+            "apply_success_message": "Application submitted successfully.",
+            "apply_already_applied_message": "Your application has already been received.",
+            "apply_resume_note": "Your resume was received successfully.",
+            "default_pipeline_stages": json.dumps([
+                "New candidates",
+                "Shortlisted",
+                "Under experience",
+                "Over experience",
+                "Client submission",
+                "Client interview",
+                "Offered",
+                "Hired",
+                "Probation passed",
+            ]),
+        },
     }
 
 
@@ -308,6 +346,17 @@ class SettingsService:
         new_values = {**old_values, **filtered_data}
         audit_old = self._mask_sensitive(old_values)
         audit_new = self._mask_sensitive(new_values)
+
+        # Reflect default pipeline stage changes on jobs immediately
+        if cat == "RECRUITMENT" and "default_pipeline_stages" in filtered_data:
+            try:
+                names = json.loads(filtered_data["default_pipeline_stages"])
+                if isinstance(names, list):
+                    from app.modules.jobs.service import JobService
+
+                    await JobService.reconcile_default_stages([str(n) for n in names])
+            except Exception as e:
+                logger.warning("Could not sync default pipeline stages: %s", e)
 
         await self._create_audit_log(
             admin_user_id=admin_user_id,

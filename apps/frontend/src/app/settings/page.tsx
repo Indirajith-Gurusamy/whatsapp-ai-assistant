@@ -3,29 +3,31 @@
 import React, { useState, useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { MessageSquare, Brain, Zap, Users, ClipboardList, ShieldAlert, Mail } from "lucide-react";
+import { MessageSquare, Brain, Zap, Users, ClipboardList, ShieldAlert, Mail, Briefcase } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { WhatsAppTab } from "@/components/settings/WhatsAppTab";
 import { EmailTab } from "@/components/settings/EmailTab";
 import { AITab } from "@/components/settings/AITab";
 import { AutomationTab } from "@/components/settings/AutomationTab";
 import { CRMTab } from "@/components/settings/CRMTab";
+import { RecruitmentTab } from "@/components/settings/RecruitmentTab";
 import { AuditLogPanel } from "@/components/settings/AuditLogPanel";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { UnsavedChangesModal } from "@/components/ui/unsaved-changes-modal";
 import { settingsContentPad, settingsPadX } from "@/components/settings/settings-layout";
 
-const VALID_SETTINGS_TABS = new Set(["whatsapp", "email", "ai", "automation", "crm", "audit"]);
+const VALID_SETTINGS_TABS = new Set(["whatsapp", "email", "ai", "automation", "crm", "recruitment", "audit"]);
 
 export default function SettingsPage() {
-    const { isAdmin, isLoading: authLoading } = useAuth();
+    const { isAdmin, isAdminOrHR, isLoading: authLoading } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const tabParam = searchParams.get("tab");
     const tabFromUrl = () => {
-        return tabParam && VALID_SETTINGS_TABS.has(tabParam) ? tabParam : "whatsapp";
+        if (tabParam && VALID_SETTINGS_TABS.has(tabParam)) return tabParam;
+        return isAdmin() ? "whatsapp" : "recruitment";
     };
 
     const [activeTab, setActiveTab] = useState(tabFromUrl);
@@ -39,6 +41,16 @@ export default function SettingsPage() {
         const next = tabFromUrl();
         setActiveTab((prev) => (prev === next ? prev : next));
     }, [pathname, tabParam]);
+
+    // After auth is known, land on the correct default tab for the role
+    useEffect(() => {
+        if (authLoading) return;
+        const fromUrl = tabParam && VALID_SETTINGS_TABS.has(tabParam) ? tabParam : null;
+        if (fromUrl) return;
+        const def = isAdmin() ? "whatsapp" : "recruitment";
+        setActiveTab((prev) => (prev === def ? prev : def));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [authLoading]);
 
     const pageWrap = "w-full min-w-0";
     const cardWrap =
@@ -62,7 +74,7 @@ export default function SettingsPage() {
         );
     }
 
-    if (!isAdmin()) {
+    if (!isAdminOrHR()) {
         return (
             <div className={pageWrap}>
                 <div className={`${cardWrap} text-center py-16`}>
@@ -106,14 +118,20 @@ export default function SettingsPage() {
         setShowUnsavedConfirm(false);
     };
 
-    const tabItems = [
+    const allTabItems = [
         { value: "whatsapp", label: "WhatsApp", shortLabel: "WA", icon: MessageSquare },
         { value: "email", label: "Email", shortLabel: "Email", icon: Mail },
         { value: "ai", label: "AI", shortLabel: "AI", icon: Brain },
         { value: "automation", label: "Automation", shortLabel: "Auto", icon: Zap },
         { value: "crm", label: "CRM", shortLabel: "CRM", icon: Users },
+        { value: "recruitment", label: "Recruitment", shortLabel: "Rec", icon: Briefcase },
         { value: "audit", label: "Audit Log", shortLabel: "Log", icon: ClipboardList },
     ];
+
+    // HR sees only the Recruitment tab
+    const tabItems = isAdmin()
+        ? allTabItems
+        : allTabItems.filter((tab) => tab.value === "recruitment");
 
     return (
         <div className={pageWrap}>
@@ -157,6 +175,9 @@ export default function SettingsPage() {
                         </TabsContent>
                         <TabsContent value="crm" className="mt-0">
                             <CRMTab onDirtyChange={setIsDirty} />
+                        </TabsContent>
+                        <TabsContent value="recruitment" className="mt-0">
+                            <RecruitmentTab onDirtyChange={setIsDirty} />
                         </TabsContent>
                         <TabsContent value="audit" className="mt-0">
                             <AuditLogPanel />

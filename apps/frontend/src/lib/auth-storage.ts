@@ -84,7 +84,8 @@ export function migrateLegacyAuthQueryParams(): void {
 }
 
 export function getDefaultPostLoginPath(role: string): string {
-    return role === 'ADMIN' ? '/conversations' : '/dashboard';
+    if (role === 'ADMIN') return '/conversations';
+    return '/dashboard';
 }
 
 const PUBLIC_AUTH_PATHS = [
@@ -95,6 +96,7 @@ const PUBLIC_AUTH_PATHS = [
     '/reset-password',
     '/admin/login',
     '/admin/signup',
+    '/careers',
 ];
 
 export function isPublicAuthRoute(pathname: string | null | undefined): boolean {

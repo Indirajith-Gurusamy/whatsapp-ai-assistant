@@ -22,7 +22,7 @@ async def list_tasks(current_user=Depends(get_current_user)):
 @router.post("", response_model=TaskOut, status_code=201)
 async def create_task(
     body: CreateTaskRequest,
-    current_user=Depends(require_role(["ADMIN"])),
+    current_user=Depends(require_role(['ADMIN', 'HR'])),
 ):
     return await TaskService.create_task(
         body.model_dump(),
@@ -35,11 +35,11 @@ async def create_task(
 async def update_task(
     uuid: str,
     body: UpdateTaskRequest,
-    current_user=Depends(require_role(["ADMIN"])),
+    current_user=Depends(require_role(['ADMIN', 'HR'])),
 ):
     return await TaskService.update_task(uuid, body.model_dump(exclude_none=True))
 
 
 @router.delete("/{uuid}")
-async def delete_task(uuid: str, current_user=Depends(require_role(["ADMIN"]))):
+async def delete_task(uuid: str, current_user=Depends(require_role(['ADMIN', 'HR']))):
     return await TaskService.delete_task(uuid)

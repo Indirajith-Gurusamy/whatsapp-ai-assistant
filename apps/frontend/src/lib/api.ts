@@ -24,7 +24,7 @@ export interface User {
   id: number;
   email: string;
   name: string;
-  role: 'USER' | 'ADMIN';
+  role: 'USER' | 'HR' | 'ADMIN';
   isActive: boolean;
   emailVerified: boolean;
   mustChangePassword: boolean;
@@ -86,7 +86,7 @@ export interface UserListItem {
   id: number;
   email: string;
   name: string;
-  role: 'USER' | 'ADMIN';
+  role: 'USER' | 'HR' | 'ADMIN';
   isActive: boolean;
   emailVerified: boolean;
   lastLogin: string | null;
@@ -790,7 +790,7 @@ export const adminApi = {
     skip = 0,
     limit = 100,
     search?: string,
-    filters?: { role?: 'USER' | 'ADMIN'; isActive?: boolean },
+    filters?: { role?: 'USER' | 'HR' | 'ADMIN'; isActive?: boolean },
   ): Promise<UserListResponse> {
     const params = new URLSearchParams({
       skip: String(skip),

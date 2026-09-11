@@ -3,17 +3,21 @@
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { isPublicAuthRoute, setAuthRedirect } from "@/lib/auth-storage";
+import { getDefaultPostLoginPath, isPublicAuthRoute, setAuthRedirect } from "@/lib/auth-storage";
 
 interface ProtectedRouteProps {
     children: React.ReactNode;
-    requiredRole?: string;
+    requiredRole?: string | string[];
 }
 
 export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
-    const { isAuthenticated, isLoading, hasRole } = useAuth();
+    const { isAuthenticated, isLoading, hasRole, hasAnyRole, user } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
+
+    const hasRequiredRole = (role: string | string[]) => {
+        return Array.isArray(role) ? hasAnyRole(role) : hasRole(role);
+    };
 
     useEffect(() => {
         // Don't redirect if still loading
@@ -27,17 +31,17 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
             router.replace("/login");
         }
 
-        // If authenticated and trying to access login/signup, redirect to conversations
+        // If authenticated and trying to access login/signup, redirect to role home
         if (isAuthenticated && (pathname === "/login" || pathname === "/signup")) {
-            router.replace("/conversations");
+            router.replace(getDefaultPostLoginPath(user?.role ?? "USER"));
         }
 
         // Check role requirement
-        if (isAuthenticated && requiredRole && !hasRole(requiredRole)) {
+        if (isAuthenticated && requiredRole && !hasRequiredRole(requiredRole)) {
             // User is authenticated but doesn't have required role
             router.push("/");
         }
-    }, [isAuthenticated, isLoading, pathname, router, requiredRole, hasRole]);
+    }, [isAuthenticated, isLoading, pathname, router, requiredRole, hasRole, hasAnyRole, user?.role]);
 
     // Don't block rendering while checking authentication
     // The layout (sidebar/navbar) should render immediately
@@ -56,7 +60,7 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
     }
 
     // Show access denied if role requirement not met
-    if (isAuthenticated && requiredRole && !hasRole(requiredRole)) {
+    if (isAuthenticated && requiredRole && !hasRequiredRole(requiredRole)) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
                 <div className="text-gray-900 dark:text-white text-center">

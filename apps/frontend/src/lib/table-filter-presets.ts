@@ -15,7 +15,7 @@ const LEAD_STATUS_OPTIONS = [
 
 const TASK_STATUS_OPTIONS = ['todo', 'in_progress', 'review', 'completed', 'cancelled'];
 const TASK_PRIORITY_OPTIONS = ['low', 'medium', 'high', 'urgent'];
-const USER_ROLE_OPTIONS = ['USER', 'ADMIN'];
+const USER_ROLE_OPTIONS = ['USER', 'HR', 'ADMIN'];
 const USER_ACTIVE_OPTIONS = ['active', 'disabled'];
 
 export const customerFilterFields: TableFilterField[] = [
@@ -56,6 +56,39 @@ export const taskFilterFields: TableFilterField[] = [
     { key: 'priority', label: 'Priority', type: 'text', valueInput: 'select', staticOptions: TASK_PRIORITY_OPTIONS },
     { key: 'assigned_to', label: 'Assigned To', type: 'text', valueInput: 'select', optionsSource: 'team-users' },
     { key: 'due_date', label: 'Due Date', type: 'date', valueInput: 'date' },
+    { key: 'created_at', label: 'Created At', type: 'date', valueInput: 'date' },
+];
+
+const JOB_STATUS_OPTIONS = ['ACTIVE', 'DRAFT', 'ARCHIVED'];
+const JOB_CONTRACT_OPTIONS = ['Full-time', 'Part-time', 'Contract', 'Freelance', 'Internship'];
+
+export const jobFilterFields: TableFilterField[] = [
+    { key: 'title', label: 'Title', type: 'text', valueInput: 'select' },
+    { key: 'organization_name', label: 'Client', type: 'text', valueInput: 'select' },
+    { key: 'location', label: 'Location', type: 'text', valueInput: 'select' },
+    {
+        key: 'contract_type',
+        label: 'Contract Type',
+        type: 'text',
+        valueInput: 'select',
+        staticOptions: JOB_CONTRACT_OPTIONS,
+    },
+    { key: 'experience', label: 'Experience', type: 'text', valueInput: 'select' },
+    {
+        key: 'status',
+        label: 'Status',
+        type: 'text',
+        valueInput: 'select',
+        staticOptions: JOB_STATUS_OPTIONS,
+    },
+    {
+        key: 'is_published',
+        label: 'Published',
+        type: 'text',
+        valueInput: 'select',
+        staticOptions: ['Published', 'Hidden'],
+        getValue: (item) => (item.is_published ? 'Published' : 'Hidden'),
+    },
     { key: 'created_at', label: 'Created At', type: 'date', valueInput: 'date' },
 ];
 

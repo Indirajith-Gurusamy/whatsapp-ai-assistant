@@ -60,6 +60,10 @@ ngrok.exe
 run commands.txt
 Untitled-1.py
 migrate_uuid.py
+
+# Playwright MCP artifacts
+.playwright-mcp/
+
 # Frontend / Node.js
 node_modules/
 .next/

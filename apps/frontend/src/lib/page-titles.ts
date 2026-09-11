@@ -9,10 +9,18 @@ const PAGE_TITLES: Record<string, string> = {
     "/settings": "System Settings",
     "/settings/sessions": "Active Sessions",
     "/admin/users": "User Management",
+    "/admin/clients": "Clients",
+    "/admin/jobs": "Jobs",
+    "/admin/candidates": "Candidates",
+    "/admin/activities": "Activities",
+    "/careers": "Careers",
 };
 
 const PREFIX_TITLES: [string, string][] = [
     ["/admin/users/", "Edit User"],
+    ["/admin/clients/", "Client"],
+    ["/admin/jobs/", "Job"],
+    ["/admin/candidates/", "Candidate"],
     ["/customers/", "Customer"],
 ];
 

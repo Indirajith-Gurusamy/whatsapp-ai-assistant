@@ -165,7 +165,9 @@ export default function AdminUsersPage() {
     };
 
     const handleRoleChange = async (userId: number, currentRole: string) => {
-        const newRole = currentRole === "ADMIN" ? "USER" : "ADMIN";
+        const roleCycle: ('USER' | 'HR' | 'ADMIN')[] = ["USER", "HR", "ADMIN"];
+        const idx = roleCycle.indexOf(currentRole as 'USER' | 'HR' | 'ADMIN');
+        const newRole = idx === -1 ? roleCycle[0] : roleCycle[(idx + 1) % roleCycle.length];
         setActionLoading(userId);
         try {
             await adminApi.changeUserRole(userId, newRole);
@@ -401,6 +403,7 @@ export default function AdminUsersPage() {
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="USER">User (Standard)</SelectItem>
+                                            <SelectItem value="HR">HR / Recruiter</SelectItem>
                                             <SelectItem value="ADMIN">Administrator</SelectItem>
                                         </SelectContent>
                                     </Select>
@@ -563,7 +566,7 @@ export default function AdminUsersPage() {
                                     <TableCell>
                                         <Badge
                                             variant={user.role === "ADMIN" ? "default" : "secondary"}
-                                            className={user.role === "ADMIN" ? "bg-purple-100 text-purple-700 hover:bg-purple-200" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}
+                                            className={user.role === "ADMIN" ? "bg-purple-100 text-purple-700 hover:bg-purple-200" : user.role === "HR" ? "bg-blue-100 text-blue-700 hover:bg-blue-200" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}
                                         >
                                             {user.role}
                                         </Badge>
@@ -652,7 +655,7 @@ export default function AdminUsersPage() {
                                                     className="cursor-pointer"
                                                 >
                                                     <ShieldCheck className="w-4 h-4 mr-2 text-purple-600" />
-                                                    {user.role === "ADMIN" ? "Demote to User" : "Promote to Admin"}
+                                                    {user.role === "ADMIN" ? "Demote to User" : user.role === "HR" ? "Promote to Administrator" : "Promote to HR"}
                                                 </DropdownMenuItem>
 
                                                 <DropdownMenuSeparator />

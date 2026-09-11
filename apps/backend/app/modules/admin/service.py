@@ -7,6 +7,7 @@ from datetime import datetime
 from fastapi import HTTPException, status
 from app.db.prisma import Prisma
 from app.db.prisma.enums import UserRole
+from app.core.string_ids import sid
 from app.modules.auth.utils import hash_password
 
 logger = logging.getLogger(__name__)
@@ -96,6 +97,70 @@ class AdminService:
         )
         return count
     
+    async def hr_dashboard(self) -> dict:
+        """
+        Return recruitment-focused dashboard stats for HR users.
+        """
+        total_jobs = await self.db.job.count()
+        published_jobs = await self.db.job.count(where={"isPublished": True})
+        total_candidates = await self.db.candidate.count()
+        total_applications = await self.db.match.count()
+        active_applications = await self.db.match.count(where={"isActive": True})
+
+        stages = await self.db.jobpipelinestage.find_many(order={"rank": "asc"})
+        stage_counts: dict = {}
+        for stage in stages:
+            stage_counts[stage.id] = await self.db.match.count(where={"stageId": stage.id})
+
+        jobs = await self.db.job.find_many(
+            where={"isPublished": True},
+            order={"createdAt": "desc"},
+            include={"organization": True},
+        )
+        jobs_payload = []
+        for job in jobs:
+            count = await self.db.match.count(where={"jobId": job.id})
+            jobs_payload.append({
+                "id": sid(job.id),
+                "title": job.title,
+                "slug": job.slug,
+                "location": job.location,
+                "organization_name": job.organization.name if job.organization else None,
+                "contract_type": job.contractType,
+                "status": str(job.status).split(".")[-1] if job.status else "DRAFT",
+                "applications_count": count,
+            })
+
+        recent = await self.db.match.find_many(
+            order={"createdAt": "desc"},
+            take=6,
+            include={"candidate": True, "job": True},
+        )
+        recent_payload = []
+        for m in recent:
+            recent_payload.append({
+                "id": sid(m.id),
+                "candidate_name": m.candidate.fullName if m.candidate else "Unknown",
+                "job_title": m.job.title if m.job else "Unknown",
+                "stage_name": m.stageName,
+                "has_resume": bool(m.resumeUrl),
+                "created_at": m.createdAt,
+            })
+
+        return {
+            "total_jobs": total_jobs,
+            "published_jobs": published_jobs,
+            "total_candidates": total_candidates,
+            "total_applications": total_applications,
+            "active_applications": active_applications,
+            "stages": [
+                {"name": stage.name, "candidates_count": stage_counts.get(stage.id, 0)}
+                for stage in stages
+            ],
+            "jobs": jobs_payload,
+            "recent_applications": recent_payload,
+        }
+    
     async def change_user_role(
         self, 
         user_id: int, 
@@ -126,14 +191,14 @@ class AdminService:
             )
         
         # Prevent self-demotion
-        if user_id == admin_id and new_role == 'USER':
+        if user_id == admin_id and new_role != 'ADMIN':
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="You cannot demote yourself"
             )
         
-        # If demoting from ADMIN to USER, check if this is the last admin
-        if user.role == UserRole.ADMIN and new_role == 'USER':
+        # If demoting from ADMIN, check if this is the last admin
+        if user.role == UserRole.ADMIN and new_role != 'ADMIN':
             admin_count = await self.count_admins()
             if admin_count <= 1:
                 raise HTTPException(
@@ -142,7 +207,12 @@ class AdminService:
                 )
         
         # Convert string role to enum
-        role_enum = UserRole.ADMIN if new_role == 'ADMIN' else UserRole.USER
+        role_map = {
+            'ADMIN': UserRole.ADMIN,
+            'HR': UserRole.HR,
+            'USER': UserRole.USER,
+        }
+        role_enum = role_map.get(new_role, UserRole.USER)
         
         # Update user role
         updated_user = await self.db.user.update(

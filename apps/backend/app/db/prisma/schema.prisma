@@ -7,32 +7,36 @@ datasource db {
 }
 
 generator client {
-  provider             = "prisma-client-py"
-  recursive_type_depth = 5
-  interface            = "asyncio"
-  output               = "../apps/backend/app/db/prisma"
+  provider                    = "prisma-client-py"
+  recursive_type_depth        = 5
+  interface                   = "asyncio"
+  enable_experimental_decimal = true
+  output                      = "../apps/backend/app/db/prisma"
 }
 
 // User model - represents administrative/system users
 model User {
-  id                 Int          @id @default(autoincrement())
-  email              String       @unique @db.VarChar(255)
-  password           String       @db.VarChar(255)
-  name               String       @db.VarChar(255)
-  role               UserRole     @default(USER)
-  isActive           Boolean      @default(true) @map("is_active")
-  emailVerified      Boolean      @default(false) @map("email_verified")
-  mustChangePassword Boolean      @default(false) @map("must_change_password")
-  verificationOtp    String?      @map("verification_otp") @db.VarChar(6)
-  verificationOtpExp DateTime?    @map("verification_otp_exp") @db.Timestamptz()
-  resetToken         String?      @map("reset_token") @db.VarChar(255)
-  resetTokenExp      DateTime?    @map("reset_token_exp") @db.Timestamptz()
-  lastLogin          DateTime?    @map("last_login") @db.Timestamptz()
-  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz()
+  id                 Int              @id @default(autoincrement())
+  email              String           @unique @db.VarChar(255)
+  password           String           @db.VarChar(255)
+  name               String           @db.VarChar(255)
+  role               UserRole         @default(USER)
+  isActive           Boolean          @default(true) @map("is_active")
+  emailVerified      Boolean          @default(false) @map("email_verified")
+  mustChangePassword Boolean          @default(false) @map("must_change_password")
+  verificationOtp    String?          @map("verification_otp") @db.VarChar(6)
+  verificationOtpExp DateTime?        @map("verification_otp_exp") @db.Timestamptz()
+  resetToken         String?          @map("reset_token") @db.VarChar(255)
+  resetTokenExp      DateTime?        @map("reset_token_exp") @db.Timestamptz()
+  lastLogin          DateTime?        @map("last_login") @db.Timestamptz()
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt          DateTime         @updatedAt @map("updated_at") @db.Timestamptz()
   profile            UserProfile?
   sessions           Session[]
   auditLogs          AuditLog[]
+  activities         Activity[]       @relation("ActivityAssignee")
+  notes              Note[]           @relation("NoteAuthor")
+  recruitmentLogs    RecruitmentLog[] @relation("LogActor")
 
   @@index([email])
   @@index([verificationOtp])
@@ -42,6 +46,7 @@ model User {
 
 enum UserRole {
   USER
+  HR
   ADMIN
 }
 
@@ -52,6 +57,13 @@ enum SettingCategory {
   AUTOMATION
   CRM
   EMAIL
+  RECRUITMENT
+}
+
+enum JobStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
 }
 
 enum Channel {
@@ -274,4 +286,291 @@ model KnowledgeChunk {
 
   @@index([documentId])
   @@map("knowledge_chunks")
+}
+
+// ============================================================
+// Recruitment (Manatal-style ATS + public careers page)
+// ============================================================
+
+// Clients module - Manatal "Organization"
+model Organization {
+  id           Int      @id @default(autoincrement())
+  name         String   @db.VarChar(255)
+  logoUrl      String?  @map("logo_url") @db.Text
+  location     String?  @db.VarChar(255)
+  description  String?  @db.Text
+  customFields Json?    @map("custom_fields") @db.JsonB
+  isArchived   Boolean  @default(false) @map("is_archived")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  jobs Job[]
+
+  @@index([name])
+  @@map("recruitment_organizations")
+}
+
+model Job {
+  id               String        @id @default(dbgenerated("substr(md5(random()::text || clock_timestamp()::text), 1, 8)")) @db.VarChar(8)
+  organizationId   Int?          @map("organization_id")
+  organization     Organization? @relation(fields: [organizationId], references: [id])
+  title            String        @db.VarChar(255)
+  slug             String        @unique @db.VarChar(255)
+  description      String?       @db.Text
+  location         String?       @db.VarChar(255)
+  isRemote         Boolean       @default(false) @map("is_remote")
+  contractType     String?       @map("contract_type") @db.VarChar(50)
+  experience       String?       @db.VarChar(100)
+  salaryCurrency   String?       @map("salary_currency") @db.VarChar(10)
+  salaryMin        Decimal?      @map("salary_min") @db.Decimal(15, 2)
+  salaryMax        Decimal?      @map("salary_max") @db.Decimal(15, 2)
+  salaryFrequency  String?       @map("salary_frequency") @db.VarChar(20)
+  salaryNegotiable Boolean       @default(false) @map("salary_negotiable")
+  headcount        Int           @default(1)
+  tags             Json?         @db.JsonB
+  customFields     Json?         @map("custom_fields") @db.JsonB
+  status           JobStatus     @default(DRAFT)
+  isPublished      Boolean       @default(false) @map("is_published")
+  careerPageUrl    String?       @map("career_page_url") @db.Text
+  pipelineId       String?       @map("pipeline_id")
+  pipeline         JobPipeline?  @relation(fields: [pipelineId], references: [id])
+  createdById      Int?          @map("created_by_id")
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz()
+
+  matches     Match[]
+  notes       Note[]
+  attachments Attachment[]
+  activities  Activity[]
+  logs        RecruitmentLog[]
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([isPublished])
+  @@index([slug])
+  @@map("recruitment_jobs")
+}
+
+model JobPipeline {
+  id        String   @id @default(dbgenerated("substr(md5(random()::text || clock_timestamp()::text), 1, 8)")) @db.VarChar(8)
+  name      String   @db.VarChar(255)
+  isDefault Boolean  @default(false) @map("is_default")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  jobs   Job[]
+  stages JobPipelineStage[]
+
+  @@map("job_pipelines")
+}
+
+model JobPipelineStage {
+  id         String      @id @default(dbgenerated("substr(md5(random()::text || clock_timestamp()::text), 1, 8)")) @db.VarChar(8)
+  pipelineId String      @map("pipeline_id")
+  pipeline   JobPipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  name       String      @db.VarChar(255)
+  rank       Int
+  isFinal    Boolean     @default(false) @map("is_final")
+
+  matches Match[]
+
+  @@unique([pipelineId, rank])
+  @@map("job_pipeline_stages")
+}
+
+model Candidate {
+  id              String   @id @default(dbgenerated("substr(md5(random()::text || clock_timestamp()::text), 1, 8)")) @db.VarChar(8)
+  reference       String?  @unique @db.VarChar(50)
+  fullName        String   @map("full_name") @db.VarChar(255)
+  email           String?  @db.VarChar(255)
+  phone           String?  @db.VarChar(50)
+  gender          String?  @db.VarChar(20)
+  birthDate       String?  @map("birth_date") @db.VarChar(20)
+  location        String?  @db.VarChar(255)
+  currentCompany  String?  @map("current_company") @db.VarChar(255)
+  currentPosition String?  @map("current_position") @db.VarChar(255)
+  experience      String?  @db.VarChar(100)
+  noticePeriod    String?  @map("notice_period") @db.VarChar(100)
+  lastWorkingDay  String?  @map("last_working_day") @db.VarChar(100)
+  expectedSalary  Json?    @map("expected_salary") @db.JsonB
+  currentSalary   Json?    @map("current_salary") @db.JsonB
+  linkedinUrl     String?  @map("linkedin_url") @db.Text
+  source          String?  @db.VarChar(100)
+  description     String?  @db.Text
+  skills          Json?    @db.JsonB
+  customFields    Json?    @map("custom_fields") @db.JsonB
+  resumeUrl       String?  @map("resume_url") @db.Text
+  resumeFileName  String?  @map("resume_file_name") @db.VarChar(255)
+  consent         Boolean  @default(false)
+  emailConsent    Boolean  @default(false) @map("email_consent")
+  isEmployee      Boolean  @default(false) @map("is_employee")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  matches     Match[]
+  notes       Note[]
+  attachments Attachment[]
+  activities  Activity[]
+  logs        RecruitmentLog[]
+  folders     CandidateFolder[]
+
+  @@index([email])
+  @@index([fullName])
+  @@map("recruitment_candidates")
+}
+
+// Application join (Manatal "Match") - candidate applied to a job
+model Match {
+  id             String            @id @default(dbgenerated("substr(md5(random()::text || clock_timestamp()::text), 1, 8)")) @db.VarChar(8)
+  candidateId    String            @map("candidate_id")
+  candidate      Candidate         @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  jobId          String            @map("job_id")
+  job            Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  stageId        String?           @map("stage_id")
+  stage          JobPipelineStage? @relation(fields: [stageId], references: [id])
+  stageName      String?           @map("stage_name") @db.VarChar(255)
+  isActive       Boolean           @default(true) @map("is_active")
+  matchScore     Decimal?          @map("match_score") @db.Decimal(5, 2)
+  source         String?           @db.VarChar(100)
+  answers        Json?             @db.JsonB
+  resumeUrl      String?           @map("resume_url") @db.Text
+  resumeFileName String?           @map("resume_file_name") @db.VarChar(255)
+  submittedAt    DateTime?         @map("submitted_at") @db.Timestamptz()
+  interviewAt    DateTime?         @map("interview_at") @db.Timestamptz()
+  offerAt        DateTime?         @map("offer_at") @db.Timestamptz()
+  hiredAt        DateTime?         @map("hired_at") @db.Timestamptz()
+  droppedAt      DateTime?         @map("dropped_at") @db.Timestamptz()
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz()
+
+  @@unique([candidateId, jobId])
+  @@index([jobId])
+  @@index([candidateId])
+  @@index([stageId])
+  @@map("recruitment_matches")
+}
+
+// Interviews/tasks (Manatal "Activity")
+model Activity {
+  id           String     @id @default(dbgenerated("substr(md5(random()::text || clock_timestamp()::text), 1, 8)")) @db.VarChar(8)
+  title        String     @db.VarChar(255)
+  activityType String     @default("interview") @map("activity_type") @db.VarChar(50)
+  description  String?    @db.Text
+  assigneeId   Int?       @map("assignee_id")
+  assignee     User?      @relation("ActivityAssignee", fields: [assigneeId], references: [id])
+  candidateId  String?    @map("candidate_id")
+  candidate    Candidate? @relation(fields: [candidateId], references: [id])
+  jobId        String?    @map("job_id")
+  job          Job?       @relation(fields: [jobId], references: [id])
+  dueDate      DateTime?  @map("due_date") @db.Timestamptz()
+  isDone       Boolean    @default(false) @map("is_done")
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz()
+
+  @@index([assigneeId])
+  @@index([candidateId])
+  @@index([jobId])
+  @@index([dueDate])
+  @@index([isDone])
+  @@map("activities")
+}
+
+model Note {
+  id          String     @id @default(dbgenerated("substr(md5(random()::text || clock_timestamp()::text), 1, 8)")) @db.VarChar(8)
+  content     String     @db.Text
+  authorId    Int?       @map("author_id")
+  author      User?      @relation("NoteAuthor", fields: [authorId], references: [id])
+  candidateId String?    @map("candidate_id")
+  candidate   Candidate? @relation(fields: [candidateId], references: [id])
+  jobId       String?    @map("job_id")
+  job         Job?       @relation(fields: [jobId], references: [id])
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@index([candidateId])
+  @@index([jobId])
+  @@map("recruitment_notes")
+}
+
+model Attachment {
+  id          String     @id @default(dbgenerated("substr(md5(random()::text || clock_timestamp()::text), 1, 8)")) @db.VarChar(8)
+  fileUrl     String     @map("file_url") @db.Text
+  fileName    String?    @map("file_name") @db.VarChar(255)
+  mimeType    String?    @map("mime_type") @db.VarChar(100)
+  candidateId String?    @map("candidate_id")
+  candidate   Candidate? @relation(fields: [candidateId], references: [id])
+  jobId       String?    @map("job_id")
+  job         Job?       @relation(fields: [jobId], references: [id])
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@index([candidateId])
+  @@index([jobId])
+  @@map("recruitment_attachments")
+}
+
+model RecruitmentLog {
+  id          String     @id @default(dbgenerated("substr(md5(random()::text || clock_timestamp()::text), 1, 8)")) @db.VarChar(8)
+  actorId     Int?       @map("actor_id")
+  actor       User?      @relation("LogActor", fields: [actorId], references: [id])
+  action      String     @db.VarChar(255)
+  entityType  String     @map("entity_type") @db.VarChar(50)
+  entityId    String     @map("entity_id")
+  candidateId String?    @map("candidate_id")
+  candidate   Candidate? @relation(fields: [candidateId], references: [id])
+  jobId       String?    @map("job_id")
+  job         Job?       @relation(fields: [jobId], references: [id])
+  meta        Json?      @db.JsonB
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@index([candidateId])
+  @@index([jobId])
+  @@index([entityType, entityId])
+  @@map("recruitment_logs")
+}
+
+model Folder {
+  id        String   @id @default(dbgenerated("substr(md5(random()::text || clock_timestamp()::text), 1, 8)")) @db.VarChar(8)
+  name      String   @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  candidates CandidateFolder[]
+
+  @@map("recruitment_folders")
+}
+
+model CandidateFolder {
+  id          String    @id @default(dbgenerated("substr(md5(random()::text || clock_timestamp()::text), 1, 8)")) @db.VarChar(8)
+  folderId    String    @map("folder_id")
+  folder      Folder    @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  candidateId String    @map("candidate_id")
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@unique([folderId, candidateId])
+  @@map("recruitment_candidate_folders")
+}
+
+// Configurable/custom field definitions. `key` maps built-in fields to their DB
+// column; custom fields store values under a short immutable `code` inside each
+// entity's `customFields` JSONB. Delete is soft (isActive=false).
+model RecruitmentField {
+  id          Int       @id @default(autoincrement())
+  entity      String    @db.VarChar(20)
+  code        String    @db.VarChar(20)
+  key         String?   @db.VarChar(100)
+  label       String    @db.VarChar(255)
+  fieldType   String    @db.VarChar(30)
+  options     Json?     @db.JsonB
+  required    Boolean   @default(false)
+  showInForm  Boolean   @default(true) @map("show_in_form")
+  showInApply Boolean   @default(false) @map("show_in_apply")
+  showInList  Boolean   @default(false) @map("show_in_list")
+  sortOrder   Int       @default(0) @map("sort_order")
+  isBuiltIn   Boolean   @default(false) @map("is_built_in")
+  isActive    Boolean   @default(true) @map("is_active")
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz()
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+
+  @@unique([entity, code])
+  @@index([entity])
+  @@index([label])
+  @@map("recruitment_fields")
 }
