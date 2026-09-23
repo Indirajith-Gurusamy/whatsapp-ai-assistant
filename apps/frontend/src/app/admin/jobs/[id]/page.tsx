@@ -23,6 +23,7 @@ import {
     type PipelineStage,
 } from '@/lib/recruitment';
 import { CustomFieldValues } from '@/components/recruitment/CustomFieldValues';
+import { AiScoreBadge, AiScreeningPanel } from '@/components/recruitment/AiScore';
 import { Markdown } from '@/components/ui/markdown';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -57,9 +58,11 @@ import {
     ChevronDown,
     Eye,
     Globe,
+    Loader2,
     MapPin,
     Pencil,
     Plus,
+    Sparkles,
     Trash2,
     Users,
 } from 'lucide-react';
@@ -72,6 +75,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 const UNASSIGNED_STAGE = '__unassigned__';
+const ACTIVITIES_PAGE_SIZE = 10;
 
 export default function JobDetailPage() {
     const params = useParams<{ id: string }>();
@@ -96,6 +100,8 @@ export default function JobDetailPage() {
 
     const [activities, setActivities] = useState<ActivityItem[]>([]);
     const [activityModal, setActivityModal] = useState(false);
+    const [activitiesPage, setActivitiesPage] = useState(1);
+    const [activitiesTotal, setActivitiesTotal] = useState(0);
     const [activityForm, setActivityForm] = useState({ title: '', activity_type: 'interview', description: '', due_date: '' });
     const [savingActivity, setSavingActivity] = useState(false);
 
@@ -105,6 +111,23 @@ export default function JobDetailPage() {
     const [editing, setEditing] = useState(false);
 
     const [openingResume, setOpeningResume] = useState(false);
+    const [screeningId, setScreeningId] = useState<string | null>(null);
+    const [expandedAppId, setExpandedAppId] = useState<string | null>(null);
+
+    const screenApplication = async (app: ApplicationItem) => {
+        if (screeningId) return;
+        setScreeningId(app.id);
+        try {
+            const res = await applicationsApi.aiScreen(app.id);
+            setApplications((prev) => prev.map((a) => (a.id === app.id ? res.application : a)));
+            setExpandedAppId(app.id);
+            toast.success(`AI screening done${res.screening?.recommendation ? `: ${res.screening.recommendation}` : ''}`);
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Failed to screen application');
+        } finally {
+            setScreeningId(null);
+        }
+    };
 
     const openResume = async (app: ApplicationItem) => {
         if (openingResume) return;
@@ -147,11 +170,13 @@ export default function JobDetailPage() {
         }
     }, [jobId]);
 
-    const loadActivities = useCallback(async () => {
+    const loadActivities = useCallback(async (page: number = 1) => {
         if (!jobId) return;
         try {
-            const res = await activitiesApi.list({ job_id: jobId });
+            const res = await activitiesApi.list({ job_id: jobId, page, page_size: ACTIVITIES_PAGE_SIZE });
             setActivities(res.items);
+            setActivitiesTotal(res.total);
+            setActivitiesPage(page);
         } catch {
             /* non-fatal */
         }
@@ -309,14 +334,14 @@ const archiveJob = async () => {
         }
         setSavingActivity(true);
         try {
-            const created = await activitiesApi.create({
+            await activitiesApi.create({
                 title: activityForm.title.trim(),
                 activity_type: activityForm.activity_type,
                 description: activityForm.description.trim() || null,
                 job_id: job.id,
                 due_date: activityForm.due_date ? new Date(activityForm.due_date).toISOString() : null,
             });
-            setActivities((prev) => [created, ...prev]);
+            loadActivities(1);
             setActivityModal(false);
             setActivityForm({ title: '', activity_type: 'interview', description: '', due_date: '' });
             toast.success('Activity created');
@@ -470,7 +495,7 @@ const archiveJob = async () => {
                         if (stageId === UNASSIGNED_STAGE && appList.length === 0) return null;
                         return (
                             <div key={stageId} className="flex w-64 shrink-0 flex-col rounded-lg border bg-gray-50/70 dark:bg-gray-900/40">
-                                <div className="flex items-center justify-between border-b px-3 py-2.5">
+                                <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-gray-50 px-3 py-2.5 dark:bg-gray-900">
                                     <div className="flex items-center gap-2">
                                         <span className={`h-2 w-2 rounded-full ${stage ? 'bg-orange-500' : 'bg-gray-400'}`} />
                                         <span className="text-sm font-medium">{stage?.name ?? 'Unassigned'}</span>
@@ -490,7 +515,7 @@ const archiveJob = async () => {
                                         )}
                                     </div>
                                 </div>
-                                <div className="flex flex-1 flex-col gap-2 p-2">
+                                <div className="flex min-h-0 max-h-[60vh] flex-1 flex-col gap-2 overflow-y-auto overscroll-contain p-2">
                                     {appList.length === 0 && (
                                         <p className="py-4 text-center text-xs text-muted-foreground">No candidates</p>
                                     )}
@@ -509,6 +534,20 @@ const archiveJob = async () => {
                                                     </div>
                                                 </Link>
                                                 <div className="flex items-center gap-1">
+                                                    {app.has_resume && !app.ai_screening && (
+                                                        <button
+                                                            onClick={() => screenApplication(app)}
+                                                            disabled={screeningId === app.id}
+                                                            className="text-muted-foreground hover:text-orange-600"
+                                                            title="Screen with AI"
+                                                        >
+                                                            {screeningId === app.id ? (
+                                                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                            ) : (
+                                                                <Sparkles className="h-3.5 w-3.5" />
+                                                            )}
+                                                        </button>
+                                                    )}
                                                     {app.has_resume && (
                                                         <button onClick={() => openResume(app)} className="text-muted-foreground hover:text-orange-600" title="View resume">
                                                             <Eye className="h-3.5 w-3.5" />
@@ -525,10 +564,27 @@ const archiveJob = async () => {
                                                 </div>
                                             )}
                                             <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-                                                {app.match_score != null && <span>Match {app.match_score}%</span>}
+                                                {app.ai_screening ? (
+                                                    <AiScoreBadge score={app.ai_screening.score} />
+                                                ) : (
+                                                    app.match_score != null && <span>Match {app.match_score}%</span>
+                                                )}
                                                 {app.source && <span>{app.source}</span>}
                                                 <span>{formatDate(app.created_at)}</span>
                                             </div>
+                                            {expandedAppId === app.id && app.ai_screening && (
+                                                <div className="mt-2">
+                                                    <AiScreeningPanel screening={app.ai_screening} />
+                                                </div>
+                                            )}
+                                            {app.ai_screening && (
+                                                <button
+                                                    onClick={() => setExpandedAppId(expandedAppId === app.id ? null : app.id)}
+                                                    className="mt-1.5 text-[11px] font-medium text-orange-600 hover:text-orange-700 dark:text-orange-400"
+                                                >
+                                                    {expandedAppId === app.id ? 'Hide AI summary' : 'Show AI summary'}
+                                                </button>
+                                            )}
                                             {stage && stage.id != null && (
                                                 <div className="mt-2">
                                                     <Select
@@ -603,6 +659,22 @@ const archiveJob = async () => {
                                 </span>
                             </div>
                         ))}
+                    </div>
+                )}
+                {activitiesTotal > ACTIVITIES_PAGE_SIZE && (
+                    <div className="mt-2 flex items-center justify-between rounded-lg border bg-card px-4 py-2 text-sm text-muted-foreground">
+                        <span>
+                            {Math.min((activitiesPage - 1) * ACTIVITIES_PAGE_SIZE + 1, activitiesTotal)}–
+                            {Math.min(activitiesPage * ACTIVITIES_PAGE_SIZE, activitiesTotal)} of {activitiesTotal}
+                        </span>
+                        <div className="flex items-center gap-2">
+                            <Button variant="outline" size="sm" disabled={activitiesPage <= 1} onClick={() => loadActivities(activitiesPage - 1)}>
+                                Previous
+                            </Button>
+                            <Button variant="outline" size="sm" disabled={activitiesPage * ACTIVITIES_PAGE_SIZE >= activitiesTotal} onClick={() => loadActivities(activitiesPage + 1)}>
+                                Next
+                            </Button>
+                        </div>
                     </div>
                 )}
             </div>

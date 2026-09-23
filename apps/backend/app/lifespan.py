@@ -246,6 +246,26 @@ async def lifespan(app: FastAPI):
 
             logger.info("Gmail poll job started")
 
+
+
+            from app.modules.ai.scheduler import run_ai_scheduler
+
+
+
+            _background_tasks.append(asyncio.create_task(run_ai_scheduler()))
+
+            logger.info("AI scheduler workers started")
+
+
+
+            from app.modules.ai.pending_jobs import ai_backfill_job
+
+
+
+            _background_tasks.append(asyncio.create_task(ai_backfill_job()))
+
+            logger.info("AI backfill job started")
+
         else:
 
             logger.info("Background jobs skipped (uvicorn reload watcher)")

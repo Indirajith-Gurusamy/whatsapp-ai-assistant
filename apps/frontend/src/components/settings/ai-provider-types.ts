@@ -17,11 +17,9 @@ export const PROVIDER_LABELS: Record<AIProviderType, string> = {
 };
 
 export const GROQ_MODELS = [
-    "llama-3.3-70b-versatile",
-    "llama-3.1-8b-instant",
-    "llama-3.2-90b-vision-preview",
-    "mixtral-8x7b-32768",
-    "gemma2-9b-it",
+    "openai/gpt-oss-120b",
+    "openai/gpt-oss-20b",
+    "qwen/qwen3.6-27b",
 ];
 
 export const GEMINI_MODELS = [
@@ -33,6 +31,26 @@ export const GEMINI_MODELS = [
 
 /** @deprecated Saved configs may still use openai until migrated */
 export type LegacyAIProviderType = AIProviderType | "openai";
+
+/** Map retired Groq model IDs to supported replacements. */
+const DEPRECATED_GROQ_MODELS: Record<string, string> = {
+    "llama-3.3-70b-versatile": "openai/gpt-oss-120b",
+    "llama-3.1-8b-instant": "openai/gpt-oss-20b",
+    "meta-llama/llama-4-scout-17b-16e-instruct": "openai/gpt-oss-120b",
+    "qwen/qwen3-32b": "openai/gpt-oss-120b",
+};
+
+/** Resolve a provider's model, replacing retired/deprecated IDs with current defaults. */
+export function normalizeModel(provider: AIProviderType, model: string | undefined): string {
+    const value = (model || "").trim();
+    if (!value) return provider === "groq" ? defaultModelForProvider("groq") : defaultModelForProvider("gemini");
+    if (provider === "groq") {
+        const migrated = DEPRECATED_GROQ_MODELS[value];
+        if (migrated) return migrated;
+    }
+    if (provider === "gemini" && value.startsWith("gpt")) return defaultModelForProvider("gemini");
+    return value;
+}
 
 export function normalizeProviderType(provider: string): AIProviderType {
     if (provider === "openai") return "gemini";

@@ -65,6 +65,8 @@ class ActivityService:
         candidate_id: Optional[str] = None,
         assignee_id: Optional[int] = None,
         is_done: Optional[bool] = None,
+        page: int = 1,
+        page_size: int = 20,
     ) -> dict:
         db = await get_db()
         where: dict = {}
@@ -76,14 +78,21 @@ class ActivityService:
             where["assigneeId"] = assignee_id
         if is_done is not None:
             where["isDone"] = is_done
+        total = await db.activity.count(where=where or None)
+        page = max(1, page)
+        page_size = min(max(1, page_size), 100)
         rows = await db.activity.find_many(
             where=where or None,
-            order={"dueDate": "asc"},
+            order={"createdAt": "desc"},
             include={"assignee": True, "candidate": True, "job": True},
+            skip=(page - 1) * page_size,
+            take=page_size,
         )
         return {
             "activities": [await _serialize(a) for a in rows],
-            "total": len(rows),
+            "total": total,
+            "page": page,
+            "page_size": page_size,
         }
 
     @staticmethod

@@ -22,6 +22,7 @@ import {
     type NoteItem,
 } from '@/lib/recruitment';
 import { CustomFieldValues } from '@/components/recruitment/CustomFieldValues';
+import { AiScoreBadge, AiScreeningPanel } from '@/components/recruitment/AiScore';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -51,6 +52,7 @@ import {
     MapPin,
     Phone,
     Plus,
+    Sparkles,
     Trash2,
     Users,
 } from 'lucide-react';
@@ -93,6 +95,41 @@ export default function CandidateDetailPage() {
 
     const [deleteConfirm, setDeleteConfirm] = useState(false);
     const [deleting, setDeleting] = useState(false);
+
+    const [parsingResume, setParsingResume] = useState(false);
+    const [screeningId, setScreeningId] = useState<string | null>(null);
+    const [expandedAppId, setExpandedAppId] = useState<string | null>(null);
+
+    const parseResume = async () => {
+        if (parsingResume) return;
+        setParsingResume(true);
+        try {
+            const res = await candidatesApi.aiParse(candidateId);
+            setCandidate((c) => (c ? { ...c, ...res.candidate } : c));
+            toast.success(`AI parsed ${res.candidate.full_name}'s resume`);
+            setExpandedAppId(null);
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Failed to parse resume');
+        } finally {
+            setParsingResume(false);
+        }
+    };
+
+    const screenApplication = async (app: ApplicationItem) => {
+        if (screeningId) return;
+        setScreeningId(app.id);
+        try {
+            const res = await applicationsApi.aiScreen(app.id);
+            setApplications((prev) => prev.map((a) => (a.id === app.id ? res.application : a)));
+            setExpandedAppId(app.id);
+            const rec = res.screening?.recommendation;
+            toast.success(`AI screening done${rec ? `: ${rec}` : ''}`);
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Failed to screen application');
+        } finally {
+            setScreeningId(null);
+        }
+    };
 
     const load = useCallback(async () => {
         if (!candidateId) {
@@ -306,6 +343,9 @@ export default function CandidateDetailPage() {
                         <div className="flex flex-wrap items-center gap-2">
                             <h1 className="text-xl font-bold">{candidate.full_name}</h1>
                             {candidate.source && <Badge variant="secondary">{candidate.source}</Badge>}
+                            {candidate.best_match_score != null && (
+                                <AiScoreBadge score={candidate.best_match_score} />
+                            )}
                         </div>
                         <div className="text-sm text-muted-foreground">
                             {candidate.reference} · added {formatDate(candidate.created_at)}
@@ -313,6 +353,19 @@ export default function CandidateDetailPage() {
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
+                    {candidate.resume_url && (
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            className="gap-1.5 text-sm font-medium"
+                            onClick={parseResume}
+                            disabled={parsingResume}
+                            title="Extract profile details with AI"
+                        >
+                            {parsingResume ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                            {parsingResume ? 'Parsing…' : 'Parse with AI'}
+                        </Button>
+                    )}
                     {candidate.resume_url && (
                         <Button
                             variant="secondary"
@@ -451,26 +504,62 @@ export default function CandidateDetailPage() {
                 ) : (
                     <div className="divide-y rounded-lg border bg-card">
                         {applications.map((app) => (
-                            <div key={app.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-                                <div className="min-w-0">
-                                    <Link href={`/admin/jobs/${app.job_id}`} className="text-sm font-medium hover:text-orange-600">
-                                        {app.job_title ?? `Job #${app.job_id}`}
-                                    </Link>
-                                    {app.organization_name && (
-                                        <span className="ml-1 text-xs text-muted-foreground">{app.organization_name}</span>
-                                    )}
-                                    <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-                                        <span>{app.stage_name ?? 'Unassigned'}</span>
-                                        {app.match_score != null && <span>· Match {app.match_score}%</span>}
-                                        <span>· {app.source ?? 'Manual'}</span>
-                                        <span>· {formatDate(app.created_at)}</span>
+                            <div key={app.id}>
+                                <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                                    <div className="min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <Link href={`/admin/jobs/${app.job_id}`} className="text-sm font-medium hover:text-orange-600">
+                                                {app.job_title ?? `Job #${app.job_id}`}
+                                            </Link>
+                                            {app.ai_screening && <AiScoreBadge score={app.ai_screening.score} />}
+                                        </div>
+                                        {app.organization_name && (
+                                            <span className="ml-1 text-xs text-muted-foreground">{app.organization_name}</span>
+                                        )}
+                                        <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                                            <span>{app.stage_name ?? 'Unassigned'}</span>
+                                            {app.match_score != null && <span>· Match {app.match_score}%</span>}
+                                            <span>· {app.source ?? 'Manual'}</span>
+                                            <span>· {formatDate(app.created_at)}</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {app.ai_screening ? (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setExpandedAppId(expandedAppId === app.id ? null : app.id)}
+                                                className="gap-1.5"
+                                            >
+                                                <Sparkles className="h-4 w-4" />
+                                                {expandedAppId === app.id ? 'Hide summary' : 'AI summary'}
+                                            </Button>
+                                        ) : (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="gap-1.5"
+                                                onClick={() => screenApplication(app)}
+                                                disabled={screeningId === app.id || !!screeningId}
+                                            >
+                                                {screeningId === app.id ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    <Sparkles className="h-4 w-4" />
+                                                )}
+                                                {screeningId === app.id ? 'Screening…' : 'Screen with AI'}
+                                            </Button>
+                                        )}
+                                        <Button variant="outline" size="sm" onClick={() => openMove(app)}>
+                                            Move stage
+                                        </Button>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <Button variant="outline" size="sm" onClick={() => openMove(app)}>
-                                        Move stage
-                                    </Button>
-                                </div>
+                                {expandedAppId === app.id && app.ai_screening && (
+                                    <div className="px-4 pb-4">
+                                        <AiScreeningPanel screening={app.ai_screening} />
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>

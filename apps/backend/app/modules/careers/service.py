@@ -7,7 +7,7 @@ from decimal import Decimal
 
 from fastapi import HTTPException
 
-from app.core.string_ids import sid
+from app.core.string_ids import sid, fire
 from app.core.storage import storage, validate_resume_file
 from app.db.client import get_db
 from app.db.prisma import Json
@@ -98,6 +98,18 @@ class CareersService:
         except Exception as e:
             logger.warning("Could not load recruitment settings: %s", e)
             return {}
+
+    @staticmethod
+    async def run_ai_after_apply(candidate_id: str, job_id: str) -> None:
+        """Queue AI parse + screen for a fresh submission.
+
+        The worker pool processes it in the background, so the submission
+        response is never blocked by LLM work — just the cost of an in-memory
+        enqueue. Returns immediately.
+        """
+        from app.modules.ai.scheduler import enqueue_after_apply
+
+        enqueue_after_apply(candidate_id, job_id)
 
     @staticmethod
     async def settings() -> dict:
@@ -247,21 +259,25 @@ class CareersService:
             if answers:
                 match_payload["answers"] = Json(answers)
             match_row = await db.match.create(data=match_payload)
-            await db.recruitmentlog.create(
-                data={
-                    "actorId": None,
-                    "action": f"Applied via careers page to {job.title}",
-                    "entityType": "candidate",
-                    "entityId": candidate.id,
-                    "candidateId": candidate.id,
-                    "jobId": job.id,
-                }
+            fire(
+                db.recruitmentlog.create(
+                    data={
+                        "actorId": None,
+                        "action": f"Applied via careers page to {job.title}",
+                        "entityType": "candidate",
+                        "entityId": candidate.id,
+                        "candidateId": candidate.id,
+                        "jobId": job.id,
+                    }
+                )
             )
-            await create_event_activity(
-                db,
-                title=f"Applied via careers page to {job.title}",
-                candidate_id=candidate.id,
-                job_id=job.id,
+            fire(
+                create_event_activity(
+                    db,
+                    title=f"Applied via careers page to {job.title}",
+                    candidate_id=candidate.id,
+                    job_id=job.id,
+                )
             )
             already_applied = False
         else:

@@ -71,8 +71,15 @@ class CandidateOut(BaseModel):
     resume_file_name: Optional[str] = None
     custom_fields: Optional[dict] = None
     applications_count: int = 0
+    best_match_score: Optional[float] = None
+    ai_screened: int = 0
     created_at: datetime
     updated_at: datetime
+
+
+class AiParseResponse(BaseModel):
+    candidate: CandidateOut
+    parsed: Optional[dict] = None
 
 
 class CandidateListResponse(BaseModel):

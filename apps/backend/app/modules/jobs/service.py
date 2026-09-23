@@ -45,7 +45,11 @@ def _dec(value) -> Optional[Decimal]:
     return Decimal(str(value))
 
 
-def _serialize(job, org_name: Optional[str] = None, candidates_count: int = 0) -> dict:
+def _serialize(
+    job,
+    org_name: Optional[str] = None,
+    candidates_count: int = 0,
+) -> dict:
     tags = job.tags if job.tags is not None else None
     return {
         "id": sid(job.id),

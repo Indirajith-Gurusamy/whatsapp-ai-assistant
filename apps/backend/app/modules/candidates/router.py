@@ -3,8 +3,9 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, UploadFile
 
-from app.modules.auth.dependencies import get_current_user
+from app.modules.auth.dependencies import get_current_user, require_role
 from app.modules.candidates.schemas import (
+    AiParseResponse,
     AttachmentOut,
     CandidateListResponse,
     CandidateOut,
@@ -83,6 +84,16 @@ async def upload_resume(
     return await CandidateService.upload_resume(
         candidate_id, file.filename or "resume", file.content_type or "", content
     )
+
+
+@router.post("/{candidate_id}/ai-parse", response_model=AiParseResponse)
+async def ai_parse_candidate(
+    candidate_id: str,
+    current_user=Depends(require_role(["ADMIN", "HR"])),
+):
+    from app.modules.ai.resume import ResumeAIService
+
+    return await ResumeAIService.parse_candidate(candidate_id)
 
 
 @router.get("/{candidate_id}/resume-url", response_model=ResumeUrlResponse)

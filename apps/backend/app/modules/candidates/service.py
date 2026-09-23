@@ -9,7 +9,7 @@ from typing import Optional
 import httpx
 from fastapi import HTTPException, Response
 
-from app.core.string_ids import sid, sid_opt
+from app.core.string_ids import sid, sid_opt, fire
 from app.core.storage import storage, validate_resume_file
 from app.db.client import get_db
 from app.db.prisma import Json
@@ -36,6 +36,8 @@ def _build_where(search: Optional[str], job_id: Optional[str]) -> dict:
 async def _serialize(candidate, ctx: Optional[dict] = None) -> dict:
     ctx = ctx or {}
     app_counts = ctx.get("application_counts", {})
+    best_scores = ctx.get("best_scores", {})
+    ai_screened = ctx.get("ai_screened", {})
     return {
         "id": sid(candidate.id),
         "reference": candidate.reference,
@@ -60,9 +62,31 @@ async def _serialize(candidate, ctx: Optional[dict] = None) -> dict:
         "resume_url": candidate.resumeUrl,
         "resume_file_name": candidate.resumeFileName,
         "applications_count": app_counts.get(candidate.id, 0),
+        "best_match_score": best_scores.get(candidate.id),
+        "ai_screened": ai_screened.get(candidate.id, 0),
         "created_at": candidate.createdAt,
         "updated_at": candidate.updatedAt,
     }
+
+
+def _collect_match_stats(matches, app_counts=None) -> dict:
+    """Return application counts, best score, and AI-screened count per candidate."""
+    counts: dict = {}
+    best: dict = {}
+    screened: dict = {}
+    for m in matches:
+        counts[m.candidateId] = counts.get(m.candidateId, 0) + 1
+        if m.matchScore is not None:
+            score = float(m.matchScore)
+            if m.candidateId not in best or score > best[m.candidateId]:
+                best[m.candidateId] = score
+        answers = m.answers if isinstance(m.answers, dict) else {}
+        ai = answers.get("__ai") if isinstance(answers, dict) else None
+        if isinstance(ai, dict) and isinstance(ai.get("screening"), dict):
+            screened[m.candidateId] = screened.get(m.candidateId, 0) + 1
+    if app_counts is not None:
+        app_counts.update(counts)
+    return {"application_counts": counts, "best_scores": best, "ai_screened": screened}
 
 
 class CandidateService:
@@ -86,9 +110,10 @@ class CandidateService:
         app_counts: dict = {}
         if ids:
             matches = await db.match.find_many(where={"candidateId": {"in": ids}})
-            for m in matches:
-                app_counts[m.candidateId] = app_counts.get(m.candidateId, 0) + 1
-        candidates = [await _serialize(c, {"application_counts": app_counts}) for c in rows]
+            ctx = _collect_match_stats(matches, app_counts)
+        else:
+            ctx = {"application_counts": app_counts, "best_scores": {}, "ai_screened": {}}
+        candidates = [await _serialize(c, ctx) for c in rows]
         return {"candidates": candidates, "total": total}
 
     @staticmethod
@@ -137,8 +162,11 @@ class CandidateService:
             where={"candidateId": candidate_id}, include={"folder": True}
         )
         app_counts = {candidate_id: len(matches)}
+        stats = _collect_match_stats(matches, app_counts)
         return {
             "application_counts": app_counts,
+            "best_scores": stats["best_scores"],
+            "ai_screened": stats["ai_screened"],
             "notes": [
                 {
                     "id": sid(n.id),
@@ -320,19 +348,23 @@ class CandidateService:
             if sanitized:
                 payload["customFields"] = Json(sanitized)
         candidate = await db.candidate.create(data=payload)
-        await db.recruitmentlog.create(
-            data={
-                "actorId": None,
-                "action": "Candidate created via careers page",
-                "entityType": "candidate",
-                "entityId": candidate.id,
-                "candidateId": candidate.id,
-            }
+        fire(
+            db.recruitmentlog.create(
+                data={
+                    "actorId": None,
+                    "action": "Candidate created via careers page",
+                    "entityType": "candidate",
+                    "entityId": candidate.id,
+                    "candidateId": candidate.id,
+                }
+            )
         )
-        await create_event_activity(
-            db,
-            title=f"Candidate created via careers page: {candidate.fullName or candidate.email or candidate.id}",
-            candidate_id=candidate.id,
+        fire(
+            create_event_activity(
+                db,
+                title=f"Candidate created via careers page: {candidate.fullName or candidate.email or candidate.id}",
+                candidate_id=candidate.id,
+            )
         )
         return {"candidate": candidate, "created": True}
 
@@ -405,6 +437,9 @@ class CandidateService:
             where={"id": candidate_id},
             data={"resumeUrl": path, "resumeFileName": filename},
         )
+        from app.modules.ai.scheduler import enqueue_after_apply
+
+        enqueue_after_apply(candidate_id)
         download_url = await storage.signed_url(path)
         return {"resume_url": path, "resume_file_name": filename, "download_url": download_url}
 

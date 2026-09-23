@@ -38,10 +38,16 @@ class ApplicationOut(BaseModel):
     match_score: Optional[float] = None
     source: Optional[str] = None
     answers: Optional[dict] = None
+    ai_screening: Optional[dict] = None
     has_resume: bool = False
     resume_file_name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+
+
+class AiScreenResponse(BaseModel):
+    application: ApplicationOut
+    screening: Optional[dict] = None
 
 
 class ApplicationListResponse(BaseModel):
