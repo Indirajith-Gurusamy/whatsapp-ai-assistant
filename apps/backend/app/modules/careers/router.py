@@ -46,4 +46,10 @@ async def apply_to_job(slug: str, request: Request):
                 resume_file = (value.filename, value.content_type or "", content)
             else:
                 form[key] = str(value)
-    return await CareersService.apply(slug, form, resume_file)
+    result = await CareersService.apply(slug, form, resume_file)
+    if resume_file:
+        await CareersService.run_ai_after_apply(
+            result.get("candidate_id"),
+            result.get("job_id"),
+        )
+    return result

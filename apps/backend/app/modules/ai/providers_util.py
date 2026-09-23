@@ -9,8 +9,24 @@ logger = logging.getLogger(__name__)
 
 SUPPORTED_PROVIDERS = frozenset({"groq", "gemini"})
 
-DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
+DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b"
 DEFAULT_GEMINI_MODEL = "gemini-2.0-flash-lite"
+
+# Models Groq retired from free/developer tiers; map to supported replacements.
+DEPRECATED_GROQ_MODELS = {
+    "llama-3.3-70b-versatile": DEFAULT_GROQ_MODEL,
+    "llama-3.1-8b-instant": "openai/gpt-oss-20b",
+    "meta-llama/llama-4-scout-17b-16e-instruct": DEFAULT_GROQ_MODEL,
+    "qwen/qwen3-32b": DEFAULT_GROQ_MODEL,
+}
+
+
+def migrate_groq_model(model: Optional[str]) -> str:
+    """Replace retired Groq model IDs with a supported replacement default."""
+    model = (model or "").strip()
+    if not model:
+        return DEFAULT_GROQ_MODEL
+    return DEPRECATED_GROQ_MODELS.get(model, model)
 
 
 def parse_ai_providers(raw: str) -> List[Dict[str, Any]]:
@@ -40,7 +56,7 @@ def get_provider_by_id(
 
 
 def _migrate_provider_list(providers: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Upgrade legacy openai entries to gemini."""
+    """Upgrade legacy openai entries to gemini and retired groq models."""
     for entry in providers:
         if entry.get("provider") == "openai":
             entry["provider"] = "gemini"
@@ -51,6 +67,16 @@ def _migrate_provider_list(providers: List[Dict[str, Any]]) -> List[Dict[str, An
             name = entry.get("name") or ""
             if "OpenAI" in name:
                 entry["name"] = name.replace("OpenAI", "Gemini")
+        elif entry.get("provider") == "groq":
+            config = entry.setdefault("config", {})
+            migrated = migrate_groq_model(config.get("model"))
+            if migrated != (config.get("model") or "").strip():
+                logger.warning(
+                    "Migrating retired groq model %r to %r",
+                    config.get("model"),
+                    migrated,
+                )
+                config["model"] = migrated
     return providers
 
 
@@ -63,11 +89,11 @@ def normalize_ai_settings(data: Dict[str, str]) -> Dict[str, str]:
         return data
 
     api_key = (data.get("groq_api_key") or "").strip()
-    model = (data.get("groq_model") or DEFAULT_GROQ_MODEL).strip()
+    model = migrate_groq_model(data.get("groq_model"))
     if not api_key:
         api_key = (app_settings.GROQ_API_KEY or "").strip()
         if api_key:
-            model = (app_settings.GROQ_MODEL or DEFAULT_GROQ_MODEL).strip()
+            model = migrate_groq_model(app_settings.GROQ_MODEL)
 
     if api_key:
         providers = [
@@ -95,7 +121,7 @@ def build_default_ai_providers() -> str:
                 "active": True,
                 "config": {
                     "api_key": app_settings.GROQ_API_KEY,
-                    "model": app_settings.GROQ_MODEL or DEFAULT_GROQ_MODEL,
+                    "model": migrate_groq_model(app_settings.GROQ_MODEL),
                 },
             }
         ]

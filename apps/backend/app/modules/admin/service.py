@@ -138,11 +138,20 @@ class AdminService:
         )
         recent_payload = []
         for m in recent:
+            answers = m.answers if isinstance(m.answers, dict) else {}
+            ai = answers.get("__ai") if isinstance(answers, dict) else None
+            screening = ai.get("screening") if isinstance(ai, dict) else None
             recent_payload.append({
                 "id": sid(m.id),
                 "candidate_name": m.candidate.fullName if m.candidate else "Unknown",
                 "job_title": m.job.title if m.job else "Unknown",
                 "stage_name": m.stageName,
+                "match_score": float(m.matchScore) if m.matchScore is not None else None,
+                "recommendation": (
+                    screening.get("recommendation")
+                    if isinstance(screening, dict)
+                    else None
+                ),
                 "has_resume": bool(m.resumeUrl),
                 "created_at": m.createdAt,
             })

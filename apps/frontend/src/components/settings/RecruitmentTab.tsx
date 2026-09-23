@@ -98,6 +98,20 @@ export function RecruitmentTab({ onDirtyChange }: { onDirtyChange?: (dirty: bool
                         onToggle={() => toggleBool("careers_page_enabled")}
                     />
 
+                    <SettingsToggleRow
+                        title="Auto-parse resumes with AI"
+                        description="Extract candidate profile details from resumes automatically"
+                        checked={settings.ai_parse_resumes === "true"}
+                        onToggle={() => toggleBool("ai_parse_resumes")}
+                    />
+
+                    <SettingsToggleRow
+                        title="Auto-screen applications with AI"
+                        description="Score candidates against jobs and write an AI match score automatically"
+                        checked={settings.ai_screen_applications === "true"}
+                        onToggle={() => toggleBool("ai_screen_applications")}
+                    />
+
                     <div className="flex flex-wrap justify-end gap-2">
                         <button
                             type="button"

@@ -21,6 +21,8 @@ async def list_activities(
     candidate_id: Optional[str] = None,
     assignee_id: Optional[int] = None,
     is_done: Optional[bool] = None,
+    page: int = 1,
+    page_size: int = 20,
     current_user=Depends(get_current_user),
 ):
     result = await ActivityService.list_activities(
@@ -28,6 +30,8 @@ async def list_activities(
         candidate_id=candidate_id,
         assignee_id=assignee_id,
         is_done=is_done,
+        page=page,
+        page_size=page_size,
     )
     return ActivityListResponse(activities=result["activities"], total=result["total"])
 

@@ -32,6 +32,7 @@ import { ListPageSkeleton } from '@/components/data/ListPageSkeleton';
 import { DataTable } from '@/components/data/DataTable';
 import { toast } from 'sonner';
 import { FileText, MoreVertical, Pencil, Trash2, UserRound } from 'lucide-react';
+import { AiScoreBadge } from '@/components/recruitment/AiScore';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -271,6 +272,21 @@ export default function CandidatesPage() {
                 <span className="inline-flex min-w-6 justify-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300">
                     {c.applications_count}
                 </span>
+            ),
+        },
+        {
+            key: 'ai_score',
+            header: 'AI SCORE',
+            className: 'text-center',
+            cell: (c: CandidateItem) => (
+                <div className="flex flex-col items-center gap-1">
+                    <AiScoreBadge score={c.best_match_score} />
+                    {c.ai_screened > 0 && (
+                        <span className="text-[11px] text-muted-foreground">
+                            {c.ai_screened} screened
+                        </span>
+                    )}
+                </div>
             ),
         },
         {

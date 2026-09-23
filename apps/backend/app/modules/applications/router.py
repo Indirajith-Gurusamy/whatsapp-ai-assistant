@@ -2,13 +2,14 @@
 from fastapi import APIRouter, Depends
 
 from app.modules.applications.schemas import (
+    AiScreenResponse,
     ApplicationListResponse,
     ApplicationOut,
     CreateApplicationRequest,
     UpdateApplicationRequest,
 )
 from app.modules.applications.service import ApplicationService
-from app.modules.auth.dependencies import get_current_user
+from app.modules.auth.dependencies import get_current_user, require_role
 
 router = APIRouter(prefix="/applications", tags=["Applications"])
 
@@ -34,6 +35,14 @@ async def create_application(
 @router.get("/{application_id}", response_model=ApplicationOut)
 async def get_application(application_id: str, current_user=Depends(get_current_user)):
     return await ApplicationService.get(application_id)
+
+
+@router.post("/{application_id}/ai-screen", response_model=AiScreenResponse)
+async def ai_screen_application(
+    application_id: str,
+    current_user=Depends(require_role(["ADMIN", "HR"])),
+):
+    return await ApplicationService.screen(application_id)
 
 
 @router.get("/{application_id}/resume")

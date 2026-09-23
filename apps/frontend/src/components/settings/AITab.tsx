@@ -15,7 +15,7 @@ import {
     createNewProvider,
     isProviderDraft,
     normalizeProviderType,
-    defaultModelForProvider,
+    normalizeModel,
 } from "@/components/settings/ai-provider-types";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { QuickRepliesTab } from "@/components/settings/QuickRepliesTab";
@@ -56,10 +56,11 @@ export function AITab({ onDirtyChange }: { onDirtyChange?: (dirty: boolean) => v
     const originalProviders = useMemo(() => {
         try {
             const raw = JSON.parse(originalSettings.ai_providers || "[]") as AIProvider[];
-            return raw.map((p) => ({
-                ...p,
-                provider: normalizeProviderType(p.provider as string),
-            }));
+            return raw.map((p) => {
+                const provider = normalizeProviderType(p.provider as string);
+                const model = normalizeModel(provider, p.config?.model);
+                return { ...p, provider, config: { ...p.config, model } };
+            });
         } catch {
             return [];
         }
@@ -87,10 +88,7 @@ export function AITab({ onDirtyChange }: { onDirtyChange?: (dirty: boolean) => v
             const raw = JSON.parse(settings.ai_providers || "[]") as AIProvider[];
             return raw.map((p) => {
                 const provider = normalizeProviderType(p.provider as string);
-                let model = p.config?.model || "";
-                if (provider === "gemini" && (model.startsWith("gpt") || !model)) {
-                    model = defaultModelForProvider("gemini");
-                }
+                const model = normalizeModel(provider, p.config?.model);
                 return {
                     ...p,
                     provider,

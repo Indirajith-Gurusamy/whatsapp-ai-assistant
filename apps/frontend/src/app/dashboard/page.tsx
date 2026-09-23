@@ -11,6 +11,7 @@ import { LeadStatusChart } from '@/components/analytics/LeadStatusChart';
 import { MetricsBarChart } from '@/components/analytics/MetricsBarChart';
 import { SuccessRateRing } from '@/components/analytics/SuccessRateRing';
 import { PipelinePanel } from '@/components/analytics/PipelinePanel';
+import { AiScoreBadge } from '@/components/recruitment/AiScore';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
     MessageSquare, Send, Users, Calendar, FileCheck, FileInput, Clock, XCircle,
@@ -150,6 +151,7 @@ export default function DashboardPage() {
                                             <p className="truncate text-xs text-muted-foreground">{app.job_title}</p>
                                         </div>
                                         <div className="flex items-center gap-1.5 shrink-0">
+                                            {app.match_score != null && <AiScoreBadge score={app.match_score} />}
                                             <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
                                                 {app.stage_name ?? 'Unassigned'}
                                             </span>

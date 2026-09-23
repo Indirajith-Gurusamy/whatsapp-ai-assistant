@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 
 async def _serialize(match) -> dict:
     stage_name = match.stage.name if match.stage else match.stageName
+    answers = match.answers if isinstance(match.answers, dict) else {}
+    ai = answers.get("__ai") if isinstance(answers, dict) else None
     return {
         "id": sid(match.id),
         "candidate_id": sid(match.candidateId),
@@ -35,6 +37,9 @@ async def _serialize(match) -> dict:
         "match_score": float(match.matchScore) if match.matchScore is not None else None,
         "source": match.source,
         "answers": match.answers,
+        "ai_screening": (
+            ai.get("screening") if isinstance(ai, dict) and isinstance(ai.get("screening"), dict) else None
+        ),
         "has_resume": bool(match.resumeUrl),
         "resume_file_name": match.resumeFileName,
         "created_at": match.createdAt,
@@ -134,6 +139,9 @@ class ApplicationService:
             candidate_id=candidate.id,
             job_id=job.id,
         )
+        from app.modules.ai.scheduler import enqueue_after_apply
+
+        enqueue_after_apply(candidate.id, job.id)
         return await ApplicationService.get(match.id)
 
     @staticmethod
@@ -146,6 +154,12 @@ class ApplicationService:
         if not match:
             raise HTTPException(status_code=404, detail="Application not found")
         return await _serialize(match)
+
+    @staticmethod
+    async def screen(match_id: str) -> dict:
+        from app.modules.ai.resume import ResumeAIService
+
+        return await ResumeAIService.screen_application(match_id)
 
     @staticmethod
     async def update(match_id: str, data: dict) -> dict:

@@ -116,8 +116,31 @@ export interface CandidateItem {
     resume_url: string | null;
     resume_file_name: string | null;
     applications_count: number;
+    best_match_score: number | null;
+    ai_screened: number;
     created_at: string;
     updated_at: string;
+}
+
+export interface AiScreening {
+    score: number | null;
+    recommendation: string | null;
+    summary?: string | null;
+    strengths?: string[];
+    concerns?: string[];
+    provider?: string | null;
+    model?: string | null;
+    screened_at: string;
+}
+
+export interface AiParseResult {
+    candidate: CandidateItem;
+    parsed: { profile: Record<string, unknown>; provider?: string | null; provider_name?: string | null; model?: string | null; parsed_at: string } | null;
+}
+
+export interface AiScreenResult {
+    application: ApplicationItem;
+    screening: AiScreening;
 }
 
 export interface ApplicationItem {
@@ -136,6 +159,7 @@ export interface ApplicationItem {
     match_score: number | null;
     source: string | null;
     answers: Record<string, unknown> | null;
+    ai_screening: AiScreening | null;
     has_resume: boolean;
     resume_file_name: string | null;
     created_at: string;
@@ -190,6 +214,8 @@ export interface HrRecentApplication {
     candidate_name: string;
     job_title: string;
     stage_name: string | null;
+    match_score: number | null;
+    recommendation: string | null;
     has_resume: boolean;
     created_at: string;
 }
@@ -432,6 +458,7 @@ export const candidatesApi = {
     },
     resumeUrl: (id: string) => get<{ url: string }>(`/api/v1/candidates/${id}/resume-url`),
     resume: (id: string) => requestBlob(`/api/v1/candidates/${id}/resume`),
+    aiParse: (id: string) => post<AiParseResult>(`/api/v1/candidates/${id}/ai-parse`),
     notes: async (id: string) => get<NoteItem[]>(`/api/v1/candidates/${id}/notes`),
     addNote: (id: string, content: string) =>
         post<NoteItem>(`/api/v1/candidates/${id}/notes`, { content }),
@@ -458,14 +485,17 @@ export const applicationsApi = {
         put<ApplicationItem>(`/api/v1/applications/${id}`, data),
     remove: (id: string) => del<{ success?: boolean }>(`/api/v1/applications/${id}`),
     resume: (id: string) => requestBlob(`/api/v1/applications/${id}/resume`),
+    aiScreen: (id: string) => post<AiScreenResult>(`/api/v1/applications/${id}/ai-screen`),
 };
 
 export const activitiesApi = {
-    list: async (opts: { job_id?: string; candidate_id?: string; is_done?: boolean } = {}): Promise<ListResult<ActivityItem>> => {
+    list: async (opts: { job_id?: string; candidate_id?: string; is_done?: boolean; page?: number; page_size?: number } = {}): Promise<ListResult<ActivityItem>> => {
         const params = new URLSearchParams();
         if (opts.job_id !== undefined) params.set('job_id', String(opts.job_id));
         if (opts.candidate_id !== undefined) params.set('candidate_id', String(opts.candidate_id));
         if (opts.is_done !== undefined) params.set('is_done', String(opts.is_done));
+        if (opts.page !== undefined) params.set('page', String(opts.page));
+        if (opts.page_size !== undefined) params.set('page_size', String(opts.page_size));
         const res = await get<{ activities: ActivityItem[]; total: number }>(
             `/api/v1/activities${params.toString() ? `?${params.toString()}` : ''}`
         );

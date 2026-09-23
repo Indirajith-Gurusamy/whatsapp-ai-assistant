@@ -190,10 +190,11 @@ async def complete_chat(
 
     model = (config.get("model") or "").strip()
     if provider_type == "groq":
-        if not model:
-            from app.modules.ai.providers_util import DEFAULT_GROQ_MODEL
+        from app.modules.ai.providers_util import DEFAULT_GROQ_MODEL, migrate_groq_model
 
+        if not model:
             model = DEFAULT_GROQ_MODEL
+        model = migrate_groq_model(model)
         return await _groq_complete(api_key, model, messages, temperature, max_tokens)
 
     if provider_type == "gemini":

@@ -130,6 +130,8 @@ def _build_defaults() -> Dict[str, Dict[str, str]]:
                 "Hired",
                 "Probation passed",
             ]),
+            "ai_parse_resumes": "true",
+            "ai_screen_applications": "true",
         },
     }
 
