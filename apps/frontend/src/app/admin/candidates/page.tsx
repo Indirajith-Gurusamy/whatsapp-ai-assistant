@@ -31,8 +31,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ListPageSkeleton } from '@/components/data/ListPageSkeleton';
 import { DataTable } from '@/components/data/DataTable';
 import { toast } from 'sonner';
-import { FileText, MoreVertical, Pencil, Trash2, UserRound } from 'lucide-react';
+import { FileArchive, FileSpreadsheet, FileText, Download, Loader2, MoreVertical, Pencil, Trash2, UserRound } from 'lucide-react';
 import { AiScoreBadge } from '@/components/recruitment/AiScore';
+import {
+    toolbarInlineActionBtn,
+    ToolbarActionLabel,
+} from '@/components/data/ListPageToolbar';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -104,6 +108,8 @@ export default function CandidatesPage() {
     const [saving, setSaving] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<CandidateItem | null>(null);
     const [deleting, setDeleting] = useState(false);
+    const [exporting, setExporting] = useState(false);
+    const [zipping, setZipping] = useState(false);
 
     useEffect(() => {
         fieldsApi.list({ entity: 'CANDIDATE', include_deleted: true })
@@ -204,6 +210,30 @@ export default function CandidatesPage() {
         } finally {
             setDeleting(false);
             setDeleteTarget(null);
+        }
+    };
+
+    const exportCandidates = async () => {
+        setExporting(true);
+        try {
+            await candidatesApi.exportCandidates();
+            toast.success('Candidates exported');
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Failed to export candidates');
+        } finally {
+            setExporting(false);
+        }
+    };
+
+    const exportResumes = async () => {
+        setZipping(true);
+        try {
+            await candidatesApi.downloadAllResumes();
+            toast.success('Resumes download started');
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Failed to download resumes');
+        } finally {
+            setZipping(false);
         }
     };
 
@@ -351,6 +381,30 @@ export default function CandidatesPage() {
                     searchPlaceholder="Search candidates…"
                     addLabel="New Candidate"
                     onAdd={openCreate}
+                    exportActions={
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" className={toolbarInlineActionBtn} aria-label="Export">
+                                    {exporting || zipping ? (
+                                        <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                                    ) : (
+                                        <Download className="h-4 w-4 shrink-0" />
+                                    )}
+                                    <ToolbarActionLabel>
+                                        {exporting || zipping ? 'Exporting…' : 'Export'}
+                                    </ToolbarActionLabel>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={exportCandidates} disabled={exporting || zipping}>
+                                    <FileSpreadsheet className="h-4 w-4" /> Export candidates (.csv)
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={exportResumes} disabled={exporting || zipping}>
+                                    <FileArchive className="h-4 w-4" /> Download all resumes (.zip)
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    }
                     searchFields={['full_name', 'email', 'phone', 'current_position', 'current_company', 'skills', 'reference']}
                     emptyMessage={total === 0 ? 'No candidates yet.' : 'No candidates match your search.'}
                 />

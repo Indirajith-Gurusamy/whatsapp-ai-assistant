@@ -1,4 +1,6 @@
 """Applications API."""
+from typing import Optional
+
 from fastapi import APIRouter, Depends
 
 from app.modules.applications.schemas import (
@@ -22,6 +24,15 @@ async def list_by_job(job_id: str, current_user=Depends(get_current_user)):
 @router.get("/candidates/{candidate_id}", response_model=ApplicationListResponse)
 async def list_by_candidate(candidate_id: str, current_user=Depends(get_current_user)):
     return await ApplicationService.list_by_candidate(candidate_id)
+
+
+@router.get("/export")
+async def export_applications(
+    job_id: Optional[str] = None,
+    candidate_id: Optional[str] = None,
+    current_user=Depends(get_current_user),
+):
+    return await ApplicationService.export_csv(job_id=job_id, candidate_id=candidate_id)
 
 
 @router.post("", response_model=ApplicationOut, status_code=201)

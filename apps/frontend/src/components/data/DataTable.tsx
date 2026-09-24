@@ -47,6 +47,8 @@ interface DataTableProps<T> {
     searchPlaceholder?: string;
     onAdd?: () => void;
     onExport?: () => void;
+    /** Custom export UI (e.g. dropdown). Rendered in place of the default Export button. */
+    exportActions?: React.ReactNode;
     onFilter?: () => void;
     addLabel?: string;
     showSelection?: boolean;
@@ -74,6 +76,7 @@ export function DataTable<T extends { id?: number | string }>({
     searchPlaceholder = "Search...",
     onAdd,
     onExport,
+    exportActions,
     onFilter,
     addLabel = 'Add',
     showSelection = true,
@@ -183,6 +186,7 @@ export function DataTable<T extends { id?: number | string }>({
                 addLabel={addLabel}
                 onExport={onExport}
                 isExporting={isExporting}
+                exportActions={exportActions}
                 onFilter={handleFilterClick}
                 showFilterButton={showFilter}
                 trailingActions={

@@ -15,6 +15,8 @@ export interface ListPageToolbarProps {
     addLabel?: string;
     onExport?: () => void;
     isExporting?: boolean;
+    /** Custom export UI (e.g. dropdown). Rendered in place of the default Export button. */
+    exportActions?: React.ReactNode;
     onFilter?: () => void;
     showFilterButton?: boolean;
     /** Custom right-side actions (e.g. export dropdown). Replaces default action buttons when set. */
@@ -64,6 +66,7 @@ export function ListPageToolbar({
     addLabel = 'Add',
     onExport,
     isExporting = false,
+    exportActions,
     onFilter,
     showFilterButton = false,
     actions,
@@ -90,7 +93,7 @@ export function ListPageToolbar({
                     <ToolbarActionLabel>{addLabel}</ToolbarActionLabel>
                 </Button>
             )}
-            {onExport && (
+            {onExport && !exportActions && (
                 <Button
                     onClick={onExport}
                     variant="outline"
@@ -108,11 +111,12 @@ export function ListPageToolbar({
                     </ToolbarActionLabel>
                 </Button>
             )}
+            {exportActions}
             {trailingActions}
         </>
     );
 
-    const hasActions = Boolean(actions || onAdd || onExport || trailingActions || showFilter);
+    const hasActions = Boolean(actions || onAdd || onExport || exportActions || trailingActions || showFilter);
 
     return (
         <div className={cn('shrink-0 px-3 pt-3 pb-1 md:px-5 md:pt-4', className)}>

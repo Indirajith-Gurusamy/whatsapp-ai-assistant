@@ -48,6 +48,24 @@ async def list_candidates(
     return CandidateListResponse(candidates=result["candidates"], total=result["total"])
 
 
+@router.get("/export")
+async def export_candidates(
+    search: Optional[str] = None,
+    job_id: Optional[str] = None,
+    current_user=Depends(get_current_user),
+):
+    return await CandidateService.export_csv(search=search, job_id=job_id)
+
+
+@router.get("/resumes/zip")
+async def download_all_resumes(
+    search: Optional[str] = None,
+    job_id: Optional[str] = None,
+    current_user=Depends(get_current_user),
+):
+    return await CandidateService.download_all_resumes(search=search, job_id=job_id)
+
+
 @router.post("", response_model=CandidateOut, status_code=201)
 async def create_candidate(body: CreateCandidateRequest, current_user=Depends(get_current_user)):
     return await CandidateService.create_candidate(body.model_dump())

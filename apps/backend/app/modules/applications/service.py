@@ -1,5 +1,6 @@
 """Application (Match) service."""
 from decimal import Decimal
+import json
 import logging
 from typing import Optional
 
@@ -13,6 +14,10 @@ from app.db.prisma import Json
 from app.modules.activities.service import create_event_activity
 
 logger = logging.getLogger(__name__)
+
+
+def _fmt_dt(dt) -> Optional[str]:
+    return dt.strftime("%Y-%m-%d %H:%M") if dt else None
 
 
 async def _serialize(match) -> dict:
@@ -60,6 +65,58 @@ class ApplicationService:
             "applications": [await _serialize(m) for m in rows],
             "total": len(rows),
         }
+
+    @staticmethod
+    async def export_csv(
+        job_id: Optional[str] = None,
+        candidate_id: Optional[str] = None,
+    ) -> Response:
+        from app.core.csv_utils import csv_download
+
+        db = await get_db()
+        where: dict = {}
+        if job_id:
+            where["jobId"] = job_id
+        if candidate_id:
+            where["candidateId"] = candidate_id
+        rows = await db.match.find_many(
+            where=where or None,
+            order={"createdAt": "desc"},
+            include={"candidate": True, "stage": True, "job": {"include": {"organization": True}}},
+        )
+
+        headers = [
+            "Candidate Reference", "Candidate Name", "Candidate Email", "Candidate Phone",
+            "Job Title", "Organization", "Stage", "Status", "Match Score", "Source",
+            "AI Recommendation", "Has Resume", "Resume File", "Created At", "Updated At",
+        ]
+        csv_rows = []
+        for m in rows:
+            answers = m.answers if isinstance(m.answers, dict) else {}
+            ai = answers.get("__ai") if isinstance(answers, dict) else None
+            recommendation = None
+            if isinstance(ai, dict) and isinstance(ai.get("screening"), dict):
+                recommendation = ai["screening"].get("recommendation")
+            csv_rows.append(
+                [
+                    m.candidate.reference if m.candidate else None,
+                    m.candidate.fullName if m.candidate else None,
+                    m.candidate.email if m.candidate else None,
+                    m.candidate.phone if m.candidate else None,
+                    m.job.title if m.job else None,
+                    m.job.organization.name if m.job and m.job.organization else None,
+                    m.stage.name if m.stage else m.stageName,
+                    "Active" if m.isActive else "Inactive",
+                    float(m.matchScore) if m.matchScore is not None else None,
+                    m.source,
+                    recommendation,
+                    "Yes" if m.resumeUrl else "No",
+                    m.resumeFileName,
+                    _fmt_dt(m.createdAt),
+                    _fmt_dt(m.updatedAt),
+                ]
+            )
+        return csv_download(headers, csv_rows, "applications.csv")
 
     @staticmethod
     async def list_by_candidate(candidate_id: str) -> dict:
