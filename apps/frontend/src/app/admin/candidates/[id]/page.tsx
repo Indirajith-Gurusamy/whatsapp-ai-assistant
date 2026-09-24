@@ -511,16 +511,25 @@ export default function CandidateDetailPage() {
                                             <Link href={`/admin/jobs/${app.job_id}`} className="text-sm font-medium hover:text-orange-600">
                                                 {app.job_title ?? `Job #${app.job_id}`}
                                             </Link>
+                                            <Badge
+                                                variant="secondary"
+                                                className={
+                                                    app.stage_name
+                                                        ? 'border-transparent bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300'
+                                                        : 'border-transparent bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
+                                                }
+                                            >
+                                                {app.stage_name ?? 'Unassigned'}
+                                            </Badge>
                                             {app.ai_screening && <AiScoreBadge score={app.ai_screening.score} />}
                                         </div>
                                         {app.organization_name && (
                                             <span className="ml-1 text-xs text-muted-foreground">{app.organization_name}</span>
                                         )}
                                         <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-                                            <span>{app.stage_name ?? 'Unassigned'}</span>
-                                            {app.match_score != null && <span>· Match {app.match_score}%</span>}
-                                            <span>· {app.source ?? 'Manual'}</span>
-                                            <span>· {formatDate(app.created_at)}</span>
+                                            {app.match_score != null && <span>Match {app.match_score}%</span>}
+                                            <span>{app.source ?? 'Manual'}</span>
+                                            <span>{formatDate(app.created_at)}</span>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">

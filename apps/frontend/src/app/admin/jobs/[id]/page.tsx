@@ -115,6 +115,8 @@ export default function JobDetailPage() {
     const [screeningId, setScreeningId] = useState<string | null>(null);
     const [expandedAppId, setExpandedAppId] = useState<string | null>(null);
     const [exportingApps, setExportingApps] = useState(false);
+    const [draggingId, setDraggingId] = useState<string | null>(null);
+    const [dragOverStage, setDragOverStage] = useState<string | null>(null);
 
     const screenApplication = async (app: ApplicationItem) => {
         if (screeningId) return;
@@ -226,12 +228,17 @@ export default function JobDetailPage() {
     }
 
     const moveApplication = async (appId: string, stageId: string) => {
+        const prev = applications;
+        const stageName = stages.find((s) => s.id === stageId)?.name ?? null;
+        setApplications(
+            applications.map((a) => (a.id === appId ? { ...a, stage_id: stageId, stage_name: stageName } : a))
+        );
         try {
-            await applicationsApi.update(appId, { stage_id: stageId });
-            const updated = applications.map((a) => (a.id === appId ? { ...a, stage_id: stageId } : a));
-            setApplications(updated);
-            toast.success('Application moved');
+            const updated = await applicationsApi.update(appId, { stage_id: stageId });
+            setApplications((list) => list.map((a) => (a.id === appId ? updated : a)));
+            toast.success(`Moved to ${stageName ?? 'stage'}`);
         } catch (err) {
+            setApplications(prev);
             toast.error(err instanceof Error ? err.message : 'Failed to move application');
         }
     };
@@ -381,9 +388,9 @@ const archiveJob = async () => {
     };
 
     return (
-        <div className="flex h-full w-full flex-col gap-4 overflow-y-auto p-4 sm:p-6">
+        <div className="flex h-full w-full flex-col gap-4 p-4 sm:p-6">
             {/* Header */}
-            <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex shrink-0 flex-wrap items-start justify-between gap-3">
                 <div>
                     <div className="flex flex-wrap items-center gap-2">
                         <h1 className="text-xl font-bold">{job.title}</h1>
@@ -438,6 +445,8 @@ const archiveJob = async () => {
                 </div>
             </div>
 
+            {/* Scrollable body */}
+            <div className="min-h-0 flex-1 flex flex-col gap-4 overflow-y-auto overscroll-contain">
             {/* Meta card */}
             <div className="grid gap-3 sm:grid-cols-3">
                 <div className="rounded-lg border bg-card p-4">
@@ -497,7 +506,7 @@ const archiveJob = async () => {
                 <div className="mb-2 flex items-center justify-between">
                     <h2 className="text-sm font-semibold">Pipeline — {pipeline?.pipeline_name ?? 'Default'}</h2>
                     <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">{stages.length} stages</span>
+                        <span className="text-xs text-muted-foreground">{stages.length} stages · drag &amp; drop to move</span>
                         <Button variant="outline" size="sm" onClick={exportApplications} disabled={exportingApps}>
                             <Download className="h-4 w-4" /> Export CSV
                         </Button>
@@ -506,14 +515,42 @@ const archiveJob = async () => {
                         </Button>
                     </div>
                 </div>
-                <div className="flex gap-3 overflow-x-auto pb-4">
+                <div className="flex h-[max(18rem,calc(100dvh-17rem))] gap-3 overflow-x-auto overflow-y-hidden pb-4">
                     {[...stages.map((s) => s.id), UNASSIGNED_STAGE].map((stageId) => {
                         const stage = stages.find((s) => s.id === stageId);
                         const appList = appsByStage[stageId] ?? [];
                         if (stageId === UNASSIGNED_STAGE && appList.length === 0) return null;
                         return (
-                            <div key={stageId} className="flex w-64 shrink-0 flex-col rounded-lg border bg-gray-50/70 dark:bg-gray-900/40">
-                                <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-gray-50 px-3 py-2.5 dark:bg-gray-900">
+                            <div
+                                key={stageId}
+                                onDragOver={(e) => {
+                                    if (stageId === UNASSIGNED_STAGE) return;
+                                    e.preventDefault();
+                                    e.dataTransfer.dropEffect = 'move';
+                                    if (dragOverStage !== stageId) setDragOverStage(stageId);
+                                }}
+                                onDragLeave={(e) => {
+                                    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                                        setDragOverStage((s) => (s === stageId ? null : s));
+                                    }
+                                }}
+                                onDrop={(e) => {
+                                    e.preventDefault();
+                                    setDragOverStage(null);
+                                    const appId = e.dataTransfer.getData('text/plain') || draggingId;
+                                    setDraggingId(null);
+                                    if (!appId || stageId === UNASSIGNED_STAGE) return;
+                                    const app = applications.find((a) => a.id === appId);
+                                    if (!app || app.stage_id === stageId) return;
+                                    moveApplication(appId, stageId);
+                                }}
+                                className={`flex h-full min-h-0 w-64 shrink-0 flex-col rounded-lg border bg-gray-50/70 transition-colors dark:bg-gray-900/40 ${
+                                    dragOverStage === stageId
+                                        ? 'border-orange-400 bg-orange-50 ring-2 ring-orange-300 dark:border-orange-600 dark:bg-orange-950/40 dark:ring-orange-900'
+                                        : ''
+                                }`}
+                            >
+                                <div className="flex items-center justify-between border-b bg-gray-50 px-3 py-2.5 dark:bg-gray-900">
                                     <div className="flex items-center gap-2">
                                         <span className={`h-2 w-2 rounded-full ${stage ? 'bg-orange-500' : 'bg-gray-400'}`} />
                                         <span className="text-sm font-medium">{stage?.name ?? 'Unassigned'}</span>
@@ -533,12 +570,27 @@ const archiveJob = async () => {
                                         )}
                                     </div>
                                 </div>
-                                <div className="flex min-h-0 max-h-[60vh] flex-1 flex-col gap-2 overflow-y-auto overscroll-contain p-2">
+                                <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2">
                                     {appList.length === 0 && (
                                         <p className="py-4 text-center text-xs text-muted-foreground">No candidates</p>
                                     )}
                                     {appList.map((app) => (
-                                        <div key={app.id} className="rounded-md border bg-white p-3 shadow-sm dark:bg-gray-950">
+                                        <div
+                                            key={app.id}
+                                            draggable
+                                            onDragStart={(e) => {
+                                                e.dataTransfer.setData('text/plain', app.id);
+                                                e.dataTransfer.effectAllowed = 'move';
+                                                setDraggingId(app.id);
+                                            }}
+                                            onDragEnd={() => {
+                                                setDraggingId(null);
+                                                setDragOverStage(null);
+                                            }}
+                                            className={`cursor-grab rounded-md border bg-white p-3 shadow-sm active:cursor-grabbing dark:bg-gray-950 ${
+                                                draggingId === app.id ? 'opacity-50' : ''
+                                            }`}
+                                        >
                                             <div className="flex items-start justify-between gap-2">
                                                 <Link href={`/admin/candidates/${app.candidate_id}`} className="flex items-center gap-2 min-w-0">
                                                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-100 text-xs font-semibold text-orange-700 dark:bg-orange-950 dark:text-orange-300">
@@ -622,12 +674,14 @@ const archiveJob = async () => {
                                             )}
                                         </div>
                                     ))}
-                                    {stage && (
-                                        <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setAddStage(stage)}>
+                                    </div>
+                                {stage && (
+                                    <div className="border-t p-2">
+                                        <Button variant="ghost" size="sm" className="w-full text-muted-foreground" onClick={() => setAddStage(stage)}>
                                             <Plus className="h-4 w-4" /> Add candidate
                                         </Button>
-                                    )}
-                                </div>
+                                    </div>
+                                )}
                             </div>
                         );
                     })}
@@ -695,6 +749,7 @@ const archiveJob = async () => {
                         </div>
                     </div>
                 )}
+            </div>
             </div>
 
             {/* Add candidate dialog */}
