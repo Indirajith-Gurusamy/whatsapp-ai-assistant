@@ -58,6 +58,17 @@ class SupabaseStorage:
         logger.info("Uploaded object: %s (%s bytes)", path, len(content))
         return path
 
+    async def download(self, path: str) -> bytes:
+        """Fetch an object's raw bytes."""
+        if not path:
+            raise HTTPException(status_code=404, detail="File not found")
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(self._object_url(path), headers=self._headers())
+        if resp.status_code != 200:
+            logger.error("Supabase download failed: %s %s", resp.status_code, resp.text[:200])
+            raise HTTPException(status_code=404, detail="Could not load file from storage")
+        return resp.content
+
     async def signed_url(self, path: str, expires: int = 3600) -> str:
         """Return a signed URL for temporary public access to an object (cached).
 

@@ -389,6 +389,17 @@ async function requestBlob(endpoint: string, options: RequestInit = {}): Promise
     }
 }
 
+function downloadBlob(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
 // ---------------------------------------------------------------------------
 // Admin API (authenticated — /api/v1)
 // ---------------------------------------------------------------------------
@@ -458,6 +469,24 @@ export const candidatesApi = {
     },
     resumeUrl: (id: string) => get<{ url: string }>(`/api/v1/candidates/${id}/resume-url`),
     resume: (id: string) => requestBlob(`/api/v1/candidates/${id}/resume`),
+    exportCandidates: async (opts: { search?: string; job_id?: string } = {}) => {
+        const params = new URLSearchParams();
+        if (opts.search) params.set('search', opts.search);
+        if (opts.job_id !== undefined) params.set('job_id', String(opts.job_id));
+        const blob = await requestBlob(
+            `/api/v1/candidates/export${params.toString() ? `?${params.toString()}` : ''}`
+        );
+        downloadBlob(blob, 'candidates.csv');
+    },
+    downloadAllResumes: async (opts: { search?: string; job_id?: string } = {}) => {
+        const params = new URLSearchParams();
+        if (opts.search) params.set('search', opts.search);
+        if (opts.job_id !== undefined) params.set('job_id', String(opts.job_id));
+        const blob = await requestBlob(
+            `/api/v1/candidates/resumes/zip${params.toString() ? `?${params.toString()}` : ''}`
+        );
+        downloadBlob(blob, 'resumes.zip');
+    },
     aiParse: (id: string) => post<AiParseResult>(`/api/v1/candidates/${id}/ai-parse`),
     notes: async (id: string) => get<NoteItem[]>(`/api/v1/candidates/${id}/notes`),
     addNote: (id: string, content: string) =>
@@ -485,6 +514,15 @@ export const applicationsApi = {
         put<ApplicationItem>(`/api/v1/applications/${id}`, data),
     remove: (id: string) => del<{ success?: boolean }>(`/api/v1/applications/${id}`),
     resume: (id: string) => requestBlob(`/api/v1/applications/${id}/resume`),
+    exportApplications: async (opts: { job_id?: string; candidate_id?: string } = {}) => {
+        const params = new URLSearchParams();
+        if (opts.job_id !== undefined) params.set('job_id', String(opts.job_id));
+        if (opts.candidate_id !== undefined) params.set('candidate_id', String(opts.candidate_id));
+        const blob = await requestBlob(
+            `/api/v1/applications/export${params.toString() ? `?${params.toString()}` : ''}`
+        );
+        downloadBlob(blob, 'applications.csv');
+    },
     aiScreen: (id: string) => post<AiScreenResult>(`/api/v1/applications/${id}/ai-screen`),
 };
 

@@ -56,6 +56,7 @@ import {
     Briefcase,
     Calendar,
     ChevronDown,
+    Download,
     Eye,
     Globe,
     Loader2,
@@ -113,6 +114,7 @@ export default function JobDetailPage() {
     const [openingResume, setOpeningResume] = useState(false);
     const [screeningId, setScreeningId] = useState<string | null>(null);
     const [expandedAppId, setExpandedAppId] = useState<string | null>(null);
+    const [exportingApps, setExportingApps] = useState(false);
 
     const screenApplication = async (app: ApplicationItem) => {
         if (screeningId) return;
@@ -361,6 +363,19 @@ const archiveJob = async () => {
         }
     };
 
+    const exportApplications = async () => {
+        if (!job || exportingApps) return;
+        setExportingApps(true);
+        try {
+            await applicationsApi.exportApplications({ job_id: job.id });
+            toast.success('Applications exported');
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Failed to export applications');
+        } finally {
+            setExportingApps(false);
+        }
+    };
+
     const openCareers = () => {
         if (job.career_page_url) window.open(job.career_page_url, '_blank');
     };
@@ -483,6 +498,9 @@ const archiveJob = async () => {
                     <h2 className="text-sm font-semibold">Pipeline — {pipeline?.pipeline_name ?? 'Default'}</h2>
                     <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground">{stages.length} stages</span>
+                        <Button variant="outline" size="sm" onClick={exportApplications} disabled={exportingApps}>
+                            <Download className="h-4 w-4" /> Export CSV
+                        </Button>
                         <Button variant="outline" size="sm" onClick={() => setNewStageOpen(true)}>
                             <Plus className="h-4 w-4" /> Add stage
                         </Button>

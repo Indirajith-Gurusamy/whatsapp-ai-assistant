@@ -1,7 +1,11 @@
 """Candidate service."""
+import asyncio
+import io
 import json
 import logging
+import os
 import random
+import re
 import string
 import uuid as uuid_mod
 from typing import Optional
@@ -17,6 +21,10 @@ from app.modules.activities.service import create_event_activity
 from app.modules.recruitment_fields.service import RecruitmentFieldsService
 
 logger = logging.getLogger(__name__)
+
+
+def _fmt_dt(dt) -> Optional[str]:
+    return dt.strftime("%Y-%m-%d %H:%M") if dt else None
 
 
 def _build_where(search: Optional[str], job_id: Optional[str]) -> dict:
@@ -115,6 +123,120 @@ class CandidateService:
             ctx = {"application_counts": app_counts, "best_scores": {}, "ai_screened": {}}
         candidates = [await _serialize(c, ctx) for c in rows]
         return {"candidates": candidates, "total": total}
+
+    @staticmethod
+    async def export_csv(
+        search: Optional[str] = None,
+        job_id: Optional[str] = None,
+    ) -> Response:
+        from app.core.csv_utils import csv_download
+
+        db = await get_db()
+        where = _build_where(search, job_id)
+        rows = await db.candidate.find_many(where=where or None, order={"createdAt": "desc"})
+        ids = [c.id for c in rows]
+        if ids:
+            matches = await db.match.find_many(where={"candidateId": {"in": ids}})
+            ctx = _collect_match_stats(matches)
+        else:
+            ctx = {"application_counts": {}, "best_scores": {}, "ai_screened": {}}
+
+        headers = [
+            "Reference", "Full Name", "Email", "Phone", "Gender", "Date of Birth",
+            "Location", "Current Company", "Current Position", "Experience",
+            "Notice Period", "Last Working Day", "Expected Salary", "Current Salary",
+            "LinkedIn URL", "Source", "Skills", "Custom Fields",
+            "Applications", "Best Match Score", "AI Screened", "Created At", "Updated At",
+        ]
+        def _list_text(value) -> Optional[str]:
+            if isinstance(value, list):
+                return ", ".join(str(v) for v in value)
+            return json.dumps(value) if value is not None else None
+
+        csv_rows = [
+            [
+                c.reference,
+                c.fullName,
+                c.email,
+                c.phone,
+                c.gender,
+                c.birthDate,
+                c.location,
+                c.currentCompany,
+                c.currentPosition,
+                c.experience,
+                c.noticePeriod,
+                c.lastWorkingDay,
+                json.dumps(c.expectedSalary) if c.expectedSalary else None,
+                json.dumps(c.currentSalary) if c.currentSalary else None,
+                c.linkedinUrl,
+                c.source,
+                _list_text(c.skills),
+                json.dumps(c.customFields) if c.customFields else None,
+                ctx["application_counts"].get(c.id, 0),
+                ctx["best_scores"].get(c.id),
+                ctx["ai_screened"].get(c.id, 0),
+                _fmt_dt(c.createdAt),
+                _fmt_dt(c.updatedAt),
+            ]
+            for c in rows
+        ]
+        return csv_download(headers, csv_rows, "candidates.csv")
+
+    @staticmethod
+    async def download_all_resumes(
+        search: Optional[str] = None,
+        job_id: Optional[str] = None,
+    ) -> Response:
+        """Fetch every candidate resume from storage and bundle it into a ZIP."""
+        from zipfile import ZIP_DEFLATED, ZipFile
+
+        db = await get_db()
+        where = _build_where(search, job_id)
+        candidates = await db.candidate.find_many(
+            where=where or None,
+            order={"createdAt": "desc"},
+        )
+        with_resume = [c for c in candidates if c.resumeUrl]
+        if not with_resume:
+            raise HTTPException(status_code=404, detail="No resumes found")
+
+        async def _fetch(candidate) -> Optional[bytes]:
+            try:
+                return await storage.download(candidate.resumeUrl)
+            except Exception as e:
+                logger.warning("Resume fetch failed for candidate %s: %s", candidate.id, e)
+                return None
+
+        buffers = await asyncio.gather(*(_fetch(c) for c in with_resume))
+
+        buf = io.BytesIO()
+        used_names: set = set()
+        written = 0
+        with ZipFile(buf, "w", ZIP_DEFLATED) as zf:
+            for candidate, content in zip(with_resume, buffers):
+                if content is None:
+                    continue
+                orig = (candidate.resumeFileName or "resume.pdf").strip()
+                ext = os.path.splitext(orig)[1].lower() or ".pdf"
+                base = os.path.splitext(orig)[0]
+                base = re.sub(r"[^A-Za-z0-9._ -]+", "", base).strip() or "resume"
+                name = f"{base}{ext}"
+                counter = 1
+                while name in used_names:
+                    name = f"{base}_{counter}{ext}"
+                    counter += 1
+                used_names.add(name)
+                zf.writestr(name, content)
+                written += 1
+
+        if written == 0:
+            raise HTTPException(status_code=502, detail="Could not fetch any resumes")
+        return Response(
+            content=buf.getvalue(),
+            media_type="application/zip",
+            headers={"Content-Disposition": 'attachment; filename="resumes.zip"'},
+        )
 
     @staticmethod
     async def get_candidate(candidate_id: str) -> dict:
