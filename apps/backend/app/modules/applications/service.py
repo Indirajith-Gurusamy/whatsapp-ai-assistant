@@ -1,12 +1,14 @@
 """Application (Match) service."""
+import asyncio
 from decimal import Decimal
 import json
 import logging
-from typing import Optional
+from typing import List, Optional
 
 import httpx
 from fastapi import HTTPException, Response
 
+from app.core.email import EmailService
 from app.core.string_ids import sid, sid_opt
 from app.core.storage import storage
 from app.db.client import get_db
@@ -260,6 +262,98 @@ class ApplicationService:
                 job_id=match.jobId,
             )
         return await ApplicationService.get(match_id)
+
+    @staticmethod
+    async def bulk_move(application_ids: List[str], stage_id: str) -> dict:
+        if not application_ids:
+            raise HTTPException(status_code=400, detail="No applications selected")
+        if not stage_id:
+            raise HTTPException(status_code=400, detail="A target stage is required")
+        db = await get_db()
+        stage = await db.jobpipelinestage.find_first(where={"id": stage_id})
+        if not stage:
+            raise HTTPException(status_code=400, detail="Invalid stage")
+        matches = await db.match.find_many(
+            where={"id": {"in": application_ids}},
+            include={"candidate": True, "job": True},
+        )
+        if not matches:
+            raise HTTPException(status_code=404, detail="No applications found")
+        await db.match.update_many(
+            where={"id": {"in": application_ids}},
+            data={"stageId": stage.id, "stageName": stage.name},
+        )
+        for m in matches:
+            try:
+                await db.recruitmentlog.create(
+                    data={
+                        "actorId": None,
+                        "action": f"Moved to stage: {stage.name}",
+                        "entityType": "job",
+                        "entityId": m.jobId,
+                        "candidateId": m.candidateId,
+                        "jobId": m.jobId,
+                        "meta": Json(
+                            {
+                                "job_title": m.job.title if m.job else None,
+                                "stage": stage.name,
+                            }
+                        ),
+                    }
+                )
+            except Exception as exc:
+                logger.warning("Bulk move log failed for %s: %s", m.id, exc)
+            await create_event_activity(
+                db,
+                title=f"Moved to stage: {stage.name}",
+                candidate_id=m.candidateId,
+                job_id=m.jobId,
+            )
+        return {"moved": len(matches), "total": len(application_ids)}
+
+    @staticmethod
+    async def bulk_email(application_ids: List[str], subject: str, body: str) -> dict:
+        if not application_ids:
+            raise HTTPException(status_code=400, detail="No applications selected")
+        if not subject.strip():
+            raise HTTPException(status_code=400, detail="Subject is required")
+        if not body.strip():
+            raise HTTPException(status_code=400, detail="Message body is required")
+        db = await get_db()
+        matches = await db.match.find_many(
+            where={"id": {"in": application_ids}},
+            include={"candidate": True},
+        )
+        email_service = EmailService()
+        sent = skipped = failed = 0
+        for m in matches:
+            candidate = m.candidate
+            email = candidate.email if candidate else None
+            if not email:
+                skipped += 1
+                continue
+            ok = await asyncio.to_thread(
+                email_service.send_custom, email, subject.strip(), body.strip()
+            )
+            if ok:
+                sent += 1
+                try:
+                    await db.recruitmentlog.create(
+                        data={
+                            "actorId": None,
+                            "action": f"Email sent: {subject.strip()}",
+                            "entityType": "candidate",
+                            "entityId": m.candidateId,
+                            "candidateId": m.candidateId,
+                            "jobId": m.jobId,
+                            "meta": Json({}),
+                        }
+                    )
+                except Exception as exc:
+                    logger.warning("Email log failed for %s: %s", m.id, exc)
+            else:
+                failed += 1
+        return {"sent": sent, "skipped": skipped, "failed": failed}
 
     @staticmethod
     async def stream_resume(application_id: str) -> Response:

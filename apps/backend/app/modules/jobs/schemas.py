@@ -80,6 +80,20 @@ class PublishJobRequest(BaseModel):
     is_published: bool
 
 
+class BulkPublishRequest(BaseModel):
+    job_ids: List[str]
+    is_published: bool
+
+
+class BulkArchiveRequest(BaseModel):
+    job_ids: List[str]
+
+
+class BulkPublishResponse(BaseModel):
+    updated: int
+    total: int
+
+
 class CreateStageRequest(BaseModel):
     name: str
 

@@ -61,8 +61,11 @@ interface DataTableProps<T> {
     showFilterButton?: boolean;
     /** Advanced multi-condition filter fields; enables filter modal when set. */
     filterFields?: TableFilterField[];
-    /** card = full-bleed list layout (search row + flush table) */
+    /** Card = full-bleed list layout (search row + flush table) */
     layout?: 'default' | 'card';
+    /** Controlled row selection (ids of the full `data`). When provided, DataTable reports selection here. */
+    selectedIds?: (number | string)[];
+    onSelectionChange?: (ids: (number | string)[]) => void;
 }
 
 export function DataTable<T extends { id?: number | string }>({
@@ -87,14 +90,27 @@ export function DataTable<T extends { id?: number | string }>({
     showFilterButton,
     filterFields,
     layout = 'card',
+    selectedIds,
+    onSelectionChange,
 }: DataTableProps<T>) {
     const isCardLayout = layout === 'card';
+    const isControlled = selectedIds !== undefined && onSelectionChange !== undefined;
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(initialPageSize);
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedRows, setSelectedRows] = useState<Set<number | string>>(new Set());
+    const [selectedRows, setSelectedRows] = useState<Set<number | string>>(new Set(isControlled ? selectedIds : []));
     const [filterModalOpen, setFilterModalOpen] = useState(false);
     const [appliedFilters, setAppliedFilters] = useState<FilterCondition[]>([]);
+
+    const selection = isControlled ? new Set(selectedIds) : selectedRows;
+
+    const applySelection = (next: Set<number | string>) => {
+        if (isControlled) {
+            onSelectionChange([...next]);
+        } else {
+            setSelectedRows(next);
+        }
+    };
 
     const filteredData = useMemo(() => {
         let result = data;
@@ -142,24 +158,24 @@ export function DataTable<T extends { id?: number | string }>({
     const handleSelectAll = (checked: boolean) => {
         if (checked) {
             const allIds = pageData.map((item, index) => item.id ?? index);
-            setSelectedRows(new Set(allIds));
+            applySelection(new Set(allIds));
         } else {
-            setSelectedRows(new Set());
+            applySelection(new Set());
         }
     };
 
     const handleSelectRow = (id: number | string, checked: boolean) => {
-        const newSelected = new Set(selectedRows);
+        const newSelected = new Set(selection);
         if (checked) {
             newSelected.add(id);
         } else {
             newSelected.delete(id);
         }
-        setSelectedRows(newSelected);
+        applySelection(newSelected);
     };
 
     const isAllSelected = pageData.length > 0 && pageData.every((item, index) =>
-        selectedRows.has(item.id ?? index)
+        selection.has(item.id ?? index)
     );
 
     const hasFilterModal = Boolean(filterFields?.length);
@@ -274,7 +290,7 @@ export function DataTable<T extends { id?: number | string }>({
                                             {showSelection && (
                                                 <TableCell className="w-12 px-4">
                                                     <Checkbox
-                                                        checked={selectedRows.has(rowId)}
+                                                        checked={selection.has(rowId)}
                                                         onCheckedChange={(checked) =>
                                                             handleSelectRow(rowId, !!checked)
                                                         }

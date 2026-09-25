@@ -3,8 +3,14 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends
 
-from app.modules.auth.dependencies import get_current_user
+from app.modules.auth.dependencies import (
+    get_current_user,
+    require_role,
+)
 from app.modules.jobs.schemas import (
+    BulkArchiveRequest,
+    BulkPublishRequest,
+    BulkPublishResponse,
     CreateJobRequest,
     CreateStageRequest,
     JobListResponse,
@@ -40,6 +46,22 @@ async def get_default_pipeline(current_user=Depends(get_current_user)):
 @router.post("", response_model=JobOut, status_code=201)
 async def create_job(body: CreateJobRequest, current_user=Depends(get_current_user)):
     return await JobService.create_job(body.model_dump())
+
+
+@router.post("/bulk-publish", response_model=BulkPublishResponse)
+async def bulk_publish(
+    body: BulkPublishRequest,
+    current_user=Depends(require_role(["ADMIN", "HR"])),
+):
+    return await JobService.bulk_set_published(body.job_ids, body.is_published)
+
+
+@router.post("/bulk-archive", response_model=BulkPublishResponse)
+async def bulk_archive(
+    body: BulkArchiveRequest,
+    current_user=Depends(require_role(["ADMIN", "HR"])),
+):
+    return await JobService.bulk_archive(body.job_ids)
 
 
 @router.get("/{job_id}", response_model=JobOut)

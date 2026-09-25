@@ -7,6 +7,10 @@ from app.modules.applications.schemas import (
     AiScreenResponse,
     ApplicationListResponse,
     ApplicationOut,
+    BulkEmailRequest,
+    BulkEmailResponse,
+    BulkMoveRequest,
+    BulkMoveResponse,
     CreateApplicationRequest,
     UpdateApplicationRequest,
 )
@@ -33,6 +37,22 @@ async def export_applications(
     current_user=Depends(get_current_user),
 ):
     return await ApplicationService.export_csv(job_id=job_id, candidate_id=candidate_id)
+
+
+@router.post("/bulk-move", response_model=BulkMoveResponse)
+async def bulk_move_applications(
+    body: BulkMoveRequest,
+    current_user=Depends(get_current_user),
+):
+    return await ApplicationService.bulk_move(body.application_ids, body.stage_id)
+
+
+@router.post("/bulk-email", response_model=BulkEmailResponse)
+async def bulk_email_applications(
+    body: BulkEmailRequest,
+    current_user=Depends(require_role(["ADMIN", "HR"])),
+):
+    return await ApplicationService.bulk_email(body.application_ids, body.subject, body.body)
 
 
 @router.post("", response_model=ApplicationOut, status_code=201)

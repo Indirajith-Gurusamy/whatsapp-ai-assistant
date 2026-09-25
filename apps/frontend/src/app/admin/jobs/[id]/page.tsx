@@ -27,6 +27,7 @@ import { AiScoreBadge, AiScreeningPanel } from '@/components/recruitment/AiScore
 import { Markdown } from '@/components/ui/markdown';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -52,6 +53,7 @@ import { DetailPageSkeleton } from '@/components/data/DetailPageSkeleton';
 import { toast } from 'sonner';
 import {
     Archive,
+    ArrowRight,
     ArrowUpRight,
     Briefcase,
     Calendar,
@@ -60,6 +62,7 @@ import {
     Eye,
     Globe,
     Loader2,
+    Mail,
     MapPin,
     Pencil,
     Plus,
@@ -117,6 +120,14 @@ export default function JobDetailPage() {
     const [exportingApps, setExportingApps] = useState(false);
     const [draggingId, setDraggingId] = useState<string | null>(null);
     const [dragOverStage, setDragOverStage] = useState<string | null>(null);
+
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [bulkStageId, setBulkStageId] = useState('');
+    const [bulkMoving, setBulkMoving] = useState(false);
+    const [bulkEmailOpen, setBulkEmailOpen] = useState(false);
+    const [bulkEmailSubject, setBulkEmailSubject] = useState('');
+    const [bulkEmailBody, setBulkEmailBody] = useState('');
+    const [sendingBulkEmail, setSendingBulkEmail] = useState(false);
 
     const screenApplication = async (app: ApplicationItem) => {
         if (screeningId) return;
@@ -250,6 +261,74 @@ export default function JobDetailPage() {
             toast.success('Application removed');
         } catch (err) {
             toast.error(err instanceof Error ? err.message : 'Failed to remove application');
+        }
+    };
+
+    const clearSelection = () => setSelectedIds(new Set());
+
+    const toggleSelect = (id: string, checked: boolean) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (checked) next.add(id);
+            else next.delete(id);
+            return next;
+        });
+    };
+
+    const toggleSelectColumn = (list: ApplicationItem[]) => {
+        const ids = list.map((a) => a.id);
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            const allSelected = ids.length > 0 && ids.every((id) => next.has(id));
+            if (allSelected) ids.forEach((id) => next.delete(id));
+            else ids.forEach((id) => next.add(id));
+            return next;
+        });
+    };
+
+    const bulkMoveSelected = async () => {
+        const ids = [...selectedIds];
+        if (ids.length === 0 || !bulkStageId) return;
+        setBulkMoving(true);
+        try {
+            const res = await applicationsApi.bulkMove({ application_ids: ids, stage_id: bulkStageId });
+            const stageName = stages.find((s) => s.id === bulkStageId)?.name ?? null;
+            setApplications((list) =>
+                list.map((a) =>
+                    ids.includes(a.id) ? { ...a, stage_id: bulkStageId, stage_name: stageName } : a
+                )
+            );
+            clearSelection();
+            setBulkStageId('');
+            toast.success(`Moved ${res.moved} candidate${res.moved === 1 ? '' : 's'}`);
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Failed to move applications');
+        } finally {
+            setBulkMoving(false);
+        }
+    };
+
+    const sendBulkEmail = async () => {
+        const ids = [...selectedIds];
+        const subject = bulkEmailSubject.trim();
+        const body = bulkEmailBody.trim();
+        if (ids.length === 0 || !subject || !body) {
+            toast.error('Subject and message are required');
+            return;
+        }
+        setSendingBulkEmail(true);
+        try {
+            const res = await applicationsApi.bulkEmail({ application_ids: ids, subject, body });
+            setBulkEmailOpen(false);
+            setBulkEmailSubject('');
+            setBulkEmailBody('');
+            clearSelection();
+            const extras = (res.skipped > 0 || res.failed > 0) ? ` (${res.skipped} skipped, ${res.failed} failed)` : '';
+            toast.success(`Emailed ${res.sent} candidate${res.sent === 1 ? '' : 's'}${extras}`);
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Failed to send emails');
+        } finally {
+            setSendingBulkEmail(false);
         }
     };
 
@@ -515,6 +594,40 @@ const archiveJob = async () => {
                         </Button>
                     </div>
                 </div>
+                {selectedIds.size > 0 && (
+                    <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg border bg-card px-3 py-2">
+                        <span className="text-sm font-semibold">{selectedIds.size} selected</span>
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-muted-foreground">Move to</span>
+                            <Select value={bulkStageId} onValueChange={setBulkStageId}>
+                                <SelectTrigger size="sm" className="w-44">
+                                    <SelectValue placeholder="Choose stage…" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {stages.map((s) => (
+                                        <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <Button size="sm" onClick={bulkMoveSelected} disabled={bulkMoving || !bulkStageId} className="gap-1.5">
+                                {bulkMoving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                                Move
+                            </Button>
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5"
+                            onClick={() => setBulkEmailOpen(true)}
+                            disabled={bulkEmailOpen}
+                        >
+                            <Mail className="h-4 w-4" /> Email…
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={clearSelection} className="text-muted-foreground">
+                            Clear
+                        </Button>
+                    </div>
+                )}
                 <div className="flex h-[max(18rem,calc(100dvh-17rem))] gap-3 overflow-x-auto overflow-y-hidden pb-4">
                     {[...stages.map((s) => s.id), UNASSIGNED_STAGE].map((stageId) => {
                         const stage = stages.find((s) => s.id === stageId);
@@ -556,6 +669,18 @@ const archiveJob = async () => {
                                         <span className="text-sm font-medium">{stage?.name ?? 'Unassigned'}</span>
                                     </div>
                                     <div className="flex items-center gap-1">
+                                        <Checkbox
+                                            checked={
+                                                appList.length > 0 && appList.every((c) => selectedIds.has(c.id))
+                                                    ? true
+                                                    : appList.some((c) => selectedIds.has(c.id))
+                                                      ? 'indeterminate'
+                                                      : false
+                                            }
+                                            onCheckedChange={() => toggleSelectColumn(appList)}
+                                            disabled={appList.length === 0}
+                                            title={appList.length === 0 ? 'No candidates' : 'Select all in stage'}
+                                        />
                                         <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300">
                                             {appList.length}
                                         </span>
@@ -589,6 +714,10 @@ const archiveJob = async () => {
                                             }}
                                             className={`cursor-grab rounded-md border bg-white p-3 shadow-sm active:cursor-grabbing dark:bg-gray-950 ${
                                                 draggingId === app.id ? 'opacity-50' : ''
+                                            } ${
+                                                selectedIds.has(app.id)
+                                                    ? 'border-orange-400 ring-2 ring-orange-300 dark:border-orange-600 dark:ring-orange-900'
+                                                    : ''
                                             }`}
                                         >
                                             <div className="flex items-start justify-between gap-2">
@@ -604,6 +733,11 @@ const archiveJob = async () => {
                                                     </div>
                                                 </Link>
                                                 <div className="flex items-center gap-1">
+                                                    <Checkbox
+                                                        checked={selectedIds.has(app.id)}
+                                                        onCheckedChange={(v) => toggleSelect(app.id, v === true)}
+                                                        title="Select"
+                                                    />
                                                     {app.has_resume && !app.ai_screening && (
                                                         <button
                                                             onClick={() => screenApplication(app)}
@@ -905,6 +1039,50 @@ const archiveJob = async () => {
                 busy={archiving}
                 onConfirm={archiveJob}
             />
+
+            <Dialog open={bulkEmailOpen} onOpenChange={setBulkEmailOpen}>
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Email {selectedIds.size} candidate{selectedIds.size === 1 ? '' : 's'}</DialogTitle>
+                        <DialogDescription>Send a personal outreach message to the selected candidates.</DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-2">
+                        <div className="grid gap-2">
+                            <Label htmlFor="bulk-email-subject">Subject</Label>
+                            <Input
+                                id="bulk-email-subject"
+                                value={bulkEmailSubject}
+                                onChange={(e) => setBulkEmailSubject(e.target.value)}
+                                placeholder="e.g. Interview invitation — Frontend Engineer"
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="bulk-email-body">Message</Label>
+                            <Textarea
+                                id="bulk-email-body"
+                                value={bulkEmailBody}
+                                onChange={(e) => setBulkEmailBody(e.target.value)}
+                                rows={6}
+                                placeholder="Hi {name}, ..."
+                            />
+                            <p className="text-xs text-muted-foreground">Duplicate messages are discouraged. Personalize to reduce unsubscribes.</p>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setBulkEmailOpen(false)} disabled={sendingBulkEmail}>
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={sendBulkEmail}
+                            disabled={sendingBulkEmail || !bulkEmailSubject.trim() || !bulkEmailBody.trim()}
+                            className="gap-1.5"
+                        >
+                            {sendingBulkEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                            Send emails
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

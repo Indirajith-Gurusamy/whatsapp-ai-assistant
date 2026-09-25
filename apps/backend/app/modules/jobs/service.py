@@ -4,7 +4,7 @@ import logging
 import re
 import unicodedata
 from decimal import Decimal
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import HTTPException
 
@@ -283,6 +283,37 @@ class JobService:
             data={"isPublished": is_published, "status": status, "careerPageUrl": career_url},
         )
         return await JobService.get_job(job_id)
+
+    @staticmethod
+    async def bulk_set_published(job_ids: List[str], is_published: bool) -> dict:
+        if not job_ids:
+            raise HTTPException(status_code=400, detail="No jobs selected")
+        db = await get_db()
+        existing = await db.job.find_many(where={"id": {"in": job_ids}})
+        if not existing:
+            raise HTTPException(status_code=404, detail="No jobs found")
+        for job in existing:
+            status = JobStatus.ACTIVE if is_published else JobStatus.DRAFT
+            career_url = f"/careers/jobs/{job.slug}" if is_published else None
+            await db.job.update(
+                where={"id": job.id},
+                data={"isPublished": is_published, "status": status, "careerPageUrl": career_url},
+            )
+        return {"updated": len(existing), "total": len(job_ids)}
+
+    @staticmethod
+    async def bulk_archive(job_ids: List[str]) -> dict:
+        if not job_ids:
+            raise HTTPException(status_code=400, detail="No jobs selected")
+        db = await get_db()
+        existing = await db.job.find_many(where={"id": {"in": job_ids}})
+        if not existing:
+            raise HTTPException(status_code=404, detail="No jobs found")
+        await db.job.update_many(
+            where={"id": {"in": job_ids}},
+            data={"status": JobStatus.ARCHIVED, "isPublished": False, "careerPageUrl": None},
+        )
+        return {"updated": len(existing), "total": len(job_ids)}
 
     @staticmethod
     async def _pipeline_for_job(db, job_id: str):
