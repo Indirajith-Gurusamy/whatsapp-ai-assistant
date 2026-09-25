@@ -1,4 +1,5 @@
 """Email service for sending notifications via SMTP."""
+import html as html_lib
 import smtplib
 import logging
 from email.mime.text import MIMEText
@@ -145,3 +146,13 @@ class EmailService:
         </html>
         """
         return self._send_email(recipient, subject, body)
+
+    def send_custom(self, to_email: str, subject: str, body_text: str) -> bool:
+        """Send a custom plain-text message as HTML (used for bulk outreach)."""
+        escaped = html_lib.escape(body_text or "").replace("\n", "<br/>")
+        body = f"""<html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #222; padding: 20px;">
+            <div>{escaped}</div>
+        </body>
+        </html>"""
+        return self._send_email(to_email, subject, body)

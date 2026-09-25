@@ -442,6 +442,10 @@ export const jobsApi = {
         post<PipelineStage>(`/api/v1/jobs/${id}/pipeline/stages`, { name }),
     removeStage: (id: string, stageId: string) =>
         del<{ deleted_id: string; name: string; moved_candidates: number }>(`/api/v1/jobs/${id}/pipeline/stages/${stageId}`),
+    bulkSetPublished: (data: { job_ids: string[]; is_published: boolean }) =>
+        post<{ updated: number; total: number }>('/api/v1/jobs/bulk-publish', data),
+    bulkArchive: (data: { job_ids: string[] }) =>
+        post<{ updated: number; total: number }>('/api/v1/jobs/bulk-archive', data),
 };
 
 export const candidatesApi = {
@@ -512,6 +516,10 @@ export const applicationsApi = {
         post<ApplicationItem>('/api/v1/applications', data),
     update: (id: string, data: { stage_id?: string; is_active?: boolean; match_score?: number; source?: string }) =>
         put<ApplicationItem>(`/api/v1/applications/${id}`, data),
+    bulkMove: (data: { application_ids: string[]; stage_id: string }) =>
+        post<{ moved: number; total: number }>('/api/v1/applications/bulk-move', data),
+    bulkEmail: (data: { application_ids: string[]; subject: string; body: string }) =>
+        post<{ sent: number; skipped: number; failed: number }>('/api/v1/applications/bulk-email', data),
     remove: (id: string) => del<{ success?: boolean }>(`/api/v1/applications/${id}`),
     resume: (id: string) => requestBlob(`/api/v1/applications/${id}/resume`),
     exportApplications: async (opts: { job_id?: string; candidate_id?: string } = {}) => {

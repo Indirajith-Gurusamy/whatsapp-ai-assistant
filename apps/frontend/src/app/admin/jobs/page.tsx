@@ -25,6 +25,8 @@ import {
     Pencil,
     ArrowUpRight,
     Circle,
+    EyeOff,
+    Loader2,
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -60,6 +62,10 @@ export default function JobsPage() {
     const [editing, setEditing] = useState<JobItem | null>(null);
     const [archiveTarget, setArchiveTarget] = useState<JobItem | null>(null);
     const [archiving, setArchiving] = useState(false);
+
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [bulkBusy, setBulkBusy] = useState<null | 'publish' | 'unpublish' | 'archive'>(null);
+    const [bulkArchiveConfirm, setBulkArchiveConfirm] = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -196,6 +202,45 @@ export default function JobsPage() {
         }
     };
 
+    const clearSelection = () => setSelectedIds(new Set());
+
+    const bulkTogglePublished = async (is_published: boolean) => {
+        const ids = [...selectedIds];
+        if (ids.length === 0) return;
+        setBulkBusy(is_published ? 'publish' : 'unpublish');
+        try {
+            const res = await jobsApi.bulkSetPublished({ job_ids: ids, is_published });
+            toast.success(
+                is_published
+                    ? `Published ${res.updated} job${res.updated === 1 ? '' : 's'}`
+                    : `Hidden ${res.updated} job${res.updated === 1 ? '' : 's'}`
+            );
+            clearSelection();
+            load();
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Failed to update jobs');
+        } finally {
+            setBulkBusy(null);
+        }
+    };
+
+    const confirmBulkArchive = async () => {
+        const ids = [...selectedIds];
+        if (ids.length === 0) return;
+        setBulkBusy('archive');
+        try {
+            const res = await jobsApi.bulkArchive({ job_ids: ids });
+            toast.success(`Archived ${res.updated} job${res.updated === 1 ? '' : 's'}`);
+            clearSelection();
+            setBulkArchiveConfirm(false);
+            load();
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Failed to archive jobs');
+        } finally {
+            setBulkBusy(null);
+        }
+    };
+
     const columns = [
         {
             key: 'job',
@@ -306,6 +351,10 @@ export default function JobsPage() {
 
     const isInitialLoading = loading && jobs.length === 0;
 
+    const selectedJobs = jobs.filter((j) => selectedIds.has(j.id));
+    const hasUnpublished = selectedJobs.some((j) => !j.is_published);
+    const hasPublished = selectedJobs.some((j) => j.is_published);
+
     return (
         <ListPageShell>
             {isInitialLoading ? (
@@ -323,7 +372,52 @@ export default function JobsPage() {
                     filterFields={jobFilterFields}
                     onExport={handleExport}
                     isExporting={isExporting}
+                    selectedIds={[...selectedIds]}
+                    onSelectionChange={(ids) => setSelectedIds(new Set(ids as string[]))}
                     emptyMessage={total === 0 ? 'No jobs yet. Create your first job.' : 'No jobs match your search.'}
+                    belowToolbar={
+                        selectedIds.size > 0 ? (
+                            <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card px-3 py-2">
+                                <span className="text-sm font-semibold">{selectedIds.size} selected</span>
+                                {hasUnpublished && (
+                                    <Button
+                                        size="sm"
+                                        className="gap-1.5"
+                                        disabled={bulkBusy !== null}
+                                        onClick={() => bulkTogglePublished(true)}
+                                    >
+                                        {bulkBusy === 'publish' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUpRight className="h-4 w-4" />}
+                                        Publish
+                                    </Button>
+                                )}
+                                {hasPublished && (
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="gap-1.5"
+                                        disabled={bulkBusy !== null}
+                                        onClick={() => bulkTogglePublished(false)}
+                                    >
+                                        {bulkBusy === 'unpublish' ? <Loader2 className="h-4 w-4 animate-spin" /> : <EyeOff className="h-4 w-4" />}
+                                        Unpublish
+                                    </Button>
+                                )}
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="gap-1.5 text-red-600 hover:text-red-600"
+                                    disabled={bulkBusy !== null}
+                                    onClick={() => setBulkArchiveConfirm(true)}
+                                >
+                                    {bulkBusy === 'archive' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
+                                    Archive…
+                                </Button>
+                                <Button variant="ghost" size="sm" onClick={clearSelection} className="text-muted-foreground">
+                                    Clear
+                                </Button>
+                            </div>
+                        ) : undefined
+                    }
                 />
             )}
 
@@ -342,6 +436,16 @@ export default function JobsPage() {
                 confirmLabel="Archive"
                 busy={archiving}
                 onConfirm={confirmArchive}
+            />
+
+            <ConfirmDialog
+                open={bulkArchiveConfirm}
+                onOpenChange={setBulkArchiveConfirm}
+                title={`Archive ${selectedIds.size} job${selectedIds.size === 1 ? '' : 's'}?`}
+                description="Selected jobs will be archived and removed from the careers page. You can publish them again later."
+                confirmLabel="Archive"
+                busy={bulkBusy === 'archive'}
+                onConfirm={confirmBulkArchive}
             />
         </ListPageShell>
     );

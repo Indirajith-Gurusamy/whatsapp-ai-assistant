@@ -22,6 +22,28 @@ class UpdateApplicationRequest(BaseModel):
     answers: Optional[dict] = None
 
 
+class BulkMoveRequest(BaseModel):
+    application_ids: List[str]
+    stage_id: str
+
+
+class BulkEmailRequest(BaseModel):
+    application_ids: List[str]
+    subject: str
+    body: str
+
+
+class BulkMoveResponse(BaseModel):
+    moved: int
+    total: int
+
+
+class BulkEmailResponse(BaseModel):
+    sent: int
+    skipped: int
+    failed: int
+
+
 class ApplicationOut(BaseModel):
     id: str
     candidate_id: str
